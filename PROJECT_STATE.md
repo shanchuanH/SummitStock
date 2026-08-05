@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Rescue Phase 3 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 4–7 remain pending and must be implemented in order.
+Rescue Phase 4 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 5 onward remain pending and must be implemented in order.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -11,6 +11,8 @@ Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness
 Phase 2 added preview-first Fidelity CSV, pasted-table, and manual-holding intake. Confirmed batches reconcile accounts and positions transactionally, preserve fractional quantities and nullable cost basis, append immutable position snapshots, close holdings absent from a later full account snapshot, keep SPAXX as cash, and store unvested RSUs separately from liquid positions. Confirmation is owner-scoped, versioned, audited, idempotent, and creates one durable analysis run/job. The `/portfolio-import` UI requires every error row to be corrected or explicitly ignored before confirmation and never connects to a brokerage account.
 
 Phase 3 added fail-closed production provider configuration, an Alpha Vantage market adapter, and an SEC EDGAR submissions/companyfacts adapter. HTTP calls now use configured timeouts, retry/backoff, concurrency-safe rate limiting, 429/5xx handling, checksums, source/fetch timestamps, warnings, and explicit data-quality states. SEC facts use ten named business mappings while preserving raw concepts and units. Fidelity symbols resolve through durable system/user mappings; unknown symbols create inactive placeholders and positions remain `WAIT_FOR_DATA` until a user mapping resolves them.
+
+Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry and a durable coordinator that records handler output, warnings, timestamps, attempts, retries, permanent failures, and sanitized unexpected errors. Analysis runs now advance through persisted step dependencies rather than scheduled-time offsets. The executable EOD chain collects quotes/bars/actions, validates completed bars, computes indicators and server-owned regime inputs, synchronizes imported snapshots, writes user-scoped drawdown/stops/holding analysis, and generates formal recommendations and a daily digest. Unknown jobs fail permanently, provider failures preserve retryability, weekly/monthly summaries query persisted evidence, and no handler or integration test inserts a final recommendation directly.
 
 ## Completed Packets
 
@@ -68,7 +70,7 @@ Phase 3 added fail-closed production provider configuration, an Alpha Vantage ma
 
 ## Database
 
-- Flyway head: `V10__provider_instrument_resolution.sql`
+- Flyway head: `V11__durable_pipeline_and_user_drawdown.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -77,6 +79,7 @@ Phase 3 added fail-closed production provider configuration, an Alpha Vantage ma
 - Thesis/source, stop/alert, valuation, earnings-risk, and trade-journal evidence is versioned; stop alerts are deduplicated per position/type/date
 - ETF dip event/tranche, cashflow allocation, and active-sleeve accountability snapshots are evidence-keyed; each event/tranche is unique
 - Job run/attempt, authentication security event, and recommendation acknowledgement records are durable and idempotency constrained
+- Job runs and attempts persist structured handler results, warnings, and data-as-of timestamps; analysis runs use durable dependency steps and a unique run key
 - Backtest runs and metrics are user scoped, checksum/idempotency keyed, and store explicit bias/OOS boundaries
 - Import batches/rows, position snapshots, compensation holdings, and portfolio analysis runs/steps are owner scoped, versioned, and idempotency constrained
 - Hibernate: schema validation only
@@ -128,6 +131,7 @@ Phase 3 added fail-closed production provider configuration, an Alpha Vantage ma
 - Stop, R/MFE/MAE, Quality Discount, earnings class policy, thesis concurrency, duplicate alert, and Position Detail tests
 - ETF market attribution, setup/trigger/cooldown/tranche, emergency-first cashflow, fallback, accountability, and Dip UI tests
 - Durable job idempotency/claim/lease/retry/scanner tests, login throttling/audit tests, acknowledgement-without-execution tests, and ten-page workspace tests
+- Handler registry/coordinator, analysis dependency/blocking, retry idempotency, and full import-to-recommendation EOD vertical integration tests
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -137,11 +141,11 @@ Phase 3 added fail-closed production provider configuration, an Alpha Vantage ma
 - Local runtime starts with seeded SPY/QQQ instruments but no fetched observations, so data health correctly reports `EMPTY` until ingestion runs.
 - Local runtime has no synthesized regime/drawdown rows; the context API correctly reports `EMPTY` until evidence calculation runs.
 - Production startup requires a real Alpha Vantage API key and a declared SEC organization/contact User-Agent; local fixtures remain intentionally isolated by profile.
-- The Phase 2 analysis job is durably queued but its production provider-backed analysis handler is implemented in later phases; the brief therefore remains in a non-ready state until that work completes.
+- Production analysis remains non-ready until real provider credentials, imported holdings, and sufficient completed market evidence are available; the pipeline fails or reports partial evidence instead of synthesizing readiness.
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `1.0.0-draft` remains unpublished and local credentials remain placeholders.
 
 ## Next Step
 
-Implement Rescue Phase 4: durable job handlers and the executable EOD pipeline.
+Implement Rescue Phase 5: holding evidence assembly, readiness-specific analysis, classification APIs, strategy configuration loading, and portfolio-level recommendation conflict resolution.

@@ -22,11 +22,22 @@ public class DurableJobStore {
     }
 
     public boolean enqueue(String jobType, String idempotencyKey, String payload, int priority, Instant scheduledAt) {
+        return enqueue(jobType, idempotencyKey, payload, priority, scheduledAt, null);
+    }
+
+    public boolean enqueue(
+            String jobType,
+            String idempotencyKey,
+            String payload,
+            int priority,
+            Instant scheduledAt,
+            UUID analysisRunId) {
         return jdbc.sql(
                                 """
-                        INSERT IGNORE INTO job_run (id, job_type, idempotency_key, payload, status, priority,
+                        INSERT IGNORE INTO job_run (id, job_type, idempotency_key, payload, status, priority, analysis_run_id,
                             scheduled_at, created_at, updated_at, version)
                         VALUES (UUID_TO_BIN(:id), :jobType, :key, CAST(:payload AS JSON), 'PENDING', :priority,
+                            UUID_TO_BIN(:analysisRunId),
                             :scheduledAt, :now, :now, 0)
                         """)
                         .param("id", UUID.randomUUID().toString())
@@ -34,6 +45,7 @@ public class DurableJobStore {
                         .param("key", idempotencyKey)
                         .param("payload", payload)
                         .param("priority", priority)
+                        .param("analysisRunId", analysisRunId == null ? null : analysisRunId.toString())
                         .param("scheduledAt", scheduledAt)
                         .param("now", clock.instant())
                         .update()
@@ -45,7 +57,8 @@ public class DurableJobStore {
             recoverExpiredLeases();
             var candidate = jdbc.sql(
                             """
-                            SELECT BIN_TO_UUID(id) id, job_type, payload, attempt_count, max_attempts
+                            SELECT BIN_TO_UUID(id) id, BIN_TO_UUID(analysis_run_id) analysis_run_id,
+                                   job_type, idempotency_key, payload, attempt_count, max_attempts
                             FROM job_run
                             WHERE status='PENDING' AND scheduled_at <= :now
                             ORDER BY priority DESC, scheduled_at
@@ -82,21 +95,40 @@ public class DurableJobStore {
                     .param("now", clock.instant())
                     .update();
             return Optional.of(new ClaimedJob(
-                    value.id(), attemptId, value.jobType(), value.payload(), attempt, value.maxAttempts()));
+                    value.id(),
+                    attemptId,
+                    value.analysisRunId(),
+                    value.jobType(),
+                    value.idempotencyKey(),
+                    value.payload(),
+                    attempt,
+                    value.maxAttempts(),
+                    clock.instant(),
+                    workerId));
         });
     }
 
-    public void succeed(ClaimedJob job) {
-        complete(job, "SUCCEEDED", null, null);
+    public void succeed(ClaimedJob job, JobExecutionResult result) {
+        complete(job, "SUCCEEDED", null, null, result);
     }
 
     public void fail(ClaimedJob job, String errorCode) {
+        failTransient(job, errorCode);
+    }
+
+    public boolean failTransient(ClaimedJob job, String errorCode) {
         var dead = job.attemptNumber() >= job.maxAttempts();
         complete(
                 job,
                 dead ? "DEAD" : "PENDING",
                 errorCode,
-                dead ? null : clock.instant().plusSeconds(1L << Math.min(job.attemptNumber(), 10)));
+                dead ? null : clock.instant().plusSeconds(1L << Math.min(job.attemptNumber(), 10)),
+                null);
+        return dead;
+    }
+
+    public void failPermanent(ClaimedJob job, String errorCode) {
+        complete(job, "DEAD", errorCode, null, null);
     }
 
     public long pendingCount() {
@@ -122,35 +154,90 @@ public class DurableJobStore {
                 .update();
     }
 
-    private void complete(ClaimedJob job, String status, String errorCode, Instant scheduledAt) {
+    private void complete(
+            ClaimedJob job, String status, String errorCode, Instant scheduledAt, JobExecutionResult result) {
         transactions.executeWithoutResult(ignored -> {
+            var now = clock.instant();
+            if (result == null) {
+                jdbc.sql(
+                                """
+                        UPDATE job_attempt SET status='FAILED', finished_at=:now, error_code=:error,
+                            duration_ms=TIMESTAMPDIFF(MICROSECOND, started_at, :now)/1000
+                        WHERE id=UUID_TO_BIN(:attemptId)
+                        """)
+                        .param("now", now)
+                        .param("error", errorCode)
+                        .param("attemptId", job.attemptId().toString())
+                        .update();
+                jdbc.sql(
+                                """
+                        UPDATE job_run SET status=:status, lease_owner=NULL, lease_expires_at=NULL,
+                            last_error_code=:error, scheduled_at=COALESCE(:scheduledAt, scheduled_at),
+                            updated_at=:now, version=version+1
+                        WHERE id=UUID_TO_BIN(:jobId)
+                        """)
+                        .param("status", status)
+                        .param("error", errorCode)
+                        .param("scheduledAt", scheduledAt)
+                        .param("now", now)
+                        .param("jobId", job.id().toString())
+                        .update();
+                return;
+            }
+            var warnings = jsonArray(result.warnings());
             jdbc.sql(
                             """
-                    UPDATE job_attempt SET status=:attemptStatus, finished_at=:now, error_code=:error
+                    UPDATE job_attempt SET status='SUCCEEDED', finished_at=:now, error_code=NULL,
+                        duration_ms=TIMESTAMPDIFF(MICROSECOND, started_at, :now)/1000,
+                        result_json=CAST(:result AS JSON), warnings=CAST(:warnings AS JSON), data_as_of=:dataAsOf
                     WHERE id=UUID_TO_BIN(:attemptId)
                     """)
-                    .param("attemptStatus", status.equals("SUCCEEDED") ? "SUCCEEDED" : "FAILED")
-                    .param("now", clock.instant())
-                    .param("error", errorCode)
+                    .param("now", now)
+                    .param("result", result.resultJson())
+                    .param("warnings", warnings)
+                    .param("dataAsOf", result.dataAsOf())
                     .param("attemptId", job.attemptId().toString())
                     .update();
             jdbc.sql(
                             """
-                    UPDATE job_run SET status=:status, lease_owner=NULL, lease_expires_at=NULL,
-                        last_error_code=:error, scheduled_at=COALESCE(:scheduledAt, scheduled_at), updated_at=:now, version=version+1
+                    UPDATE job_run SET status='SUCCEEDED', lease_owner=NULL, lease_expires_at=NULL,
+                        last_error_code=NULL, result_json=CAST(:result AS JSON), warnings=CAST(:warnings AS JSON),
+                        data_as_of=:dataAsOf, updated_at=:now, version=version+1
                     WHERE id=UUID_TO_BIN(:jobId)
                     """)
-                    .param("status", status)
-                    .param("error", errorCode)
-                    .param("scheduledAt", scheduledAt)
-                    .param("now", clock.instant())
+                    .param("result", result.resultJson())
+                    .param("warnings", warnings)
+                    .param("dataAsOf", result.dataAsOf())
+                    .param("now", now)
                     .param("jobId", job.id().toString())
                     .update();
         });
     }
 
-    record Candidate(UUID id, String jobType, String payload, int attemptCount, int maxAttempts) {}
+    private static String jsonArray(java.util.List<String> values) {
+        return values.stream()
+                .map(value -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+    }
+
+    record Candidate(
+            UUID id,
+            UUID analysisRunId,
+            String jobType,
+            String idempotencyKey,
+            String payload,
+            int attemptCount,
+            int maxAttempts) {}
 
     public record ClaimedJob(
-            UUID id, UUID attemptId, String jobType, String payload, int attemptNumber, int maxAttempts) {}
+            UUID id,
+            UUID attemptId,
+            UUID analysisRunId,
+            String jobType,
+            String idempotencyKey,
+            String payload,
+            int attemptNumber,
+            int maxAttempts,
+            Instant startedAt,
+            String workerId) {}
 }

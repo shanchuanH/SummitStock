@@ -40,6 +40,11 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
     @AfterEach
     void removeImportedPortfolio() {
         update("DELETE ja FROM job_attempt ja JOIN job_run j ON j.id=ja.job_run_id "
+                + "JOIN portfolio_analysis_run r ON r.id=j.analysis_run_id JOIN app_user u ON u.id=r.user_id "
+                + "WHERE u.email='" + EMAIL + "'");
+        update("DELETE j FROM job_run j JOIN portfolio_analysis_run r ON r.id=j.analysis_run_id "
+                + "JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE ja FROM job_attempt ja JOIN job_run j ON j.id=ja.job_run_id "
                 + "WHERE j.job_type='PORTFOLIO_ANALYSIS' AND JSON_UNQUOTE(JSON_EXTRACT(j.payload,'$.userEmail'))='"
                 + EMAIL + "'");
         update("DELETE FROM job_run WHERE job_type='PORTFOLIO_ANALYSIS' "
@@ -47,6 +52,17 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         update("DELETE s FROM portfolio_analysis_step s JOIN portfolio_analysis_run r ON r.id=s.run_id "
                 + "JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "'");
         update("DELETE r FROM portfolio_analysis_run r JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL
+                + "'");
+        update("DELETE ra FROM recommendation_acknowledgement ra JOIN app_user u ON u.id=ra.user_id "
+                + "WHERE u.email='" + EMAIL + "'");
+        update("DELETE r FROM recommendation r JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE h FROM holding_analysis_snapshot h JOIN position p ON p.id=h.position_id "
+                + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
+                + "WHERE u.email='" + EMAIL + "'");
+        update("DELETE s FROM stop_snapshot s JOIN position p ON p.id=s.position_id "
+                + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
+                + "WHERE u.email='" + EMAIL + "'");
+        update("DELETE d FROM portfolio_drawdown_snapshot d JOIN app_user u ON u.id=d.user_id WHERE u.email='" + EMAIL
                 + "'");
         update("DELETE c FROM compensation_holding c JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL + "'");
         update("DELETE s FROM position_snapshot s JOIN position p ON p.id=s.position_id "

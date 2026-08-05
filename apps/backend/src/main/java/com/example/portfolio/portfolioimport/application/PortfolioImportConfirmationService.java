@@ -75,9 +75,10 @@ public class PortfolioImportConfirmationService {
         boolean enqueued = jobs.enqueue(
                 "PORTFOLIO_ANALYSIS",
                 "portfolio-analysis:" + runId,
-                payload(email, runId, batchId),
+                payload(email, batch.userId(), runId, batchId),
                 100,
-                clock.instant());
+                clock.instant(),
+                runId);
         if (!enqueued) throw new IllegalStateException("Portfolio analysis job could not be enqueued");
         jdbc.sql(
                         """
@@ -108,11 +109,11 @@ public class PortfolioImportConfirmationService {
         jdbc.sql(
                         """
                         INSERT INTO portfolio_analysis_run (
-                            id, user_id, import_batch_id, market_date, strategy_version, status,
+                            id, user_id, import_batch_id, market_date, strategy_version, status, run_key,
                             created_at, updated_at, version
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:userId), UUID_TO_BIN(:batchId), :marketDate,
-                            :strategyVersion, 'QUEUED', :now, :now, 0
+                            :strategyVersion, 'QUEUED', :runKey, :now, :now, 0
                         ) ON DUPLICATE KEY UPDATE id=id
                         """)
                 .param("id", runId.toString())
@@ -120,6 +121,7 @@ public class PortfolioImportConfirmationService {
                 .param("batchId", batchId.toString())
                 .param("marketDate", LocalDate.now(clock))
                 .param("strategyVersion", properties.strategyVersion())
+                .param("runKey", "import:" + batchId)
                 .param("now", clock.instant())
                 .update();
         var persisted = jdbc.sql(
@@ -228,11 +230,13 @@ public class PortfolioImportConfirmationService {
                 .update();
     }
 
-    private String payload(String email, UUID runId, UUID batchId) {
+    private String payload(String email, UUID userId, UUID runId, UUID batchId) {
         try {
             return json.writeValueAsString(Map.of(
                     "userEmail", email,
-                    "analysisRunId", runId.toString(),
+                    "userId", userId.toString(),
+                    "runId", runId.toString(),
+                    "marketDate", LocalDate.now(clock).toString(),
                     "importBatchId", batchId.toString()));
         } catch (JacksonException exception) {
             throw new IllegalStateException("Unable to enqueue portfolio analysis", exception);

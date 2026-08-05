@@ -54,6 +54,7 @@ public class MarketContextService {
     }
 
     public SavedDrawdown calculateDrawdown(
+            UUID userId,
             DrawdownEngine.Input input,
             String positionAttributionJson,
             String clusterAttributionJson,
@@ -63,6 +64,7 @@ public class MarketContextService {
         var checksum = sha256(properties.strategyVersion() + ":drawdown:" + dataAsOf + ":" + canonical);
         int inserted = store.appendDrawdown(new DrawdownWrite(
                 UUID.randomUUID(),
+                userId,
                 properties.strategyVersion(),
                 input.currentEquity(),
                 result.highWaterMark(),

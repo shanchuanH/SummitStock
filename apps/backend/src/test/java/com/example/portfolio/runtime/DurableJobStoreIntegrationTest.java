@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.portfolio.MySqlIntegrationTest;
+import com.example.portfolio.configuration.PortfolioProperties;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,6 +30,12 @@ class DurableJobStoreIntegrationTest extends MySqlIntegrationTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    AnalysisRunOrchestrator orchestrator;
+
+    @Autowired
+    PortfolioProperties properties;
 
     @BeforeEach
     void clean() {
@@ -74,9 +81,10 @@ class DurableJobStoreIntegrationTest extends MySqlIntegrationTest {
 
     @Test
     void scheduledScannerWritesAnIdempotentEodPipeline() {
-        var planner = new ScheduledJobPlanner(jobs, Clock.fixed(Instant.parse("2026-08-05T22:15:00Z"), ZoneOffset.UTC));
-        planner.endOfDay();
-        planner.endOfDay();
-        assertThat(jobs.pendingCount()).isEqualTo(ScheduledJobPlanner.EOD_PIPELINE.size());
+        var planner = new ScheduledJobPlanner(
+                jobs, orchestrator, properties, Clock.fixed(Instant.parse("2026-08-05T22:15:00Z"), ZoneOffset.UTC));
+        planner.quotes();
+        planner.quotes();
+        assertThat(jobs.pendingCount()).isEqualTo(1);
     }
 }

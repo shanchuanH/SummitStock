@@ -58,19 +58,20 @@ public class MarketContextStore {
         return jdbc.sql(
                         """
                         INSERT IGNORE INTO portfolio_drawdown_snapshot (
-                            id, strategy_version, current_equity, high_water_mark, drawdown_fraction,
+                            id, user_id, strategy_version, current_equity, high_water_mark, drawdown_fraction,
                             drawdown_state, source_classification, market_driven, spy_return_from_peak,
                             qqq_return_from_peak, breadth50, stress_level, position_attribution,
                             cluster_attribution, confidence, quality_status, narratives, rule_ids,
                             evidence_checksum, data_as_of, created_at
                         ) VALUES (
-                            UUID_TO_BIN(:id), :strategyVersion, :currentEquity, :highWaterMark, :drawdown,
+                            UUID_TO_BIN(:id), UUID_TO_BIN(:userId), :strategyVersion, :currentEquity, :highWaterMark, :drawdown,
                             :state, :source, :marketDriven, :spy, :qqq, :breadth50, :stress,
                             CAST(:positions AS JSON), CAST(:clusters AS JSON), :confidence, :quality,
                             CAST(:narratives AS JSON), CAST(:rules AS JSON), :checksum, :dataAsOf, :createdAt
                         )
                         """)
                 .param("id", value.id().toString())
+                .param("userId", value.userId().toString())
                 .param("strategyVersion", value.strategyVersion())
                 .param("currentEquity", value.currentEquity())
                 .param("highWaterMark", value.highWaterMark())
@@ -109,7 +110,7 @@ public class MarketContextStore {
                 .optional();
     }
 
-    public Optional<DrawdownView> latestDrawdown() {
+    public Optional<DrawdownView> latestDrawdown(String email) {
         return jdbc.sql(
                         """
                         SELECT strategy_version, current_equity, high_water_mark, drawdown_fraction,
@@ -117,10 +118,13 @@ public class MarketContextStore {
                                spy_return_from_peak, qqq_return_from_peak, breadth50, stress_level,
                                position_attribution, cluster_attribution, confidence, quality_status,
                                narratives, rule_ids, data_as_of
-                        FROM portfolio_drawdown_snapshot
-                        ORDER BY data_as_of DESC, created_at DESC
+                        FROM portfolio_drawdown_snapshot d
+                        JOIN app_user u ON u.id=d.user_id
+                        WHERE u.email=:email
+                        ORDER BY d.data_as_of DESC, d.created_at DESC
                         LIMIT 1
                         """)
+                .param("email", email)
                 .query(DrawdownView.class)
                 .optional();
     }
@@ -146,6 +150,7 @@ public class MarketContextStore {
 
     public record DrawdownWrite(
             UUID id,
+            UUID userId,
             String strategyVersion,
             BigDecimal currentEquity,
             BigDecimal highWaterMark,

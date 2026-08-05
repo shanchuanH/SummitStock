@@ -12,6 +12,7 @@ import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.market.MarketRegimeEngine;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,7 +42,21 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
                 .list();
         assertThat(tables).contains("market_regime_snapshot", "portfolio_drawdown_snapshot");
 
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO app_user (
+                            id,email,password_hash,status,timezone,created_at,updated_at,version
+                        ) VALUES (
+                            UUID_TO_BIN('11111111-1111-1111-1111-111111111111'), 'admin@example.local',
+                            'unused','ACTIVE','UTC',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0
+                        )
+                        """)
+                .update();
+
         var dataAsOf = Instant.parse("2026-08-04T21:00:00Z");
+        var userId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email='admin@example.local'")
+                .query(UUID.class)
+                .single();
         var regimeInput = new MarketRegimeEngine.Input(
                 0.92, 0.88, 0.76, 0.82, false, false, 18, 0.61, false, 56, false, EvidenceQuality.HEALTHY);
         assertThat(service.calculateRegime(regimeInput, dataAsOf).inserted()).isTrue();
@@ -58,6 +73,7 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
                 0.35,
                 EvidenceQuality.HEALTHY);
         assertThat(service.calculateDrawdown(
+                                userId,
                                 drawdownInput,
                                 "[{\"symbol\":\"NVDA\",\"contribution\":\"0.20\"}]",
                                 "[{\"cluster\":\"TECH\",\"contribution\":\"0.35\"}]",
@@ -65,6 +81,7 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
                         .inserted())
                 .isTrue();
         assertThat(service.calculateDrawdown(
+                                userId,
                                 drawdownInput,
                                 "[{\"symbol\":\"NVDA\",\"contribution\":\"0.20\"}]",
                                 "[{\"cluster\":\"TECH\",\"contribution\":\"0.35\"}]",
@@ -78,7 +95,7 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
                 .get()
                 .extracting(MarketContextStore.RegimeView::strategyVersion)
                 .isEqualTo("1.0.0-draft");
-        assertThat(store.latestDrawdown()).get().satisfies(value -> {
+        assertThat(store.latestDrawdown("admin@example.local")).get().satisfies(value -> {
             assertThat(value.marketDriven()).isTrue();
             assertThat(value.sourceClassification()).isEqualTo("MARKET_DRIVEN");
         });
