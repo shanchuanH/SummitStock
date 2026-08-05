@@ -1,36 +1,38 @@
 {
-  "openapi" : "3.1.0",
-  "info" : {
-    "title" : "Portfolio Engine API",
-    "description" : "Private, manual-execution-only portfolio decision support API",
-    "version" : "0.1.0"
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Portfolio Engine API",
+    "description": "Private, manual-execution-only portfolio decision support API",
+    "version": "0.1.0"
   },
-  "servers" : [ {
-    "url" : "http://localhost",
-    "description" : "Generated server url"
-  } ],
-  "paths" : {
-    "/api/v1/trade-plans/preview" : {
-      "post" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "preview",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/TradePlanPreviewRequest"
+  "servers": [
+    {
+      "url": "http://localhost",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/api/v1/trade-plans/preview": {
+      "post": {
+        "tags": ["portfolio-controller"],
+        "operationId": "preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TradePlanPreviewRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/TradePlanPreviewResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradePlanPreviewResponse"
                 }
               }
             }
@@ -38,36 +40,38 @@
         }
       }
     },
-    "/api/v1/recommendations/{id}/acknowledge" : {
-      "post" : {
-        "tags" : [ "recommendation-acknowledgement-controller" ],
-        "operationId" : "acknowledge",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/recommendations/{id}/acknowledge": {
+      "post": {
+        "tags": ["recommendation-acknowledgement-controller"],
+        "operationId": "acknowledge",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AcknowledgementRequest"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgementRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/AcknowledgementResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementResponse"
                 }
               }
             }
@@ -75,36 +79,38 @@
         }
       }
     },
-    "/api/v1/positions/{positionId}/thesis/confirm" : {
-      "post" : {
-        "tags" : [ "position-intelligence-controller" ],
-        "operationId" : "confirmThesis",
-        "parameters" : [ {
-          "name" : "positionId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/positions/{positionId}/thesis/confirm": {
+      "post": {
+        "tags": ["position-intelligence-controller"],
+        "operationId": "confirmThesis",
+        "parameters": [
+          {
+            "name": "positionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ConfirmThesisRequest"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmThesisRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ThesisResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThesisResponse"
                 }
               }
             }
@@ -112,36 +118,38 @@
         }
       }
     },
-    "/api/v1/positions/{positionId}/stops/preview" : {
-      "post" : {
-        "tags" : [ "position-intelligence-controller" ],
-        "operationId" : "previewStop",
-        "parameters" : [ {
-          "name" : "positionId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/positions/{positionId}/stops/preview": {
+      "post": {
+        "tags": ["position-intelligence-controller"],
+        "operationId": "previewStop",
+        "parameters": [
+          {
+            "name": "positionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/StopPreviewRequest"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StopPreviewRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/StopPreviewResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopPreviewResponse"
                 }
               }
             }
@@ -149,36 +157,38 @@
         }
       }
     },
-    "/api/v1/positions/{positionId}/earnings/review" : {
-      "post" : {
-        "tags" : [ "position-intelligence-controller" ],
-        "operationId" : "reviewEarnings",
-        "parameters" : [ {
-          "name" : "positionId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/positions/{positionId}/earnings/review": {
+      "post": {
+        "tags": ["position-intelligence-controller"],
+        "operationId": "reviewEarnings",
+        "parameters": [
+          {
+            "name": "positionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/EarningsReviewRequest"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EarningsReviewRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/EarningsReviewResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EarningsReviewResponse"
                 }
               }
             }
@@ -186,36 +196,38 @@
         }
       }
     },
-    "/api/v1/positions/{id}/classify" : {
-      "post" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "classify",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/positions/{id}/classify": {
+      "post": {
+        "tags": ["portfolio-controller"],
+        "operationId": "classify",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ClassificationRequest"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassificationRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PositionResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionResponse"
                 }
               }
             }
@@ -223,27 +235,27 @@
         }
       }
     },
-    "/api/v1/etf-dip/preview" : {
-      "post" : {
-        "tags" : [ "dip-cashflow-controller" ],
-        "operationId" : "preview_1",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/DipPreviewRequest"
+    "/api/v1/etf-dip/preview": {
+      "post": {
+        "tags": ["dip-cashflow-controller"],
+        "operationId": "preview_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DipPreviewRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/DipPreviewResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DipPreviewResponse"
                 }
               }
             }
@@ -251,27 +263,27 @@
         }
       }
     },
-    "/api/v1/cashflow/plan" : {
-      "post" : {
-        "tags" : [ "dip-cashflow-controller" ],
-        "operationId" : "cashflow",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CashflowPlanRequest"
+    "/api/v1/cashflow/plan": {
+      "post": {
+        "tags": ["dip-cashflow-controller"],
+        "operationId": "cashflow",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashflowPlanRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CashflowPlanResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashflowPlanResponse"
                 }
               }
             }
@@ -279,27 +291,27 @@
         }
       }
     },
-    "/api/v1/active-sleeve/review" : {
-      "post" : {
-        "tags" : [ "dip-cashflow-controller" ],
-        "operationId" : "accountability",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AccountabilityRequest"
+    "/api/v1/active-sleeve/review": {
+      "post": {
+        "tags": ["dip-cashflow-controller"],
+        "operationId": "accountability",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountabilityRequest"
               }
             }
           },
-          "required" : true
+          "required": true
         },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/AccountabilityResponse"
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountabilityResponse"
                 }
               }
             }
@@ -307,17 +319,17 @@
         }
       }
     },
-    "/api/v1/worker/health" : {
-      "get" : {
-        "tags" : [ "job-health-controller" ],
-        "operationId" : "health",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/JobHealth"
+    "/api/v1/worker/health": {
+      "get": {
+        "tags": ["job-health-controller"],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobHealth"
                 }
               }
             }
@@ -325,17 +337,17 @@
         }
       }
     },
-    "/api/v1/version" : {
-      "get" : {
-        "tags" : [ "version-controller" ],
-        "operationId" : "version",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/VersionResponse"
+    "/api/v1/version": {
+      "get": {
+        "tags": ["version-controller"],
+        "operationId": "version",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
                 }
               }
             }
@@ -343,19 +355,19 @@
         }
       }
     },
-    "/api/v1/recommendations/history" : {
-      "get" : {
-        "tags" : [ "dip-cashflow-controller" ],
-        "operationId" : "history",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/HistoryResponse"
+    "/api/v1/recommendations/history": {
+      "get": {
+        "tags": ["dip-cashflow-controller"],
+        "operationId": "history",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryResponse"
                   }
                 }
               }
@@ -364,19 +376,19 @@
         }
       }
     },
-    "/api/v1/positions" : {
-      "get" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "positions",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/PositionResponse"
+    "/api/v1/positions": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "positions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PositionResponse"
                   }
                 }
               }
@@ -385,28 +397,30 @@
         }
       }
     },
-    "/api/v1/positions/{positionId}/journal" : {
-      "get" : {
-        "tags" : [ "position-intelligence-controller" ],
-        "operationId" : "journal",
-        "parameters" : [ {
-          "name" : "positionId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/positions/{positionId}/journal": {
+      "get": {
+        "tags": ["position-intelligence-controller"],
+        "operationId": "journal",
+        "parameters": [
+          {
+            "name": "positionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/JournalResponse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JournalResponse"
                   }
                 }
               }
@@ -415,26 +429,28 @@
         }
       }
     },
-    "/api/v1/positions/{positionId}/intelligence" : {
-      "get" : {
-        "tags" : [ "position-intelligence-controller" ],
-        "operationId" : "intelligence",
-        "parameters" : [ {
-          "name" : "positionId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/positions/{positionId}/intelligence": {
+      "get": {
+        "tags": ["position-intelligence-controller"],
+        "operationId": "intelligence",
+        "parameters": [
+          {
+            "name": "positionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/IntelligenceResponse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntelligenceResponse"
                 }
               }
             }
@@ -442,26 +458,28 @@
         }
       }
     },
-    "/api/v1/positions/{id}" : {
-      "get" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "position",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/positions/{id}": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "position",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PositionResponse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionResponse"
                 }
               }
             }
@@ -469,48 +487,53 @@
         }
       }
     },
-    "/api/v1/positions/classification-suggestion" : {
-      "get" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "classificationSuggestion",
-        "parameters" : [ {
-          "name" : "symbol",
-          "in" : "query",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
+    "/api/v1/positions/classification-suggestion": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "classificationSuggestion",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetType",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "thematic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "unvestedCompensation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
-        }, {
-          "name" : "assetType",
-          "in" : "query",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "thematic",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "boolean",
-            "default" : false
-          }
-        }, {
-          "name" : "unvestedCompensation",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "boolean",
-            "default" : false
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ClassificationSuggestionResponse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationSuggestionResponse"
                 }
               }
             }
@@ -518,17 +541,17 @@
         }
       }
     },
-    "/api/v1/portfolio/summary" : {
-      "get" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "summary",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PortfolioSummaryResponse"
+    "/api/v1/portfolio/summary": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "summary",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioSummaryResponse"
                 }
               }
             }
@@ -536,17 +559,17 @@
         }
       }
     },
-    "/api/v1/portfolio/drawdown" : {
-      "get" : {
-        "tags" : [ "market-context-controller" ],
-        "operationId" : "drawdown",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/SnapshotEnvelopeDrawdownResponse"
+    "/api/v1/portfolio/drawdown": {
+      "get": {
+        "tags": ["market-context-controller"],
+        "operationId": "drawdown",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotEnvelopeDrawdownResponse"
                 }
               }
             }
@@ -554,17 +577,17 @@
         }
       }
     },
-    "/api/v1/market/regime" : {
-      "get" : {
-        "tags" : [ "market-context-controller" ],
-        "operationId" : "regime",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/SnapshotEnvelopeRegimeResponse"
+    "/api/v1/market/regime": {
+      "get": {
+        "tags": ["market-context-controller"],
+        "operationId": "regime",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotEnvelopeRegimeResponse"
                 }
               }
             }
@@ -572,17 +595,17 @@
         }
       }
     },
-    "/api/v1/market/data-health" : {
-      "get" : {
-        "tags" : [ "market-data-controller" ],
-        "operationId" : "dataHealth",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/DataHealthResponse"
+    "/api/v1/market/data-health": {
+      "get": {
+        "tags": ["market-data-controller"],
+        "operationId": "dataHealth",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataHealthResponse"
                 }
               }
             }
@@ -590,35 +613,38 @@
         }
       }
     },
-    "/api/v1/instruments" : {
-      "get" : {
-        "tags" : [ "market-data-controller" ],
-        "operationId" : "instruments",
-        "parameters" : [ {
-          "name" : "cursor",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string",
-            "default" : ""
+    "/api/v1/instruments": {
+      "get": {
+        "tags": ["market-data-controller"],
+        "operationId": "instruments",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
           }
-        }, {
-          "name" : "limit",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 50
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/InstrumentPage"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentPage"
                 }
               }
             }
@@ -626,34 +652,37 @@
         }
       }
     },
-    "/api/v1/instruments/{symbol}/indicators" : {
-      "get" : {
-        "tags" : [ "market-data-controller" ],
-        "operationId" : "indicators",
-        "parameters" : [ {
-          "name" : "symbol",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
+    "/api/v1/instruments/{symbol}/indicators": {
+      "get": {
+        "tags": ["market-data-controller"],
+        "operationId": "indicators",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 200
+            }
           }
-        }, {
-          "name" : "limit",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 200
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/MarketSeriesIndicatorResponse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketSeriesIndicatorResponse"
                 }
               }
             }
@@ -661,34 +690,37 @@
         }
       }
     },
-    "/api/v1/instruments/{symbol}/fundamentals" : {
-      "get" : {
-        "tags" : [ "market-data-controller" ],
-        "operationId" : "fundamentals",
-        "parameters" : [ {
-          "name" : "symbol",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
+    "/api/v1/instruments/{symbol}/fundamentals": {
+      "get": {
+        "tags": ["market-data-controller"],
+        "operationId": "fundamentals",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
           }
-        }, {
-          "name" : "limit",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 100
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/MarketSeriesFundamentalResponse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketSeriesFundamentalResponse"
                 }
               }
             }
@@ -696,42 +728,46 @@
         }
       }
     },
-    "/api/v1/instruments/{symbol}/bars" : {
-      "get" : {
-        "tags" : [ "market-data-controller" ],
-        "operationId" : "bars",
-        "parameters" : [ {
-          "name" : "symbol",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
+    "/api/v1/instruments/{symbol}/bars": {
+      "get": {
+        "tags": ["market-data-controller"],
+        "operationId": "bars",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "adjusted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 252
+            }
           }
-        }, {
-          "name" : "adjusted",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "boolean",
-            "default" : true
-          }
-        }, {
-          "name" : "limit",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 252
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/MarketSeriesPriceBarResponse"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketSeriesPriceBarResponse"
                 }
               }
             }
@@ -739,19 +775,19 @@
         }
       }
     },
-    "/api/v1/holdings/analysis" : {
-      "get" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "analyses",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/HoldingAnalysisResponse"
+    "/api/v1/holdings/analysis": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "analyses",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HoldingAnalysisResponse"
                   }
                 }
               }
@@ -760,17 +796,17 @@
         }
       }
     },
-    "/api/v1/etf-dip/status" : {
-      "get" : {
-        "tags" : [ "dip-cashflow-controller" ],
-        "operationId" : "status",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/DipStatusEnvelope"
+    "/api/v1/etf-dip/status": {
+      "get": {
+        "tags": ["dip-cashflow-controller"],
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DipStatusEnvelope"
                 }
               }
             }
@@ -778,26 +814,28 @@
         }
       }
     },
-    "/api/v1/backtests/{id}" : {
-      "get" : {
-        "tags" : [ "backtest-report-controller" ],
-        "operationId" : "find",
-        "parameters" : [ {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+    "/api/v1/backtests/{id}": {
+      "get": {
+        "tags": ["backtest-report-controller"],
+        "operationId": "find",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/RunView"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunView"
                 }
               }
             }
@@ -805,17 +843,17 @@
         }
       }
     },
-    "/api/v1/backtests/latest" : {
-      "get" : {
-        "tags" : [ "backtest-report-controller" ],
-        "operationId" : "latest",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/RunView"
+    "/api/v1/backtests/latest": {
+      "get": {
+        "tags": ["backtest-report-controller"],
+        "operationId": "latest",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunView"
                 }
               }
             }
@@ -823,17 +861,17 @@
         }
       }
     },
-    "/api/v1/auth/session" : {
-      "get" : {
-        "tags" : [ "auth-controller" ],
-        "operationId" : "session",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/SessionResponse"
+    "/api/v1/auth/session": {
+      "get": {
+        "tags": ["auth-controller"],
+        "operationId": "session",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
                 }
               }
             }
@@ -841,17 +879,17 @@
         }
       }
     },
-    "/api/v1/auth/csrf" : {
-      "get" : {
-        "tags" : [ "auth-controller" ],
-        "operationId" : "csrf",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CsrfResponse"
+    "/api/v1/auth/csrf": {
+      "get": {
+        "tags": ["auth-controller"],
+        "operationId": "csrf",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsrfResponse"
                 }
               }
             }
@@ -859,17 +897,17 @@
         }
       }
     },
-    "/api/v1/actions/today" : {
-      "get" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "actions",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/TodayActionsResponse"
+    "/api/v1/actions/today": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "actions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayActionsResponse"
                 }
               }
             }
@@ -877,19 +915,19 @@
         }
       }
     },
-    "/api/v1/accounts" : {
-      "get" : {
-        "tags" : [ "portfolio-controller" ],
-        "operationId" : "accounts",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/AccountView"
+    "/api/v1/accounts": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "accounts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountView"
                   }
                 }
               }
@@ -899,1550 +937,1568 @@
       }
     }
   },
-  "components" : {
-    "schemas" : {
-      "TradePlanPreviewRequest" : {
-        "type" : "object",
-        "properties" : {
-          "classification" : {
-            "type" : "string",
-            "minLength" : 1
+  "components": {
+    "schemas": {
+      "TradePlanPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "minLength": 1
           },
-          "classificationConfirmed" : {
-            "type" : "boolean"
+          "classificationConfirmed": {
+            "type": "boolean"
           },
-          "currentWeight" : {
-            "type" : "number",
-            "maximum" : 1,
-            "minimum" : 0
+          "currentWeight": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
           },
-          "projectedWeight" : {
-            "type" : "number",
-            "maximum" : 1,
-            "minimum" : 0
+          "projectedWeight": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
           },
-          "proposedTradeRisk" : {
-            "type" : "number",
-            "maximum" : 1,
-            "minimum" : 0
+          "proposedTradeRisk": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
           },
-          "currentOpenStockRisk" : {
-            "type" : "number",
-            "maximum" : 1,
-            "minimum" : 0
+          "currentOpenStockRisk": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
           },
-          "currentClusterRisk" : {
-            "type" : "number",
-            "maximum" : 1,
-            "minimum" : 0
+          "currentClusterRisk": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
           },
-          "averagingDown" : {
-            "type" : "boolean"
+          "averagingDown": {
+            "type": "boolean"
           },
-          "thesisImproving" : {
-            "type" : "boolean"
+          "thesisImproving": {
+            "type": "boolean"
           },
-          "anchoredToCostBasis" : {
-            "type" : "boolean"
+          "anchoredToCostBasis": {
+            "type": "boolean"
           },
-          "lastDecisionAt" : {
-            "type" : "string",
-            "format" : "date-time"
+          "lastDecisionAt": {
+            "type": "string",
+            "format": "date-time"
           },
-          "quality" : {
-            "type" : "string",
-            "minLength" : 1
+          "quality": {
+            "type": "string",
+            "minLength": 1
           }
         },
-        "required" : [ "classification", "currentClusterRisk", "currentOpenStockRisk", "currentWeight", "projectedWeight", "proposedTradeRisk", "quality" ]
+        "required": [
+          "classification",
+          "currentClusterRisk",
+          "currentOpenStockRisk",
+          "currentWeight",
+          "projectedWeight",
+          "proposedTradeRisk",
+          "quality"
+        ]
       },
-      "TradePlanPreviewResponse" : {
-        "type" : "object",
-        "properties" : {
-          "allowed" : {
-            "type" : "boolean"
+      "TradePlanPreviewResponse": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
           },
-          "preciseQuantityAllowed" : {
-            "type" : "boolean"
+          "preciseQuantityAllowed": {
+            "type": "boolean"
           },
-          "weightCap" : {
-            "type" : "string"
+          "weightCap": {
+            "type": "string"
           },
-          "tradeRiskCap" : {
-            "type" : "string"
+          "tradeRiskCap": {
+            "type": "string"
           },
-          "projectedOpenStockRisk" : {
-            "type" : "string"
+          "projectedOpenStockRisk": {
+            "type": "string"
           },
-          "projectedClusterRisk" : {
-            "type" : "string"
+          "projectedClusterRisk": {
+            "type": "string"
           },
-          "confidence" : {
-            "type" : "string"
+          "confidence": {
+            "type": "string"
           },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
-          "reasons" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
-          "risks" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
       },
-      "AcknowledgementRequest" : {
-        "type" : "object",
-        "properties" : {
-          "idempotencyKey" : {
-            "type" : "string",
-            "minLength" : 1
+      "AcknowledgementRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
           }
         },
-        "required" : [ "idempotencyKey" ]
+        "required": ["idempotencyKey"]
       },
-      "AcknowledgementResponse" : {
-        "type" : "object",
-        "properties" : {
-          "recommendationId" : {
-            "type" : "string",
-            "format" : "uuid"
+      "AcknowledgementResponse": {
+        "type": "object",
+        "properties": {
+          "recommendationId": {
+            "type": "string",
+            "format": "uuid"
           },
-          "newlyAcknowledged" : {
-            "type" : "boolean"
+          "newlyAcknowledged": {
+            "type": "boolean"
           },
-          "executionSubmitted" : {
-            "type" : "boolean"
+          "executionSubmitted": {
+            "type": "boolean"
           },
-          "acknowledgedAt" : {
-            "type" : "string",
-            "format" : "date-time"
+          "acknowledgedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "ConfirmThesisRequest" : {
-        "type" : "object",
-        "properties" : {
-          "expectedVersion" : {
-            "type" : "integer",
-            "format" : "int64"
+      "ConfirmThesisRequest": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
-      "ThesisResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
+      "ThesisResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "summary" : {
-            "type" : "string"
+          "summary": {
+            "type": "string"
           },
-          "confirmationSignalsJson" : {
-            "type" : "string"
+          "confirmationSignalsJson": {
+            "type": "string"
           },
-          "invalidationSignalsJson" : {
-            "type" : "string"
+          "invalidationSignalsJson": {
+            "type": "string"
           },
-          "status" : {
-            "type" : "string"
+          "status": {
+            "type": "string"
           },
-          "expiresAt" : {
-            "type" : "string",
-            "format" : "date-time"
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
           },
-          "userConfirmed" : {
-            "type" : "boolean"
+          "userConfirmed": {
+            "type": "boolean"
           },
-          "confirmedAt" : {
-            "type" : "string",
-            "format" : "date-time"
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time"
           },
-          "version" : {
-            "type" : "integer",
-            "format" : "int64"
+          "version": {
+            "type": "integer",
+            "format": "int64"
           },
-          "sourcesJson" : {
-            "type" : "string"
+          "sourcesJson": {
+            "type": "string"
           }
         }
       },
-      "StopPreviewRequest" : {
-        "type" : "object",
-        "properties" : {
-          "classification" : {
-            "type" : "string",
-            "minLength" : 1
+      "StopPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "minLength": 1
           },
-          "entry" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "entry": {
+            "type": "number",
+            "minimum": 1.0e-8
           },
-          "confirmedSwingLow" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "confirmedSwingLow": {
+            "type": "number",
+            "minimum": 1.0e-8
           },
-          "atr" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "atr": {
+            "type": "number",
+            "minimum": 1.0e-8
           },
-          "previousLiveStop" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "previousLiveStop": {
+            "type": "number",
+            "minimum": 1.0e-8
           },
-          "chandelier" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "chandelier": {
+            "type": "number",
+            "minimum": 1.0e-8
           },
-          "ema20" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "ema20": {
+            "type": "number",
+            "minimum": 1.0e-8
           },
-          "confirmedHigherLow" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "confirmedHigherLow": {
+            "type": "number",
+            "minimum": 1.0e-8
           },
-          "dailyClose" : {
-            "type" : "number",
-            "minimum" : 1.0E-8
+          "dailyClose": {
+            "type": "number",
+            "minimum": 1.0e-8
           }
         },
-        "required" : [ "atr", "chandelier", "classification", "confirmedHigherLow", "confirmedSwingLow", "dailyClose", "ema20", "entry", "previousLiveStop" ]
+        "required": [
+          "atr",
+          "chandelier",
+          "classification",
+          "confirmedHigherLow",
+          "confirmedSwingLow",
+          "dailyClose",
+          "ema20",
+          "entry",
+          "previousLiveStop"
+        ]
       },
-      "StopPreviewResponse" : {
-        "type" : "object",
-        "properties" : {
-          "ordinaryStopApplicable" : {
-            "type" : "boolean"
+      "StopPreviewResponse": {
+        "type": "object",
+        "properties": {
+          "ordinaryStopApplicable": {
+            "type": "boolean"
           },
-          "initialStop" : {
-            "type" : "string"
+          "initialStop": {
+            "type": "string"
           },
-          "liveStop" : {
-            "type" : "string"
+          "liveStop": {
+            "type": "string"
           },
-          "softAlert" : {
-            "type" : "string"
+          "softAlert": {
+            "type": "string"
           },
-          "catastrophicStop" : {
-            "type" : "string"
+          "catastrophicStop": {
+            "type": "string"
           },
-          "closeConfirmed" : {
-            "type" : "boolean"
+          "closeConfirmed": {
+            "type": "boolean"
           },
-          "catastrophicBreach" : {
-            "type" : "boolean"
+          "catastrophicBreach": {
+            "type": "boolean"
           },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
       },
-      "EarningsReviewRequest" : {
-        "type" : "object",
-        "properties" : {
-          "classification" : {
-            "type" : "string",
-            "minLength" : 1
+      "EarningsReviewRequest": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "minLength": 1
           },
-          "eventCount" : {
-            "type" : "integer",
-            "format" : "int32",
-            "maximum" : 12,
-            "minimum" : 0
+          "eventCount": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 12,
+            "minimum": 0
           },
-          "profitCushionR" : {
-            "type" : "number"
+          "profitCushionR": {
+            "type": "number"
           },
-          "overRiskLimit" : {
-            "type" : "boolean"
+          "overRiskLimit": {
+            "type": "boolean"
           }
         },
-        "required" : [ "classification", "profitCushionR" ]
+        "required": ["classification", "profitCushionR"]
       },
-      "EarningsReviewResponse" : {
-        "type" : "object",
-        "properties" : {
-          "action" : {
-            "type" : "string"
+      "EarningsReviewResponse": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
           },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
       },
-      "ClassificationRequest" : {
-        "type" : "object",
-        "properties" : {
-          "classification" : {
-            "type" : "string",
-            "minLength" : 1
+      "ClassificationRequest": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string",
+            "minLength": 1
           },
-          "expectedVersion" : {
-            "type" : "integer",
-            "format" : "int64"
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64"
           }
         },
-        "required" : [ "classification" ]
+        "required": ["classification"]
       },
-      "PositionResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
+      "PositionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "accountId" : {
-            "type" : "string",
-            "format" : "uuid"
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
           },
-          "symbol" : {
-            "type" : "string"
+          "symbol": {
+            "type": "string"
           },
-          "bucket" : {
-            "type" : "string"
+          "bucket": {
+            "type": "string"
           },
-          "classification" : {
-            "type" : "string"
+          "classification": {
+            "type": "string"
           },
-          "classificationConfirmed" : {
-            "type" : "boolean"
+          "classificationConfirmed": {
+            "type": "boolean"
           },
-          "quantity" : {
-            "type" : "string"
+          "quantity": {
+            "type": "string"
           },
-          "averageCost" : {
-            "type" : "string"
+          "averageCost": {
+            "type": "string"
           },
-          "marketValue" : {
-            "type" : "string"
+          "marketValue": {
+            "type": "string"
           },
-          "status" : {
-            "type" : "string"
+          "status": {
+            "type": "string"
           },
-          "version" : {
-            "type" : "integer",
-            "format" : "int64"
+          "version": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
-      "DipPreviewRequest" : {
-        "type" : "object",
-        "properties" : {
-          "portfolioDrawdown" : {
-            "type" : "number",
-            "minimum" : 0
+      "DipPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "portfolioDrawdown": {
+            "type": "number",
+            "minimum": 0
           },
-          "marketDriven" : {
-            "type" : "boolean"
+          "marketDriven": {
+            "type": "boolean"
           },
-          "completeData" : {
-            "type" : "boolean"
+          "completeData": {
+            "type": "boolean"
           },
-          "emergencyCashProtected" : {
-            "type" : "boolean"
+          "emergencyCashProtected": {
+            "type": "boolean"
           },
-          "drawdownScore" : {
-            "type" : "number",
-            "format" : "double"
+          "drawdownScore": {
+            "type": "number",
+            "format": "double"
           },
-          "vixPercentileScore" : {
-            "type" : "number",
-            "format" : "double"
+          "vixPercentileScore": {
+            "type": "number",
+            "format": "double"
           },
-          "breadthOversoldScore" : {
-            "type" : "number",
-            "format" : "double"
+          "breadthOversoldScore": {
+            "type": "number",
+            "format": "double"
           },
-          "creditStressScore" : {
-            "type" : "number",
-            "format" : "double"
+          "creditStressScore": {
+            "type": "number",
+            "format": "double"
           },
-          "volTermScore" : {
-            "type" : "number",
-            "format" : "double"
+          "volTermScore": {
+            "type": "number",
+            "format": "double"
           },
-          "trendContextScore" : {
-            "type" : "number",
-            "format" : "double"
+          "trendContextScore": {
+            "type": "number",
+            "format": "double"
           },
-          "rsiCross40" : {
-            "type" : "boolean"
+          "rsiCross40": {
+            "type": "boolean"
           },
-          "breakout5Day" : {
-            "type" : "boolean"
+          "breakout5Day": {
+            "type": "boolean"
           },
-          "aboveEma20" : {
-            "type" : "boolean"
+          "aboveEma20": {
+            "type": "boolean"
           },
-          "breadthImproving" : {
-            "type" : "boolean"
+          "breadthImproving": {
+            "type": "boolean"
           },
-          "vixFalling" : {
-            "type" : "boolean"
+          "vixFalling": {
+            "type": "boolean"
           },
-          "creditStable" : {
-            "type" : "boolean"
+          "creditStable": {
+            "type": "boolean"
           },
-          "completedTranches" : {
-            "type" : "integer",
-            "format" : "int32",
-            "maximum" : 4,
-            "minimum" : 0
+          "completedTranches": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 4,
+            "minimum": 0
           },
-          "tradingDaysSinceLastTranche" : {
-            "type" : "integer",
-            "format" : "int32",
-            "minimum" : 0
+          "tradingDaysSinceLastTranche": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         },
-        "required" : [ "portfolioDrawdown" ]
+        "required": ["portfolioDrawdown"]
       },
-      "DipPreviewResponse" : {
-        "type" : "object",
-        "properties" : {
-          "action" : {
-            "type" : "string"
+      "DipPreviewResponse": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
           },
-          "setupScore" : {
-            "type" : "number",
-            "format" : "double"
+          "setupScore": {
+            "type": "number",
+            "format": "double"
           },
-          "triggerCount" : {
-            "type" : "integer",
-            "format" : "int32"
+          "triggerCount": {
+            "type": "integer",
+            "format": "int32"
           },
-          "trancheNumber" : {
-            "type" : "integer",
-            "format" : "int32"
+          "trancheNumber": {
+            "type": "integer",
+            "format": "int32"
           },
-          "reserveFraction" : {
-            "type" : "string"
+          "reserveFraction": {
+            "type": "string"
           },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
-          "executionSubmitted" : {
-            "type" : "boolean"
+          "executionSubmitted": {
+            "type": "boolean"
           }
         }
       },
-      "CashflowPlanRequest" : {
-        "type" : "object",
-        "properties" : {
-          "monthlyTakeHome" : {
-            "type" : "number",
-            "minimum" : 0
+      "CashflowPlanRequest": {
+        "type": "object",
+        "properties": {
+          "monthlyTakeHome": {
+            "type": "number",
+            "minimum": 0
           },
-          "monthlyExpenses" : {
-            "type" : "number",
-            "minimum" : 0
+          "monthlyExpenses": {
+            "type": "number",
+            "minimum": 0
           },
-          "emergencyCash" : {
-            "type" : "number",
-            "minimum" : 0
+          "emergencyCash": {
+            "type": "number",
+            "minimum": 0
           },
-          "qualitySignal" : {
-            "type" : "boolean"
+          "qualitySignal": {
+            "type": "boolean"
           }
         },
-        "required" : [ "emergencyCash", "monthlyExpenses", "monthlyTakeHome" ]
+        "required": ["emergencyCash", "monthlyExpenses", "monthlyTakeHome"]
       },
-      "CashflowPlanResponse" : {
-        "type" : "object",
-        "properties" : {
-          "surplus" : {
-            "type" : "string"
+      "CashflowPlanResponse": {
+        "type": "object",
+        "properties": {
+          "surplus": {
+            "type": "string"
           },
-          "emergency" : {
-            "type" : "string"
+          "emergency": {
+            "type": "string"
           },
-          "broadCore" : {
-            "type" : "string"
+          "broadCore": {
+            "type": "string"
           },
-          "techCore" : {
-            "type" : "string"
+          "techCore": {
+            "type": "string"
           },
-          "internationalCore" : {
-            "type" : "string"
+          "internationalCore": {
+            "type": "string"
           },
-          "tacticalReserve" : {
-            "type" : "string"
+          "tacticalReserve": {
+            "type": "string"
           },
-          "qualityOpportunity" : {
-            "type" : "string"
+          "qualityOpportunity": {
+            "type": "string"
           },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
       },
-      "AccountabilityRequest" : {
-        "type" : "object",
-        "properties" : {
-          "months" : {
-            "type" : "integer",
-            "format" : "int32",
-            "minimum" : 0
+      "AccountabilityRequest": {
+        "type": "object",
+        "properties": {
+          "months": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
-          "underperformance" : {
-            "type" : "number",
-            "minimum" : 0
+          "underperformance": {
+            "type": "number",
+            "minimum": 0
           },
-          "drawdownImproved" : {
-            "type" : "boolean"
+          "drawdownImproved": {
+            "type": "boolean"
           }
         },
-        "required" : [ "underperformance" ]
+        "required": ["underperformance"]
       },
-      "AccountabilityResponse" : {
-        "type" : "object",
-        "properties" : {
-          "budgetMultiplier" : {
-            "type" : "string"
+      "AccountabilityResponse": {
+        "type": "object",
+        "properties": {
+          "budgetMultiplier": {
+            "type": "string"
           },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
       },
-      "JobHealth" : {
-        "type" : "object",
-        "properties" : {
-          "pendingJobs" : {
-            "type" : "integer",
-            "format" : "int64"
+      "JobHealth": {
+        "type": "object",
+        "properties": {
+          "pendingJobs": {
+            "type": "integer",
+            "format": "int64"
           },
-          "deadJobs" : {
-            "type" : "integer",
-            "format" : "int64"
+          "deadJobs": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
-      "VersionResponse" : {
-        "type" : "object",
-        "properties" : {
-          "version" : {
-            "type" : "string"
+      "VersionResponse": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "runtimeMode" : {
-            "type" : "string"
+          "runtimeMode": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
       },
-      "HistoryResponse" : {
-        "type" : "object",
-        "properties" : {
-          "symbol" : {
-            "type" : "string"
+      "HistoryResponse": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string"
           },
-          "action" : {
-            "type" : "string"
+          "action": {
+            "type": "string"
           },
-          "priority" : {
-            "type" : "string"
+          "priority": {
+            "type": "string"
           },
-          "confidence" : {
-            "type" : "string"
+          "confidence": {
+            "type": "string"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "validUntil" : {
-            "type" : "string",
-            "format" : "date-time"
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
           },
-          "status" : {
-            "type" : "string"
+          "status": {
+            "type": "string"
           }
         }
       },
-      "JournalResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
+      "JournalResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "entryType" : {
-            "type" : "string"
+          "entryType": {
+            "type": "string"
           },
-          "taxStatus" : {
-            "type" : "string"
+          "taxStatus": {
+            "type": "string"
           },
-          "plannedRiskAmount" : {
-            "type" : "string"
+          "plannedRiskAmount": {
+            "type": "string"
           },
-          "plannedR" : {
-            "type" : "string"
+          "plannedR": {
+            "type": "string"
           },
-          "realizedR" : {
-            "type" : "string"
+          "realizedR": {
+            "type": "string"
           },
-          "mfeR" : {
-            "type" : "string"
+          "mfeR": {
+            "type": "string"
           },
-          "maeR" : {
-            "type" : "string"
+          "maeR": {
+            "type": "string"
           },
-          "exitReason" : {
-            "type" : "string"
+          "exitReason": {
+            "type": "string"
           },
-          "notes" : {
-            "type" : "string"
+          "notes": {
+            "type": "string"
           },
-          "occurredAt" : {
-            "type" : "string",
-            "format" : "date-time"
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "EarningsResponse" : {
-        "type" : "object",
-        "properties" : {
-          "eventCount" : {
-            "type" : "integer",
-            "format" : "int32"
+      "EarningsResponse": {
+        "type": "object",
+        "properties": {
+          "eventCount": {
+            "type": "integer",
+            "format": "int32"
           },
-          "nextEventAt" : {
-            "type" : "string",
-            "format" : "date-time"
+          "nextEventAt": {
+            "type": "string",
+            "format": "date-time"
           },
-          "downsideTailFraction" : {
-            "type" : "string"
+          "downsideTailFraction": {
+            "type": "string"
           },
-          "gapP75Fraction" : {
-            "type" : "string"
+          "gapP75Fraction": {
+            "type": "string"
           },
-          "gapP90Fraction" : {
-            "type" : "string"
+          "gapP90Fraction": {
+            "type": "string"
           },
-          "profitCushionR" : {
-            "type" : "string"
+          "profitCushionR": {
+            "type": "string"
           },
-          "action" : {
-            "type" : "string"
+          "action": {
+            "type": "string"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "validUntil" : {
-            "type" : "string",
-            "format" : "date-time"
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "IntelligenceResponse" : {
-        "type" : "object",
-        "properties" : {
-          "stop" : {
-            "$ref" : "#/components/schemas/StopSnapshotResponse"
+      "IntelligenceResponse": {
+        "type": "object",
+        "properties": {
+          "stop": {
+            "$ref": "#/components/schemas/StopSnapshotResponse"
           },
-          "thesis" : {
-            "$ref" : "#/components/schemas/ThesisResponse"
+          "thesis": {
+            "$ref": "#/components/schemas/ThesisResponse"
           },
-          "valuation" : {
-            "$ref" : "#/components/schemas/ValuationResponse"
+          "valuation": {
+            "$ref": "#/components/schemas/ValuationResponse"
           },
-          "earnings" : {
-            "$ref" : "#/components/schemas/EarningsResponse"
+          "earnings": {
+            "$ref": "#/components/schemas/EarningsResponse"
           },
-          "journal" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/JournalResponse"
+          "journal": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JournalResponse"
             }
           }
         }
       },
-      "StopSnapshotResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
+      "StopSnapshotResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "entryPrice" : {
-            "type" : "string"
+          "entryPrice": {
+            "type": "string"
           },
-          "atr" : {
-            "type" : "string"
+          "atr": {
+            "type": "string"
           },
-          "initialStop" : {
-            "type" : "string"
+          "initialStop": {
+            "type": "string"
           },
-          "liveStop" : {
-            "type" : "string"
+          "liveStop": {
+            "type": "string"
           },
-          "softAlert" : {
-            "type" : "string"
+          "softAlert": {
+            "type": "string"
           },
-          "catastrophicStop" : {
-            "type" : "string"
+          "catastrophicStop": {
+            "type": "string"
           },
-          "closeConfirmed" : {
-            "type" : "boolean"
+          "closeConfirmed": {
+            "type": "boolean"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "qualityStatus" : {
-            "type" : "string"
+          "qualityStatus": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "ValuationResponse" : {
-        "type" : "object",
-        "properties" : {
-          "fundamentalHealth" : {
-            "type" : "string"
+      "ValuationResponse": {
+        "type": "object",
+        "properties": {
+          "fundamentalHealth": {
+            "type": "string"
           },
-          "valuationDiscount" : {
-            "type" : "boolean"
+          "valuationDiscount": {
+            "type": "boolean"
           },
-          "earningsRevisions" : {
-            "type" : "string"
+          "earningsRevisions": {
+            "type": "string"
           },
-          "priceStabilization" : {
-            "type" : "string"
+          "priceStabilization": {
+            "type": "string"
           },
-          "portfolioCapacity" : {
-            "type" : "boolean"
+          "portfolioCapacity": {
+            "type": "boolean"
           },
-          "discountTacticalWeight" : {
-            "type" : "string"
+          "discountTacticalWeight": {
+            "type": "string"
           },
-          "action" : {
-            "type" : "string"
+          "action": {
+            "type": "string"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "validUntil" : {
-            "type" : "string",
-            "format" : "date-time"
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "ClassificationSuggestionResponse" : {
-        "type" : "object",
-        "properties" : {
-          "classification" : {
-            "type" : "string"
+      "ClassificationSuggestionResponse": {
+        "type": "object",
+        "properties": {
+          "classification": {
+            "type": "string"
           },
-          "blocked" : {
-            "type" : "boolean"
+          "blocked": {
+            "type": "boolean"
           },
-          "reason" : {
-            "type" : "string"
+          "reason": {
+            "type": "string"
           },
-          "confirmationRequired" : {
-            "type" : "boolean"
+          "confirmationRequired": {
+            "type": "boolean"
           }
         }
       },
-      "PortfolioSummaryResponse" : {
-        "type" : "object",
-        "properties" : {
-          "investedValue" : {
-            "type" : "string"
+      "PortfolioSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "investedValue": {
+            "type": "string"
           },
-          "trackedCash" : {
-            "type" : "string"
+          "trackedCash": {
+            "type": "string"
           },
-          "openPositions" : {
-            "type" : "integer",
-            "format" : "int64"
+          "openPositions": {
+            "type": "integer",
+            "format": "int64"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "DrawdownResponse" : {
-        "type" : "object",
-        "properties" : {
-          "strategyVersion" : {
-            "type" : "string"
+      "DrawdownResponse": {
+        "type": "object",
+        "properties": {
+          "strategyVersion": {
+            "type": "string"
           },
-          "currentEquity" : {
-            "type" : "string"
+          "currentEquity": {
+            "type": "string"
           },
-          "highWaterMark" : {
-            "type" : "string"
+          "highWaterMark": {
+            "type": "string"
           },
-          "drawdownFraction" : {
-            "type" : "string"
+          "drawdownFraction": {
+            "type": "string"
           },
-          "drawdownPercent" : {
-            "type" : "string"
+          "drawdownPercent": {
+            "type": "string"
           },
-          "state" : {
-            "type" : "string"
+          "state": {
+            "type": "string"
           },
-          "sourceClassification" : {
-            "type" : "string"
+          "sourceClassification": {
+            "type": "string"
           },
-          "marketDriven" : {
-            "type" : "boolean"
+          "marketDriven": {
+            "type": "boolean"
           },
-          "spyReturnFromPeak" : {
-            "type" : "string"
+          "spyReturnFromPeak": {
+            "type": "string"
           },
-          "qqqReturnFromPeak" : {
-            "type" : "string"
+          "qqqReturnFromPeak": {
+            "type": "string"
           },
-          "spyDrawdownPercent" : {
-            "type" : "string"
+          "spyDrawdownPercent": {
+            "type": "string"
           },
-          "qqqDrawdownPercent" : {
-            "type" : "string"
+          "qqqDrawdownPercent": {
+            "type": "string"
           },
-          "breadth50" : {
-            "type" : "string"
+          "breadth50": {
+            "type": "string"
           },
-          "stressLevel" : {
-            "type" : "string"
+          "stressLevel": {
+            "type": "string"
           },
-          "positionAttributionJson" : {
-            "type" : "string"
+          "positionAttributionJson": {
+            "type": "string"
           },
-          "clusterAttributionJson" : {
-            "type" : "string"
+          "clusterAttributionJson": {
+            "type": "string"
           },
-          "confidence" : {
-            "type" : "string"
+          "confidence": {
+            "type": "string"
           },
-          "qualityStatus" : {
-            "type" : "string"
+          "qualityStatus": {
+            "type": "string"
           },
-          "narrativesJson" : {
-            "type" : "string"
+          "narrativesJson": {
+            "type": "string"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "SnapshotEnvelopeDrawdownResponse" : {
-        "type" : "object",
-        "properties" : {
-          "status" : {
-            "type" : "string"
+      "SnapshotEnvelopeDrawdownResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
           },
-          "snapshot" : {
-            "$ref" : "#/components/schemas/DrawdownResponse"
+          "snapshot": {
+            "$ref": "#/components/schemas/DrawdownResponse"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "RegimeResponse" : {
-        "type" : "object",
-        "properties" : {
-          "strategyVersion" : {
-            "type" : "string"
+      "RegimeResponse": {
+        "type": "object",
+        "properties": {
+          "strategyVersion": {
+            "type": "string"
           },
-          "label" : {
-            "type" : "string"
+          "label": {
+            "type": "string"
           },
-          "score" : {
-            "type" : "number",
-            "format" : "double"
+          "score": {
+            "type": "number",
+            "format": "double"
           },
-          "trendScore" : {
-            "type" : "number",
-            "format" : "double"
+          "trendScore": {
+            "type": "number",
+            "format": "double"
           },
-          "momentumScore" : {
-            "type" : "number",
-            "format" : "double"
+          "momentumScore": {
+            "type": "number",
+            "format": "double"
           },
-          "breadthScore" : {
-            "type" : "number",
-            "format" : "double"
+          "breadthScore": {
+            "type": "number",
+            "format": "double"
           },
-          "stressScore" : {
-            "type" : "number",
-            "format" : "double"
+          "stressScore": {
+            "type": "number",
+            "format": "double"
           },
-          "confidence" : {
-            "type" : "string"
+          "confidence": {
+            "type": "string"
           },
-          "tacticalCapFivePercent" : {
-            "type" : "boolean"
+          "tacticalCapFivePercent": {
+            "type": "boolean"
           },
-          "qualityStatus" : {
-            "type" : "string"
+          "qualityStatus": {
+            "type": "string"
           },
-          "narrativesJson" : {
-            "type" : "string"
+          "narrativesJson": {
+            "type": "string"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "SnapshotEnvelopeRegimeResponse" : {
-        "type" : "object",
-        "properties" : {
-          "status" : {
-            "type" : "string"
+      "SnapshotEnvelopeRegimeResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
           },
-          "snapshot" : {
-            "$ref" : "#/components/schemas/RegimeResponse"
+          "snapshot": {
+            "$ref": "#/components/schemas/RegimeResponse"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "DataHealthResponse" : {
-        "type" : "object",
-        "properties" : {
-          "status" : {
-            "type" : "string"
+      "DataHealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
           },
-          "activeInstruments" : {
-            "type" : "integer",
-            "format" : "int64"
+          "activeInstruments": {
+            "type": "integer",
+            "format": "int64"
           },
-          "priceBars" : {
-            "type" : "integer",
-            "format" : "int64"
+          "priceBars": {
+            "type": "integer",
+            "format": "int64"
           },
-          "indicatorSnapshots" : {
-            "type" : "integer",
-            "format" : "int64"
+          "indicatorSnapshots": {
+            "type": "integer",
+            "format": "int64"
           },
-          "openQualityEvents" : {
-            "type" : "integer",
-            "format" : "int64"
+          "openQualityEvents": {
+            "type": "integer",
+            "format": "int64"
           },
-          "staleObservations" : {
-            "type" : "integer",
-            "format" : "int64"
+          "staleObservations": {
+            "type": "integer",
+            "format": "int64"
           },
-          "partialObservations" : {
-            "type" : "integer",
-            "format" : "int64"
+          "partialObservations": {
+            "type": "integer",
+            "format": "int64"
           },
-          "suspectObservations" : {
-            "type" : "integer",
-            "format" : "int64"
+          "suspectObservations": {
+            "type": "integer",
+            "format": "int64"
           },
-          "latestPriceDataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "latestPriceDataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "latestIndicatorDataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "latestIndicatorDataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "InstrumentPage" : {
-        "type" : "object",
-        "properties" : {
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/InstrumentResponse"
+      "InstrumentPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InstrumentResponse"
             }
           },
-          "nextCursor" : {
-            "type" : "string"
+          "nextCursor": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "InstrumentResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string"
+      "InstrumentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
           },
-          "symbol" : {
-            "type" : "string"
+          "symbol": {
+            "type": "string"
           },
-          "exchange" : {
-            "type" : "string"
+          "exchange": {
+            "type": "string"
           },
-          "assetType" : {
-            "type" : "string"
+          "assetType": {
+            "type": "string"
           },
-          "currency" : {
-            "type" : "string"
+          "currency": {
+            "type": "string"
           },
-          "cik" : {
-            "type" : "string"
+          "cik": {
+            "type": "string"
           },
-          "active" : {
-            "type" : "boolean"
+          "active": {
+            "type": "boolean"
           }
         }
       },
-      "IndicatorResponse" : {
-        "type" : "object",
-        "properties" : {
-          "marketDate" : {
-            "type" : "string",
-            "format" : "date"
+      "IndicatorResponse": {
+        "type": "object",
+        "properties": {
+          "marketDate": {
+            "type": "string",
+            "format": "date"
           },
-          "indicatorCode" : {
-            "type" : "string"
+          "indicatorCode": {
+            "type": "string"
           },
-          "status" : {
-            "type" : "string"
+          "status": {
+            "type": "string"
           },
-          "value" : {
-            "type" : "number",
-            "format" : "double"
+          "value": {
+            "type": "number",
+            "format": "double"
           },
-          "valuesJson" : {
-            "type" : "string"
+          "valuesJson": {
+            "type": "string"
           },
-          "requiredObservations" : {
-            "type" : "integer",
-            "format" : "int32"
+          "requiredObservations": {
+            "type": "integer",
+            "format": "int32"
           },
-          "actualObservations" : {
-            "type" : "integer",
-            "format" : "int32"
+          "actualObservations": {
+            "type": "integer",
+            "format": "int32"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "MarketSeriesIndicatorResponse" : {
-        "type" : "object",
-        "properties" : {
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/IndicatorResponse"
+      "MarketSeriesIndicatorResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IndicatorResponse"
             }
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "FundamentalResponse" : {
-        "type" : "object",
-        "properties" : {
-          "metricCode" : {
-            "type" : "string"
+      "FundamentalResponse": {
+        "type": "object",
+        "properties": {
+          "metricCode": {
+            "type": "string"
           },
-          "periodType" : {
-            "type" : "string"
+          "periodType": {
+            "type": "string"
           },
-          "periodEnd" : {
-            "type" : "string",
-            "format" : "date"
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
           },
-          "filingDate" : {
-            "type" : "string",
-            "format" : "date"
+          "filingDate": {
+            "type": "string",
+            "format": "date"
           },
-          "value" : {
-            "type" : "string"
+          "value": {
+            "type": "string"
           },
-          "text" : {
-            "type" : "string"
+          "text": {
+            "type": "string"
           },
-          "unit" : {
-            "type" : "string"
+          "unit": {
+            "type": "string"
           },
-          "currency" : {
-            "type" : "string"
+          "currency": {
+            "type": "string"
           },
-          "provider" : {
-            "type" : "string"
+          "provider": {
+            "type": "string"
           },
-          "qualityStatus" : {
-            "type" : "string"
+          "qualityStatus": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "MarketSeriesFundamentalResponse" : {
-        "type" : "object",
-        "properties" : {
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/FundamentalResponse"
+      "MarketSeriesFundamentalResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FundamentalResponse"
             }
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "MarketSeriesPriceBarResponse" : {
-        "type" : "object",
-        "properties" : {
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PriceBarResponse"
+      "MarketSeriesPriceBarResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceBarResponse"
             }
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "PriceBarResponse" : {
-        "type" : "object",
-        "properties" : {
-          "marketDate" : {
-            "type" : "string",
-            "format" : "date"
+      "PriceBarResponse": {
+        "type": "object",
+        "properties": {
+          "marketDate": {
+            "type": "string",
+            "format": "date"
           },
-          "open" : {
-            "type" : "string"
+          "open": {
+            "type": "string"
           },
-          "high" : {
-            "type" : "string"
+          "high": {
+            "type": "string"
           },
-          "low" : {
-            "type" : "string"
+          "low": {
+            "type": "string"
           },
-          "close" : {
-            "type" : "string"
+          "close": {
+            "type": "string"
           },
-          "volume" : {
-            "type" : "string"
+          "volume": {
+            "type": "string"
           },
-          "adjusted" : {
-            "type" : "boolean"
+          "adjusted": {
+            "type": "boolean"
           },
-          "provider" : {
-            "type" : "string"
+          "provider": {
+            "type": "string"
           },
-          "qualityStatus" : {
-            "type" : "string"
+          "qualityStatus": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "HoldingAnalysisResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
+      "HoldingAnalysisResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "positionId" : {
-            "type" : "string",
-            "format" : "uuid"
+          "positionId": {
+            "type": "string",
+            "format": "uuid"
           },
-          "symbol" : {
-            "type" : "string"
+          "symbol": {
+            "type": "string"
           },
-          "analysisStatus" : {
-            "type" : "string"
+          "analysisStatus": {
+            "type": "string"
           },
-          "confidence" : {
-            "type" : "string"
+          "confidence": {
+            "type": "string"
           },
-          "currentWeight" : {
-            "type" : "string"
+          "currentWeight": {
+            "type": "string"
           },
-          "targetWeightMin" : {
-            "type" : "string"
+          "targetWeightMin": {
+            "type": "string"
           },
-          "targetWeightMax" : {
-            "type" : "string"
+          "targetWeightMax": {
+            "type": "string"
           },
-          "exactQuantityAllowed" : {
-            "type" : "boolean"
+          "exactQuantityAllowed": {
+            "type": "boolean"
           },
-          "reasonsJson" : {
-            "type" : "string"
+          "reasonsJson": {
+            "type": "string"
           },
-          "risksJson" : {
-            "type" : "string"
+          "risksJson": {
+            "type": "string"
           },
-          "changeConditionsJson" : {
-            "type" : "string"
+          "changeConditionsJson": {
+            "type": "string"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "validUntil" : {
-            "type" : "string",
-            "format" : "date-time"
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "DipStatusEnvelope" : {
-        "type" : "object",
-        "properties" : {
-          "status" : {
-            "type" : "string"
+      "DipStatusEnvelope": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
           },
-          "event" : {
-            "$ref" : "#/components/schemas/DipStatusResponse"
+          "event": {
+            "$ref": "#/components/schemas/DipStatusResponse"
           }
         }
       },
-      "DipStatusResponse" : {
-        "type" : "object",
-        "properties" : {
-          "symbol" : {
-            "type" : "string"
+      "DipStatusResponse": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "status" : {
-            "type" : "string"
+          "status": {
+            "type": "string"
           },
-          "setupScore" : {
-            "type" : "number",
-            "format" : "double"
+          "setupScore": {
+            "type": "number",
+            "format": "double"
           },
-          "triggerCount" : {
-            "type" : "integer",
-            "format" : "int32"
+          "triggerCount": {
+            "type": "integer",
+            "format": "int32"
           },
-          "portfolioDrawdown" : {
-            "type" : "string"
+          "portfolioDrawdown": {
+            "type": "string"
           },
-          "marketDriven" : {
-            "type" : "boolean"
+          "marketDriven": {
+            "type": "boolean"
           },
-          "emergencyCashProtected" : {
-            "type" : "boolean"
+          "emergencyCashProtected": {
+            "type": "boolean"
           },
-          "ruleIdsJson" : {
-            "type" : "string"
+          "ruleIdsJson": {
+            "type": "string"
           },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
           },
-          "validUntil" : {
-            "type" : "string",
-            "format" : "date-time"
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
-      "Metric" : {
-        "type" : "object",
-        "properties" : {
-          "name" : {
-            "type" : "string"
+      "Metric": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
           },
-          "value" : {
-            "type" : "number",
-            "format" : "double"
+          "value": {
+            "type": "number",
+            "format": "double"
           },
-          "sampleCount" : {
-            "type" : "integer",
-            "format" : "int64"
+          "sampleCount": {
+            "type": "integer",
+            "format": "int64"
           },
-          "sleeve" : {
-            "type" : "string"
+          "sleeve": {
+            "type": "string"
           },
-          "horizonDays" : {
-            "type" : "integer",
-            "format" : "int32"
+          "horizonDays": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
-      "RunView" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
+      "RunView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "strategyVersion" : {
-            "type" : "string"
+          "strategyVersion": {
+            "type": "string"
           },
-          "periodStart" : {
-            "type" : "string",
-            "format" : "date"
+          "periodStart": {
+            "type": "string",
+            "format": "date"
           },
-          "periodEnd" : {
-            "type" : "string",
-            "format" : "date"
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
           },
-          "trainingThrough" : {
-            "type" : "string",
-            "format" : "date"
+          "trainingThrough": {
+            "type": "string",
+            "format": "date"
           },
-          "outOfSampleFrom" : {
-            "type" : "string",
-            "format" : "date"
+          "outOfSampleFrom": {
+            "type": "string",
+            "format": "date"
           },
-          "status" : {
-            "type" : "string"
+          "status": {
+            "type": "string"
           },
-          "biasStatus" : {
-            "type" : "string"
+          "biasStatus": {
+            "type": "string"
           },
-          "summaryJson" : {
-            "type" : "string"
+          "summaryJson": {
+            "type": "string"
           },
-          "completedAt" : {
-            "type" : "string",
-            "format" : "date-time"
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
           },
-          "metrics" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Metric"
-            }
-          }
-        }
-      },
-      "SessionResponse" : {
-        "type" : "object",
-        "properties" : {
-          "authenticated" : {
-            "type" : "boolean"
-          },
-          "username" : {
-            "type" : "string"
-          }
-        }
-      },
-      "CsrfResponse" : {
-        "type" : "object",
-        "properties" : {
-          "headerName" : {
-            "type" : "string"
-          },
-          "parameterName" : {
-            "type" : "string"
-          },
-          "token" : {
-            "type" : "string"
-          }
-        }
-      },
-      "RecommendationResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "positionId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "symbol" : {
-            "type" : "string"
-          },
-          "action" : {
-            "type" : "string"
-          },
-          "priority" : {
-            "type" : "string"
-          },
-          "quantityMin" : {
-            "type" : "string"
-          },
-          "quantityMax" : {
-            "type" : "string"
-          },
-          "targetWeightMin" : {
-            "type" : "string"
-          },
-          "targetWeightMax" : {
-            "type" : "string"
-          },
-          "riskBeforeFraction" : {
-            "type" : "string"
-          },
-          "riskAfterFraction" : {
-            "type" : "string"
-          },
-          "confidence" : {
-            "type" : "string"
-          },
-          "reasonsJson" : {
-            "type" : "string"
-          },
-          "risksJson" : {
-            "type" : "string"
-          },
-          "changeConditionsJson" : {
-            "type" : "string"
-          },
-          "ruleIdsJson" : {
-            "type" : "string"
-          },
-          "strategyVersion" : {
-            "type" : "string"
-          },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "validUntil" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "TodayActionsResponse" : {
-        "type" : "object",
-        "properties" : {
-          "mustAct" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/RecommendationResponse"
-            }
-          },
-          "doNot" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/RecommendationResponse"
-            }
-          },
-          "watch" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/RecommendationResponse"
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Metric"
             }
           }
         }
       },
-      "AccountView" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "authenticated": {
+            "type": "boolean"
           },
-          "institution" : {
-            "type" : "string"
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "CsrfResponse": {
+        "type": "object",
+        "properties": {
+          "headerName": {
+            "type": "string"
           },
-          "accountType" : {
-            "type" : "string"
+          "parameterName": {
+            "type": "string"
           },
-          "displayName" : {
-            "type" : "string"
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "RecommendationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "currency" : {
-            "type" : "string"
+          "positionId": {
+            "type": "string",
+            "format": "uuid"
           },
-          "active" : {
-            "type" : "boolean"
+          "symbol": {
+            "type": "string"
           },
-          "version" : {
-            "type" : "integer",
-            "format" : "int64"
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "quantityMin": {
+            "type": "string"
+          },
+          "quantityMax": {
+            "type": "string"
+          },
+          "targetWeightMin": {
+            "type": "string"
+          },
+          "targetWeightMax": {
+            "type": "string"
+          },
+          "riskBeforeFraction": {
+            "type": "string"
+          },
+          "riskAfterFraction": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "reasonsJson": {
+            "type": "string"
+          },
+          "risksJson": {
+            "type": "string"
+          },
+          "changeConditionsJson": {
+            "type": "string"
+          },
+          "ruleIdsJson": {
+            "type": "string"
+          },
+          "strategyVersion": {
+            "type": "string"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TodayActionsResponse": {
+        "type": "object",
+        "properties": {
+          "mustAct": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendationResponse"
+            }
+          },
+          "doNot": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendationResponse"
+            }
+          },
+          "watch": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendationResponse"
+            }
+          }
+        }
+      },
+      "AccountView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "institution": {
+            "type": "string"
+          },
+          "accountType": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       }

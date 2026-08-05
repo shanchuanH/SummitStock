@@ -42,6 +42,8 @@ services:
       dockerfile: infra/docker/backend.Dockerfile
     environment:
       PORTFOLIO_RUNTIME_MODE: api
+      SPRING_PROFILES_ACTIVE: local-fixture
+      PORTFOLIO_PROVIDER_MODE: fake
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-portfolio}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
       SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER:-portfolio_app}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD:-change-local-app-password}
@@ -60,6 +62,8 @@ services:
       dockerfile: infra/docker/backend.Dockerfile
     environment:
       PORTFOLIO_RUNTIME_MODE: worker
+      SPRING_PROFILES_ACTIVE: local-fixture
+      PORTFOLIO_PROVIDER_MODE: fake
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-portfolio}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
       SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER:-portfolio_app}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD:-change-local-app-password}
@@ -77,6 +81,8 @@ services:
       dockerfile: infra/docker/backend.Dockerfile
     environment:
       PORTFOLIO_RUNTIME_MODE: migration
+      SPRING_PROFILES_ACTIVE: local-fixture
+      PORTFOLIO_PROVIDER_MODE: fake
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-portfolio}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
       SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER:-portfolio_app}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD:-change-local-app-password}

@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PortfolioPage } from "./portfolio-page";
 
@@ -88,37 +87,48 @@ describe("PortfolioPage", () => {
     expect(screen.getAllByText(/REVIEW|TRIM|CHECK/)).toHaveLength(3);
   });
 
-  it("does not infer quality for DXYZ", async () => {
+  it("does not expose a free-form classification action", async () => {
     mockPrivateData();
     renderPage();
-    const button = await screen.findByRole("button", {
-      name: "Suggest classification",
-    });
-    const form = button.closest("form");
-    if (form === null) throw new Error("Classification form not found");
-    fireEvent.submit(form);
-    expect(await screen.findAllByText("UNKNOWN")).toHaveLength(2);
-    expect(screen.getByText(/cannot be inferred/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/migrated to server-side/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Suggest classification" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Symbol")).not.toBeInTheDocument();
   });
 
-  it("shows stale evidence without a precise quantity", async () => {
+  it("does not expose the hard-coded stale-data trade preview", async () => {
     mockPrivateData();
-    post.mockImplementation(() =>
-      ok({
-        allowed: true,
-        preciseQuantityAllowed: false,
-        confidence: "LOW",
-        ruleIds: ["DATA.STALE.002"],
-      }),
-    );
     renderPage();
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Preview stale-data plan" }),
-    );
+    await screen.findByText(/not currently available/i);
     expect(
-      await screen.findByText(/Exact quantity unavailable/),
+      screen.queryByRole("button", { name: "Preview stale-data plan" }),
+    ).not.toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("does not claim no urgent action without an explicit ready state", async () => {
+    mockPrivateData();
+    get.mockImplementation((path: string) => {
+      if (path.endsWith("/summary"))
+        return ok({
+          investedValue: "5000.125",
+          trackedCash: "2500.12",
+          openPositions: 1,
+          dataAsOf: "2026-08-05T00:00:00Z",
+        });
+      if (path.endsWith("/positions")) return ok([]);
+      if (path.endsWith("/today"))
+        return ok({ mustAct: [], doNot: [], watch: [] });
+      throw new Error(`Unexpected GET ${path}`);
+    });
+    renderPage();
+    expect(
+      await screen.findByText(/Analysis readiness has not been confirmed/i),
     ).toBeInTheDocument();
-    expect(screen.getByText("DATA.STALE.002")).toBeInTheDocument();
+    expect(screen.queryByText("NO URGENT ACTION")).not.toBeInTheDocument();
   });
 
   it("uses an explicit authentication-required state", async () => {

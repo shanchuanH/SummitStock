@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"default", "local", "test"})
+@Profile({"local-fixture", "test"})
 public class FakeSecFundamentalsProvider implements FundamentalsProvider {
     private final Clock clock = Clock.systemUTC();
 

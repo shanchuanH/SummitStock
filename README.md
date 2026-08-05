@@ -21,11 +21,11 @@ pnpm dev
 
 The API runs at `http://localhost:8080`; the SPA runs at `http://localhost:4173`. The default development login is documented in `.env.example` and must not be used outside local development.
 
-The read-only market inspection page is available at `http://localhost:4173/market-data`. The default fake EOD and SEC/IR adapters provide deterministic local fixtures and are replaceable at the provider interfaces.
+The read-only market inspection page is available at `http://localhost:4173/market-data`. Deterministic fake EOD and SEC/IR adapters are available only under the explicit `local-fixture` and `test` profiles. The default provider mode is disabled, and a non-fixture runtime refuses to start with disabled or fake providers.
 
 Regime, drawdown source, and data-quality gates are shown at `http://localhost:4173/market-context`. Private portfolio drawdown requires authentication; missing snapshots remain explicit `EMPTY` / `WAIT_FOR_DATA` states.
 
-The authenticated portfolio workspace is available at `http://localhost:4173/portfolio`. It shows summary, positions, capped Today Actions, a confirmation-based classifier, and server-evaluated trade-plan previews.
+The authenticated portfolio workspace is available at `http://localhost:4173/portfolio`. It shows summary, positions, and capped Today Actions. Classification and trade-plan controls remain unavailable until they are backed by selected-position, server-side calculations.
 
 Position links open `http://localhost:4173/positions/{positionId}` for server-owned stop, thesis, valuation, earnings, chart-marker, tax, and journal evidence.
 
@@ -71,4 +71,4 @@ OpenAPI is exported from a real Spring context backed by a disposable MySQL 8.4 
 
 ## Safety boundary
 
-The system is manual-execution only. Unvested compensation is non-liquid and non-tradable. Emergency cash is not deployable capital. “NO URGENT ACTION” is a normal outcome.
+The system is manual-execution only. Unvested compensation is non-liquid and non-tradable. Emergency cash is not deployable capital. “NO URGENT ACTION” may be shown only after the backend explicitly confirms analysis readiness; missing, loading, empty, unauthenticated, and failed states never imply that conclusion.

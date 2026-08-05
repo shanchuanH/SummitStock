@@ -32,6 +32,7 @@ describe("Packet 07 workspace", () => {
       .mockResolvedValueOnce(
         await ok({ authenticated: true, username: "owner@example.local" }),
       )
+      .mockResolvedValueOnce(await ok({ openPositions: 4 }))
       .mockResolvedValueOnce(
         await ok({
           mustAct: [1, 2, 3, 4].map((n) => ({
@@ -89,9 +90,7 @@ describe("Packet 07 workspace", () => {
         ? ok({
             authenticated: fetchMock.mock.calls.length >= 2,
             username:
-              fetchMock.mock.calls.length >= 2
-                ? "admin@example.local"
-                : null,
+              fetchMock.mock.calls.length >= 2 ? "admin@example.local" : null,
           })
         : ok({
             headerName: "X-CSRF-TOKEN",
@@ -102,7 +101,10 @@ describe("Packet 07 workspace", () => {
 
     renderPage(<SettingsPage />);
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Email"), "admin@example.local");
+    await user.type(
+      await screen.findByLabelText("Email"),
+      "admin@example.local",
+    );
     await user.type(screen.getByLabelText("Password"), "change-before-use");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
 

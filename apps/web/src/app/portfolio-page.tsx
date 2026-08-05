@@ -1,7 +1,6 @@
 import { api, type components } from "@portfolio/api-client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, CheckCircle2, ShieldX } from "lucide-react";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
 
 async function requireData<T>(
   request: Promise<{ data?: T; error?: unknown; response: Response }>,
@@ -14,12 +13,7 @@ async function requireData<T>(
   return data;
 }
 
-type Suggestion = components["schemas"]["ClassificationSuggestionResponse"];
-
 export function PortfolioPage() {
-  const queryClient = useQueryClient();
-  const [symbol, setSymbol] = useState("DXYZ");
-  const [suggestion, setSuggestion] = useState<Suggestion>();
   const summary = useQuery({
     queryKey: ["portfolio-summary"],
     queryFn: () => requireData(api.GET("/api/v1/portfolio/summary")),
@@ -34,71 +28,6 @@ export function PortfolioPage() {
     queryKey: ["today-actions"],
     queryFn: () => requireData(api.GET("/api/v1/actions/today")),
     retry: false,
-  });
-
-  const classify = useMutation({
-    mutationFn: async () => {
-      const result = await requireData(
-        api.GET("/api/v1/positions/classification-suggestion", {
-          params: {
-            query: {
-              symbol,
-              assetType: "EQUITY",
-              thematic: false,
-              unvestedCompensation: false,
-            },
-          },
-        }),
-      );
-      setSuggestion(result);
-      return result;
-    },
-  });
-
-  const confirm = useMutation({
-    mutationFn: async () => {
-      const position = positions.data?.[0];
-      if (!position?.id || !suggestion?.classification)
-        throw new Error(
-          "A position and classification suggestion are required",
-        );
-      const csrf = await requireData(api.GET("/api/v1/auth/csrf", {}));
-      await requireData(
-        api.POST("/api/v1/positions/{id}/classify", {
-          params: { path: { id: position.id } },
-          headers: { [csrf.headerName ?? "X-CSRF-TOKEN"]: csrf.token ?? "" },
-          body: {
-            classification: suggestion.classification,
-            expectedVersion: position.version ?? 0,
-          },
-        }),
-      );
-      await queryClient.invalidateQueries({ queryKey: ["positions"] });
-    },
-  });
-
-  const preview = useMutation({
-    mutationFn: async () => {
-      const csrf = await requireData(api.GET("/api/v1/auth/csrf", {}));
-      return requireData(
-        api.POST("/api/v1/trade-plans/preview", {
-          headers: { [csrf.headerName ?? "X-CSRF-TOKEN"]: csrf.token ?? "" },
-          body: {
-            classification: "QUALITY_STOCK",
-            classificationConfirmed: true,
-            currentWeight: 0.08,
-            projectedWeight: 0.09,
-            proposedTradeRisk: 0.002,
-            currentOpenStockRisk: 0.005,
-            currentClusterRisk: 0.002,
-            averagingDown: false,
-            thesisImproving: false,
-            anchoredToCostBasis: false,
-            quality: "STALE",
-          },
-        }),
-      );
-    },
   });
 
   if (summary.isError || positions.isError || actions.isError) {
@@ -187,81 +116,19 @@ export function PortfolioPage() {
             actions.data.doNot?.length ||
             actions.data.watch?.length
           ) ? (
-            <p className="empty">NO URGENT ACTION</p>
+            <p className="empty">
+              Analysis readiness has not been confirmed. No action conclusion is
+              available yet.
+            </p>
           ) : null}
         </article>
         <article className="context-card">
-          <p className="eyebrow">CLASSIFICATION ASSISTANT</p>
-          <form
-            className="compact-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              classify.mutate();
-            }}
-          >
-            <label>
-              Symbol
-              <input
-                value={symbol}
-                onChange={(event) => {
-                  setSymbol(event.target.value);
-                }}
-              />
-            </label>
-            <button type="submit">Suggest classification</button>
-          </form>
-          {suggestion ? (
-            <div className="policy-result">
-              <strong>{suggestion.classification}</strong>
-              <span>{suggestion.reason}</span>
-              <small>User confirmation is always required.</small>
-              {suggestion.classification !== "UNKNOWN" ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    confirm.mutate();
-                  }}
-                >
-                  Confirm for first position
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </article>
-        <article className="context-card">
-          <p className="eyebrow">TRADE PLAN BUILDER</p>
+          <p className="eyebrow">CLASSIFICATION AND TRADE PLANS</p>
           <p className="quality-policy">
-            Preview a Quality Stock plan against hard weight, trade, total,
-            cluster, cooling, and evidence gates.
+            This functionality is being migrated to server-side calculations
+            based on the selected position and the real portfolio. It is not
+            currently available.
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              preview.mutate();
-            }}
-          >
-            Preview stale-data plan
-          </button>
-          {preview.data ? (
-            <div className="policy-result" role="status">
-              {preview.data.allowed ? (
-                <CheckCircle2 aria-hidden="true" />
-              ) : (
-                <ShieldX aria-hidden="true" />
-              )}
-              <strong>
-                {preview.data.allowed ? "RISK LIMITS PASS" : "BLOCKED"}
-              </strong>
-              <span>Confidence: {preview.data.confidence}</span>
-              {!preview.data.preciseQuantityAllowed ? (
-                <span className="precision-block">
-                  <AlertTriangle aria-hidden="true" /> Exact quantity
-                  unavailable until evidence is healthy.
-                </span>
-              ) : null}
-              <small>{preview.data.ruleIds?.join(" · ")}</small>
-            </div>
-          ) : null}
         </article>
       </section>
       <footer>

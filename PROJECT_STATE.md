@@ -1,8 +1,10 @@
 # PROJECT_STATE
 
-## Current Packet
+## Current Phase
 
-Packet 08 completed on 2026-08-05. The ordered Packet sequence is complete.
+Rescue Phase 0 completed on 2026-08-05 from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`. Phases 1–7 remain pending and must be implemented in order.
+
+Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
 ## Completed Packets
 
@@ -43,7 +45,7 @@ Packet 08 completed on 2026-08-05. The ordered Packet sequence is complete.
 - Quant results use explicit `READY`, `WARMING_UP`, `MISSING_DATA`, and `INVALID_DATA` states
 - Regime uses fixed Trend/Momentum/Breadth/Stress weights with documented hard overrides
 - Drawdown uses high-water marks and 8/10/12/15/20 control states with market/position/mixed source classification
-- Holding classifications require explicit confirmation; Core and Tactical overlays may coexist per ticker
+- Holding classifications require explicit server-side position selection and confirmation; the incomplete browser classifier is disabled during the rescue implementation
 - Hard position, per-trade, total-stock, cluster, cooling-period, averaging, anchoring, and evidence-quality gates run in pure Java
 - Individual-stock stops are EOD, structure/ATR based, monotonic, and separated into soft/close-confirmed/catastrophic levels; Core ETFs are exempt
 - Thesis state is structured, source-backed, expiring, and user-confirmed; Quality Discount and earnings policies are classification aware
@@ -82,8 +84,9 @@ Packet 08 completed on 2026-08-05. The ordered Packet sequence is complete.
 
 ## Providers
 
-- Default local/test EOD adapter: deterministic fake implementation
-- Default local/test filing/facts adapter: deterministic fake SEC/IR implementation
+- Explicit `local-fixture`/`test` EOD adapter: deterministic fake implementation
+- Explicit `local-fixture`/`test` filing/facts adapter: deterministic fake SEC/IR implementation
+- Default mode: `disabled`; non-fixture runtimes fail closed when configured with disabled or fake providers
 - Provider calls use bounded retry, rate limiting, durable attempt status, source timestamps, checksums, freshness, normalization versions, and quality status
 - Fidelity remains a future read-only/manual boundary
 
@@ -118,11 +121,11 @@ Packet 08 completed on 2026-08-05. The ordered Packet sequence is complete.
 - Local development credentials are placeholders and must be replaced outside localhost.
 - Local runtime starts with seeded SPY/QQQ instruments but no fetched observations, so data health correctly reports `EMPTY` until ingestion runs.
 - Local runtime has no synthesized regime/drawdown rows; the context API correctly reports `EMPTY` until evidence calculation runs.
-- The default provider is a deterministic fake; production EOD and SEC/IR credentials/adapters are not selected.
+- Production EOD and SEC/IR credentials/adapters are not implemented; non-fixture startup therefore remains intentionally blocked until a production provider is selected.
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `1.0.0-draft` remains unpublished and local credentials remain placeholders.
 
 ## Next Step
 
-Packet implementation is complete. Production onboarding requires real read-only provider selection, non-placeholder secrets, initial portfolio import, verified TLS/Secure cookies, and an operator-approved release using the included runbooks.
+Implement Rescue Phase 1: the unified `PortfolioAnalysisState`, `GET /api/v1/brief/today`, and a Dashboard that renders only the backend-owned readiness contract.

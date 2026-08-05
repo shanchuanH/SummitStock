@@ -1,9 +1,11 @@
 package com.example.portfolio;
 
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
 
+@ActiveProfiles("test")
 public abstract class MySqlIntegrationTest {
     private static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("portfolio_test")

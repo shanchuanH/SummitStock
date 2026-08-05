@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"default", "local", "test"})
+@Profile({"local-fixture", "test"})
 public class FakeEodMarketDataProvider implements MarketDataProvider {
     private final Clock clock;
     private final FailureMode failureMode;
