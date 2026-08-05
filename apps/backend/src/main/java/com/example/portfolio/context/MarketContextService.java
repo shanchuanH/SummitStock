@@ -1,0 +1,113 @@
+package com.example.portfolio.context;
+
+import com.example.portfolio.configuration.PortfolioProperties;
+import com.example.portfolio.context.MarketContextStore.DrawdownWrite;
+import com.example.portfolio.context.MarketContextStore.RegimeWrite;
+import com.example.portfolio.strategy.market.DrawdownEngine;
+import com.example.portfolio.strategy.market.MarketRegimeEngine;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+
+@Service
+public class MarketContextService {
+    private final MarketContextStore store;
+    private final PortfolioProperties properties;
+    private final Clock clock;
+
+    public MarketContextService(MarketContextStore store, PortfolioProperties properties, Clock clock) {
+        this.store = store;
+        this.properties = properties;
+        this.clock = clock;
+    }
+
+    public SavedRegime calculateRegime(MarketRegimeEngine.Input input, Instant dataAsOf) {
+        var result = MarketRegimeEngine.classify(input);
+        var inputs = regimeInputs(input);
+        var checksum = sha256(properties.strategyVersion() + ":regime:" + dataAsOf + ":" + inputs);
+        int inserted = store.appendRegime(new RegimeWrite(
+                UUID.randomUUID(),
+                properties.strategyVersion(),
+                result.label().name(),
+                result.score(),
+                result.trendScore(),
+                result.momentumScore(),
+                result.breadthScore(),
+                result.stressScore(),
+                result.confidence().name(),
+                result.tacticalCapFivePercent(),
+                input.quality().name(),
+                inputs,
+                jsonArray(result.narratives()),
+                jsonArray(result.ruleIds()),
+                checksum,
+                dataAsOf,
+                clock.instant()));
+        return new SavedRegime(result, inserted == 1, checksum);
+    }
+
+    public SavedDrawdown calculateDrawdown(
+            DrawdownEngine.Input input,
+            String positionAttributionJson,
+            String clusterAttributionJson,
+            Instant dataAsOf) {
+        var result = DrawdownEngine.classify(input);
+        var canonical = input.toString() + ":" + positionAttributionJson + ":" + clusterAttributionJson;
+        var checksum = sha256(properties.strategyVersion() + ":drawdown:" + dataAsOf + ":" + canonical);
+        int inserted = store.appendDrawdown(new DrawdownWrite(
+                UUID.randomUUID(),
+                properties.strategyVersion(),
+                input.currentEquity(),
+                result.highWaterMark(),
+                BigDecimal.valueOf(result.drawdown()),
+                result.state().name(),
+                result.source().name(),
+                result.marketDriven(),
+                BigDecimal.valueOf(input.spyReturnFromPeak()),
+                BigDecimal.valueOf(input.qqqReturnFromPeak()),
+                BigDecimal.valueOf(input.breadth50()),
+                BigDecimal.valueOf(input.stressLevel()),
+                positionAttributionJson,
+                clusterAttributionJson,
+                result.confidence().name(),
+                input.quality().name(),
+                jsonArray(result.narratives()),
+                jsonArray(result.ruleIds()),
+                checksum,
+                dataAsOf,
+                clock.instant()));
+        return new SavedDrawdown(result, inserted == 1, checksum);
+    }
+
+    private static String regimeInputs(MarketRegimeEngine.Input input) {
+        return "{\"trend\":" + input.trend() + ",\"momentum\":" + input.momentum() + ",\"breadth\":"
+                + input.breadth() + ",\"stressResilience\":" + input.stressResilience() + ",\"vix\":"
+                + input.vix() + ",\"breadth50\":" + input.breadth50() + "}";
+    }
+
+    private static String jsonArray(List<String> values) {
+        return values.stream()
+                .map(value -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+    }
+
+    private static String sha256(String content) {
+        try {
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(content.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    public record SavedRegime(MarketRegimeEngine.Result result, boolean inserted, String evidenceChecksum) {}
+
+    public record SavedDrawdown(DrawdownEngine.Result result, boolean inserted, String evidenceChecksum) {}
+}

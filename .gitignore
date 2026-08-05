@@ -1,0 +1,12 @@
+.idea/
+.vscode/
+.env
+target/
+node_modules/
+dist/
+*.tsbuildinfo
+.jqwik-database
+playwright-report/
+test-results/
+*.log
+.DS_Store

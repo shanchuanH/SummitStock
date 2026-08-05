@@ -1,0 +1,90 @@
+name: portfolio-engine
+
+services:
+  mysql:
+    image: mysql:8.4.6
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00
+      - --sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-portfolio}
+      MYSQL_USER: ${MYSQL_APP_USER:-portfolio_app}
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:-change-local-app-password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-local-root-password}
+      TZ: UTC
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD:-change-local-root-password}",
+        ]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend-api:
+    profiles: ["app"]
+    image: portfolio-engine-backend:${PORTFOLIO_IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+    environment:
+      PORTFOLIO_RUNTIME_MODE: api
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-portfolio}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER:-portfolio_app}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD:-change-local-app-password}
+      PORTFOLIO_SECURITY_DEV_USER: ${PORTFOLIO_SECURITY_DEV_USER:-admin@example.local}
+      PORTFOLIO_SECURITY_DEV_PASSWORD: ${PORTFOLIO_SECURITY_DEV_PASSWORD:-change-before-use}
+    ports: ["8080:8080"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  backend-worker:
+    profiles: ["app"]
+    image: portfolio-engine-backend:${PORTFOLIO_IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+    environment:
+      PORTFOLIO_RUNTIME_MODE: worker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-portfolio}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER:-portfolio_app}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD:-change-local-app-password}
+      PORTFOLIO_SECURITY_DEV_USER: ${PORTFOLIO_SECURITY_DEV_USER:-admin@example.local}
+      PORTFOLIO_SECURITY_DEV_PASSWORD: ${PORTFOLIO_SECURITY_DEV_PASSWORD:-change-before-use}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  migration:
+    profiles: ["ops"]
+    image: portfolio-engine-backend:${PORTFOLIO_IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+    environment:
+      PORTFOLIO_RUNTIME_MODE: migration
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-portfolio}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER:-portfolio_app}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD:-change-local-app-password}
+      PORTFOLIO_SECURITY_DEV_USER: ${PORTFOLIO_SECURITY_DEV_USER:-admin@example.local}
+      PORTFOLIO_SECURITY_DEV_PASSWORD: ${PORTFOLIO_SECURITY_DEV_PASSWORD:-change-before-use}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

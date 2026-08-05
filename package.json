@@ -1,0 +1,24 @@
+{
+  "name": "portfolio-engine-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @portfolio/web dev",
+    "lint": "pnpm --filter @portfolio/web lint",
+    "typecheck": "pnpm --filter @portfolio/web typecheck && pnpm --filter @portfolio/api-client typecheck",
+    "test": "pnpm --filter @portfolio/web test",
+    "build": "pnpm --filter @portfolio/api-client build && pnpm --filter @portfolio/web build",
+    "api:export": "node scripts/export-openapi.mjs",
+    "api:generate": "pnpm api:export && pnpm --filter @portfolio/api-client generate",
+    "api:check": "pnpm api:generate && git diff --exit-code -- contracts/openapi contracts/generated",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

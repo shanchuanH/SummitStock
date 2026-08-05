@@ -1,0 +1,128 @@
+package com.example.portfolio.context;
+
+import com.example.portfolio.context.MarketContextStore.DrawdownView;
+import com.example.portfolio.context.MarketContextStore.RegimeView;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1")
+public class MarketContextController {
+    private final MarketContextStore store;
+    private final Clock clock;
+
+    public MarketContextController(MarketContextStore store, Clock clock) {
+        this.store = store;
+        this.clock = clock;
+    }
+
+    @GetMapping("/market/regime")
+    SnapshotEnvelope<RegimeResponse> regime() {
+        return store.latestRegime()
+                .map(value -> new SnapshotEnvelope<>("READY", RegimeResponse.from(value), clock.instant()))
+                .orElseGet(() -> new SnapshotEnvelope<>("EMPTY", null, clock.instant()));
+    }
+
+    @GetMapping("/portfolio/drawdown")
+    SnapshotEnvelope<DrawdownResponse> drawdown() {
+        return store.latestDrawdown()
+                .map(value -> new SnapshotEnvelope<>("READY", DrawdownResponse.from(value), clock.instant()))
+                .orElseGet(() -> new SnapshotEnvelope<>("EMPTY", null, clock.instant()));
+    }
+
+    public record SnapshotEnvelope<T>(String status, T snapshot, Instant dataAsOf) {}
+
+    public record RegimeResponse(
+            String strategyVersion,
+            String label,
+            double score,
+            double trendScore,
+            double momentumScore,
+            double breadthScore,
+            double stressScore,
+            String confidence,
+            boolean tacticalCapFivePercent,
+            String qualityStatus,
+            String narrativesJson,
+            String ruleIdsJson,
+            Instant dataAsOf) {
+        static RegimeResponse from(RegimeView value) {
+            return new RegimeResponse(
+                    value.strategyVersion(),
+                    value.regimeLabel(),
+                    value.totalScore(),
+                    value.trendScore(),
+                    value.momentumScore(),
+                    value.breadthScore(),
+                    value.stressScore(),
+                    value.confidence(),
+                    value.tacticalCapFivePercent(),
+                    value.qualityStatus(),
+                    value.narratives(),
+                    value.ruleIds(),
+                    value.dataAsOf().toInstant(ZoneOffset.UTC));
+        }
+    }
+
+    public record DrawdownResponse(
+            String strategyVersion,
+            String currentEquity,
+            String highWaterMark,
+            String drawdownFraction,
+            String drawdownPercent,
+            String state,
+            String sourceClassification,
+            boolean marketDriven,
+            String spyReturnFromPeak,
+            String qqqReturnFromPeak,
+            String spyDrawdownPercent,
+            String qqqDrawdownPercent,
+            String breadth50,
+            String stressLevel,
+            String positionAttributionJson,
+            String clusterAttributionJson,
+            String confidence,
+            String qualityStatus,
+            String narrativesJson,
+            String ruleIdsJson,
+            Instant dataAsOf) {
+        static DrawdownResponse from(DrawdownView value) {
+            return new DrawdownResponse(
+                    value.strategyVersion(),
+                    decimal(value.currentEquity()),
+                    decimal(value.highWaterMark()),
+                    decimal(value.drawdownFraction()),
+                    percent(value.drawdownFraction()),
+                    value.drawdownState(),
+                    value.sourceClassification(),
+                    value.marketDriven(),
+                    decimal(value.spyReturnFromPeak()),
+                    decimal(value.qqqReturnFromPeak()),
+                    percent(value.spyReturnFromPeak()),
+                    percent(value.qqqReturnFromPeak()),
+                    decimal(value.breadth50()),
+                    decimal(value.stressLevel()),
+                    value.positionAttribution(),
+                    value.clusterAttribution(),
+                    value.confidence(),
+                    value.qualityStatus(),
+                    value.narratives(),
+                    value.ruleIds(),
+                    value.dataAsOf().toInstant(ZoneOffset.UTC));
+        }
+    }
+
+    private static String decimal(java.math.BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
+    }
+
+    private static String percent(java.math.BigDecimal fraction) {
+        return fraction.multiply(java.math.BigDecimal.valueOf(100))
+                .stripTrailingZeros()
+                .toPlainString();
+    }
+}

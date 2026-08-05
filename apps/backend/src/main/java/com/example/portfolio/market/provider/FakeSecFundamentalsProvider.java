@@ -1,0 +1,35 @@
+package com.example.portfolio.market.provider;
+
+import java.time.Clock;
+import java.util.List;
+import java.util.Map;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+@Component
+@Profile({"default", "local", "test"})
+public class FakeSecFundamentalsProvider implements FundamentalsProvider {
+    private final Clock clock = Clock.systemUTC();
+
+    @Override
+    public ProviderModels.FilingIndexResult fetchFilings(String cik) {
+        return new ProviderModels.FilingIndexResult(cik, List.of(), provenance(cik));
+    }
+
+    @Override
+    public ProviderModels.CompanyFactsResult fetchCompanyFacts(String cik) {
+        return new ProviderModels.CompanyFactsResult(cik, Map.of(), provenance(cik));
+    }
+
+    private ProviderModels.Provenance provenance(String checksum) {
+        var now = clock.instant();
+        return new ProviderModels.Provenance(
+                "fake-sec-ir",
+                now,
+                now,
+                String.format("%064x", checksum.hashCode()),
+                "v1",
+                ProviderModels.QualityStatus.VALID,
+                List.of());
+    }
+}

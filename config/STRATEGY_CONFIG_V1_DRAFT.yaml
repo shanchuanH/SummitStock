@@ -1,0 +1,65 @@
+strategyVersion: 1.0.0-draft
+profile:
+  monthlyTakeHomeUsd: "11000"
+  monthlyExpensesUsd: "4000"
+  monthlySurplusUsd: "7000"
+  benchmarks: [SPY, QQQ]
+  manualExecutionOnly: true
+  broker: Fidelity
+cash:
+  emergencyFloorUsd: "20000"
+  tacticalReserveTargetPct: ["0.08", "0.12"]
+  bucketOverlapAllowed: false
+allocationTargetsPct:
+  broadUsCore: "0.35"
+  techCore: "0.15"
+  internationalCore: "0.10"
+  qualityStocks: "0.15"
+  thematicEtfs: "0.08"
+  tacticalStocks: "0.05"
+  speculative: "0.02"
+  tacticalReserve: "0.10"
+drawdownPolicyPct:
+  freezeSpeculation: "0.08"
+  reduceTactical: "0.10"
+  etfDipWatch: "0.12"
+  marketDrivenEtfBuyOnly: "0.15"
+  painLine: "0.20"
+riskPct:
+  speculativeTrade: "0.0020"
+  themeTacticalTrade: "0.0030"
+  qualityTrade: "0.0040"
+  absoluteSingleTradeMax: "0.0050"
+  totalOpenStockRiskMax: "0.0200"
+  clusterOpenRiskMax: "0.0075"
+positionCapsPct:
+  qualityTarget: ["0.04", "0.08"]
+  qualityNormalMax: "0.12"
+  qualityHardMax: "0.15"
+  thematicEtfTarget: ["0.05", "0.08"]
+  thematicEtfMax: "0.10"
+  tacticalStockTarget: ["0.02", "0.03"]
+  tacticalStockMax: "0.05"
+  speculativeTarget: ["0.005", "0.01"]
+  speculativeMax: "0.02"
+behavior:
+  socialMediaCoolingHours: 48
+  averageDownWithoutNewEvidence: false
+  maxDailyMustAct: 3
+  costBasisMayDriveAction: false
+  historicalHighMayDriveTarget: false
+  riskPriorityOverTax: true
+etfDip:
+  setupScoreMin: 60
+  requiredReversalSignals: 2
+  tranchePctOfReserve: ["0.20", "0.25", "0.30", "0.25"]
+  cooldownTradingDays: 5
+  requiresMarketDrivenDrawdown: true
+activeSleeveAccountability:
+  reviewMonths: [12, 24]
+  underperformanceThresholdPercentagePoints: "0.05"
+  reduceBudgetAt12MonthsPct: "0.25"
+  halveBudgetAt24Months: true
+unvestedCompensation:
+  includeInLiquidAssets: false
+  generateTradeActions: false

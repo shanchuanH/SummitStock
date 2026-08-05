@@ -1,0 +1,140 @@
+CREATE TABLE position_thesis (
+    id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    summary VARCHAR(4000) NOT NULL,
+    confirmation_signals JSON NOT NULL,
+    invalidation_signals JSON NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    user_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+    confirmed_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_position_thesis_current (position_id),
+    CONSTRAINT fk_position_thesis_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT chk_thesis_status CHECK (status IN ('HEALTHY', 'WEAKENING', 'REDUCE_RECOMMENDED', 'BROKEN'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE thesis_source (
+    id BINARY(16) NOT NULL,
+    thesis_id BINARY(16) NOT NULL,
+    source_type VARCHAR(32) NOT NULL,
+    source_uri VARCHAR(2048) NOT NULL,
+    source_date DATE NULL,
+    checksum CHAR(64) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_thesis_source (thesis_id, checksum),
+    CONSTRAINT fk_thesis_source_thesis FOREIGN KEY (thesis_id) REFERENCES position_thesis (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE stop_snapshot (
+    id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    strategy_version VARCHAR(64) NOT NULL,
+    entry_price DECIMAL(24,8) NOT NULL,
+    atr DECIMAL(24,8) NOT NULL,
+    structure_stop DECIMAL(24,8) NOT NULL,
+    volatility_stop DECIMAL(24,8) NOT NULL,
+    initial_stop DECIMAL(24,8) NOT NULL,
+    live_stop DECIMAL(24,8) NOT NULL,
+    soft_alert DECIMAL(24,8) NOT NULL,
+    catastrophic_stop DECIMAL(24,8) NOT NULL,
+    close_confirmed BOOLEAN NOT NULL,
+    rule_ids JSON NOT NULL,
+    quality_status VARCHAR(32) NOT NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    data_as_of DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_stop_snapshot_evidence (position_id, strategy_version, data_as_of, evidence_checksum),
+    KEY ix_stop_snapshot_latest (position_id, data_as_of),
+    CONSTRAINT fk_stop_snapshot_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT chk_stop_monotonic_values CHECK (entry_price > 0 AND atr > 0 AND initial_stop > 0 AND live_stop >= initial_stop)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE stop_alert (
+    id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    stop_snapshot_id BINARY(16) NOT NULL,
+    event_type VARCHAR(32) NOT NULL,
+    market_date DATE NOT NULL,
+    observed_price DECIMAL(24,8) NOT NULL,
+    acknowledged_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_stop_alert_dedupe (position_id, event_type, market_date),
+    CONSTRAINT fk_stop_alert_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT fk_stop_alert_snapshot FOREIGN KEY (stop_snapshot_id) REFERENCES stop_snapshot (id),
+    CONSTRAINT chk_stop_alert_type CHECK (event_type IN ('SOFT_ALERT', 'CLOSE_CONFIRMED', 'CATASTROPHIC'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE valuation_snapshot (
+    id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    strategy_version VARCHAR(64) NOT NULL,
+    fundamental_health VARCHAR(32) NOT NULL,
+    valuation_discount BOOLEAN NOT NULL,
+    earnings_revisions VARCHAR(32) NOT NULL,
+    price_stabilization VARCHAR(32) NOT NULL,
+    portfolio_capacity BOOLEAN NOT NULL,
+    discount_tactical_weight DECIMAL(18,10) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    rule_ids JSON NOT NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    data_as_of DATETIME(6) NOT NULL,
+    valid_until DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_valuation_snapshot_evidence (position_id, strategy_version, data_as_of, evidence_checksum),
+    CONSTRAINT fk_valuation_snapshot_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT chk_valuation_tactical_weight CHECK (discount_tactical_weight >= 0 AND discount_tactical_weight <= 0.03)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE earnings_risk_snapshot (
+    id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    strategy_version VARCHAR(64) NOT NULL,
+    event_count INT NOT NULL,
+    next_event_at DATETIME(6) NULL,
+    downside_tail_fraction DECIMAL(18,10) NULL,
+    gap_p75_fraction DECIMAL(18,10) NULL,
+    gap_p90_fraction DECIMAL(18,10) NULL,
+    profit_cushion_r DECIMAL(18,10) NULL,
+    action VARCHAR(64) NOT NULL,
+    rule_ids JSON NOT NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    data_as_of DATETIME(6) NOT NULL,
+    valid_until DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_earnings_risk_evidence (position_id, strategy_version, data_as_of, evidence_checksum),
+    CONSTRAINT fk_earnings_risk_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT chk_earnings_event_count CHECK (event_count >= 0 AND event_count <= 12)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE trade_journal (
+    id BINARY(16) NOT NULL,
+    user_id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    position_lot_id BINARY(16) NULL,
+    entry_type VARCHAR(32) NOT NULL,
+    tax_status VARCHAR(32) NOT NULL,
+    planned_risk_amount DECIMAL(24,8) NULL,
+    planned_r DECIMAL(18,10) NULL,
+    realized_r DECIMAL(18,10) NULL,
+    mfe_r DECIMAL(18,10) NULL,
+    mae_r DECIMAL(18,10) NULL,
+    exit_reason VARCHAR(64) NULL,
+    notes VARCHAR(4000) NULL,
+    occurred_at DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY ix_trade_journal_position (position_id, occurred_at),
+    CONSTRAINT fk_trade_journal_user FOREIGN KEY (user_id) REFERENCES app_user (id),
+    CONSTRAINT fk_trade_journal_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT fk_trade_journal_lot FOREIGN KEY (position_lot_id) REFERENCES position_lot (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
