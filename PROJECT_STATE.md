@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Rescue Phase 5 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 6 onward remain pending and must be implemented in order.
+Rescue Phase 6 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phase 7 remains pending and must be implemented next.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -15,6 +15,8 @@ Phase 3 added fail-closed production provider configuration, an Alpha Vantage ma
 Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry and a durable coordinator that records handler output, warnings, timestamps, attempts, retries, permanent failures, and sanitized unexpected errors. Analysis runs now advance through persisted step dependencies rather than scheduled-time offsets. The executable EOD chain collects quotes/bars/actions, validates completed bars, computes indicators and server-owned regime inputs, synchronizes imported snapshots, writes user-scoped drawdown/stops/holding analysis, and generates formal recommendations and a daily digest. Unknown jobs fail permanently, provider failures preserve retryability, weekly/monthly summaries query persisted evidence, and no handler or integration test inserts a final recommendation directly.
 
 Phase 5 replaced placeholder holding outputs with an evidence assembler, classification-specific readiness, YAML-backed immutable strategy definitions, deterministic sizing gates, and hard-risk-first recommendation conflict resolution. Analysis and recommendation snapshots retain strategy/config hashes, winning rules, suppressed candidates, reasons, quantities, validity, and evidence checksums. Classification suggestions are owner-scoped by position ID and never infer company quality from a ticker. GOOGL Quality, DRAM Thematic ETF, and DXYZ Speculative integration fixtures prove distinct templates. Formal daily-close stops are separated from intraday catastrophic quote breaches, and debug previews are unavailable outside explicit test/local-fixture profiles.
+
+Phase 6 replaced technical packet navigation with an analyst-first Chinese workspace for Today Brief, Portfolio, Opportunities, Review, and Settings while retaining diagnostics under advanced/admin routes. The Dashboard presents honest action counts and evidence-rich recommendations, and records handled/deferred/ignored decisions with rationale while explicitly never submitting execution. Portfolio List is owner-scoped, priority-sorted, filterable, and supports only position-row classification confirmation. Position Detail follows the required twelve-module order and renders real completed-bar candlesticks, average cost, formal/soft stops, earnings, and trade markers through Lightweight Charts; missing evidence produces explicit empty states. RTL and Playwright cover the complete login/import/analysis/action/position journey.
 
 ## Completed Packets
 
@@ -67,12 +69,12 @@ Phase 5 replaced placeholder holding outputs with an evidence assembler, classif
 - MySQL is the durable source of truth
 - Scheduled scanners write idempotent quote/EOD/weekly/monthly jobs; workers use `SKIP LOCKED`, leases, bounded retry, and dead-letter status
 - Authentication uses JDBC-backed HttpOnly sessions, CSRF, login throttling, and audited outcomes; the browser stores no access token
-- Recommendation acknowledgement is idempotent and never submits an order
+- Recommendation acknowledgement records handled/deferred/ignored decisions and rationale idempotently and never submits an order
 - No Redis, Celery, queues, or microservices
 
 ## Database
 
-- Flyway head: `V12__holding_analysis_and_recommendation_evidence.sql`
+- Flyway head: `V13__recommendation_acknowledgement_decisions.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -92,7 +94,7 @@ Phase 5 replaced placeholder holding outputs with an evidence assembler, classif
 
 - OpenAPI: initialized at `contracts/openapi/portfolio-api.json`
 - Generated client: initialized at `contracts/generated/src/schema.d.ts`
-- Runtime endpoints: unified Today Brief, portfolio import preview/confirm/query, position-scoped classification suggestion/confirmation/report, portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
+- Runtime endpoints: unified Today Brief, owner-scoped Portfolio List, portfolio import preview/confirm/query, position-scoped classification suggestion/confirmation/report/chart/journal, portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
 - Errors: RFC 9457 Problem Details enabled; request IDs returned as `X-Request-ID`
 
 ## Providers
@@ -135,6 +137,7 @@ Phase 5 replaced placeholder holding outputs with an evidence assembler, classif
 - Durable job idempotency/claim/lease/retry/scanner tests, login throttling/audit tests, acknowledgement-without-execution tests, and ten-page workspace tests
 - Handler registry/coordinator, analysis dependency/blocking, retry idempotency, and full import-to-recommendation EOD vertical integration tests
 - Evidence readiness, position sizing, conflict resolution, ETF/classification policy, GOOGL/DRAM/DXYZ analysis, formal recommendation persistence, and position report contract tests
+- Analyst-first RTL tests for the Executive Dashboard, Portfolio Import, Portfolio List, Position Detail, and Classification Modal; Playwright covers login, empty portfolio, CSV upload/preview/confirm, queued/ready analysis, recommendation acknowledgement, and opening a position
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -151,4 +154,4 @@ Phase 5 replaced placeholder holding outputs with an evidence assembler, classif
 
 ## Next Step
 
-Implement Rescue Phase 6: analyst-first navigation, Dashboard, Portfolio List, classification UX, Position Detail, and real server-owned chart presentation.
+Implement Rescue Phase 7: real-portfolio acceptance for GOOGL, DRAM, DXYZ, the complete target holding set, portfolio-level concentration/risk calculations, and the clean-environment vertical acceptance test.

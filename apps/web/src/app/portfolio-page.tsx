@@ -1,160 +1,226 @@
-import { api, type components } from "@portfolio/api-client";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ClassificationModal } from "./classification-modal";
+import { getJson } from "./http";
+import { WorkspaceNav } from "./workspace-nav";
 
-async function requireData<T>(
-  request: Promise<{ data?: T; error?: unknown; response: Response }>,
-) {
-  const { data, error, response } = await request;
-  if (data === undefined)
-    throw new Error(
-      `API request failed (${String(response.status)}): ${JSON.stringify(error)}`,
+export type PortfolioHolding = {
+  id: string;
+  version: number;
+  symbol: string;
+  name: string;
+  assetType: string;
+  bucket: string;
+  classification: string;
+  classificationConfirmed: boolean;
+  marketValue: string;
+  currentWeight: string;
+  targetWeightMin?: string | null;
+  targetWeightMax?: string | null;
+  action: string;
+  priority: string;
+  confidence: string;
+  trend: string;
+  nextEvent?: string | null;
+  dataStatus: string;
+};
+
+const filters = [
+  "全部",
+  "需要处理",
+  "超权重",
+  "数据缺失",
+  "即将财报",
+  "Core",
+  "Tactical",
+  "Speculative",
+] as const;
+type Filter = (typeof filters)[number];
+const priority = new Map([
+  ["MUST_ACT", 0],
+  ["DO_NOT", 1],
+  ["WATCH", 2],
+  ["NORMAL", 3],
+]);
+function pct(value?: string | null) {
+  return value == null ? "—" : `${(Number(value) * 100).toFixed(1)}%`;
+}
+function money(value: string) {
+  return new Intl.NumberFormat("zh-CN", {
+    style: "currency",
+    currency: "USD",
+  }).format(Number(value));
+}
+function target(row: PortfolioHolding) {
+  return row.targetWeightMin == null && row.targetWeightMax == null
+    ? "—"
+    : `${pct(row.targetWeightMin)}–${pct(row.targetWeightMax)}`;
+}
+function matches(row: PortfolioHolding, filter: Filter) {
+  if (filter === "全部") return true;
+  if (filter === "需要处理") return row.priority === "MUST_ACT";
+  if (filter === "超权重")
+    return (
+      row.targetWeightMax != null &&
+      Number(row.currentWeight) > Number(row.targetWeightMax)
     );
-  return data;
+  if (filter === "数据缺失")
+    return !["READY", "HEALTHY"].includes(row.dataStatus);
+  if (filter === "即将财报")
+    return Boolean(
+      row.nextEvent &&
+      new Date(row.nextEvent).getTime() < Date.now() + 30 * 86_400_000,
+    );
+  if (filter === "Core")
+    return row.bucket === "CORE" || row.classification.startsWith("CORE_");
+  if (filter === "Tactical")
+    return (
+      row.bucket === "TACTICAL" ||
+      row.classification.includes("TACTICAL") ||
+      row.classification === "THEMATIC_ETF"
+    );
+  return row.classification === "SPECULATIVE";
 }
 
 export function PortfolioPage() {
-  const summary = useQuery({
-    queryKey: ["portfolio-summary"],
-    queryFn: () => requireData(api.GET("/api/v1/portfolio/summary")),
+  const holdings = useQuery({
+    queryKey: ["portfolio-holdings"],
+    queryFn: () => getJson<PortfolioHolding[]>("/api/v1/portfolio/holdings"),
     retry: false,
   });
-  const positions = useQuery({
-    queryKey: ["positions"],
-    queryFn: () => requireData(api.GET("/api/v1/positions")),
-    retry: false,
-  });
-  const actions = useQuery({
-    queryKey: ["today-actions"],
-    queryFn: () => requireData(api.GET("/api/v1/actions/today")),
-    retry: false,
-  });
-
-  if (summary.isError || positions.isError || actions.isError) {
-    return (
-      <main className="inspection-shell">
-        <a href="/" className="back-link">
-          <ArrowLeft aria-hidden="true" /> Home
-        </a>
-        <aside className="error portfolio-auth" role="alert">
-          <strong>Sign in required</strong>
-          <span>
-            Portfolio holdings, classifications, and actions are private.
-          </span>
-        </aside>
-      </main>
-    );
-  }
-
+  const [filter, setFilter] = useState<Filter>("全部");
+  const [classificationTarget, setClassificationTarget] =
+    useState<PortfolioHolding>();
+  const rows = useMemo(
+    () =>
+      [...(holdings.data ?? [])]
+        .filter((row) => matches(row, filter))
+        .sort(
+          (a, b) =>
+            (priority.get(a.priority) ?? 4) - (priority.get(b.priority) ?? 4) ||
+            a.symbol.localeCompare(b.symbol),
+        ),
+    [holdings.data, filter],
+  );
   return (
-    <main className="inspection-shell portfolio-shell">
-      <header className="inspection-header">
-        <a href="/market-context" className="back-link">
-          <ArrowLeft aria-hidden="true" /> Market context
-        </a>
+    <main className="shell workspace-shell portfolio-shell">
+      <WorkspaceNav />
+      <section className="workspace-heading portfolio-heading">
         <div>
-          <p className="eyebrow">PACKET 04 / HOLDING INTELLIGENCE</p>
-          <h1>Portfolio, without guesswork.</h1>
+          <p className="eyebrow">组合中的全部资产</p>
+          <h1>我的持仓</h1>
         </div>
-        <span className="health-pill">
-          {summary.isPending ? "LOADING" : "PRIVATE"}
-        </span>
-      </header>
-      <section className="portfolio-metrics" aria-label="Portfolio summary">
-        <article>
-          <span>Invested</span>
-          <strong>{summary.data?.investedValue ?? "—"}</strong>
-        </article>
-        <article>
-          <span>Tracked cash</span>
-          <strong>{summary.data?.trackedCash ?? "—"}</strong>
-        </article>
-        <article>
-          <span>Open positions</span>
-          <strong>{summary.data?.openPositions ?? "—"}</strong>
-        </article>
-        <article>
-          <span>Data as of</span>
-          <strong>{summary.data?.dataAsOf ?? "—"}</strong>
-        </article>
-      </section>
-      <section className="portfolio-layout">
-        <a className="market-link" href="/dip-buy">
-          Open ETF Dip & cashflow workspace →
+        <a className="market-link" href="/portfolio/import">
+          导入或更新持仓
         </a>
-        <article className="context-card portfolio-positions">
-          <p className="eyebrow">POSITIONS / CORE + TACTICAL OVERLAY</p>
-          {(positions.data ?? []).length === 0 ? (
-            <p className="empty">No positions imported.</p>
-          ) : null}
-          {(positions.data ?? []).map((position) => (
-            <div className="position-row" key={position.id}>
-              <strong>
-                <a href={`/positions/${position.id ?? ""}`}>
-                  {position.symbol}
-                </a>
-              </strong>
-              <span>{position.bucket}</span>
-              <span>{position.classification}</span>
-              <span>{position.marketValue}</span>
-              <small>
-                {position.classificationConfirmed
-                  ? "CONFIRMED"
-                  : "CONFIRM REQUIRED"}
-              </small>
-            </div>
-          ))}
-        </article>
-        <article className="context-card today-actions">
-          <p className="eyebrow">TODAY'S ACTIONS</p>
-          <ActionGroup title="MUST ACT" items={actions.data?.mustAct ?? []} />
-          <ActionGroup title="DO NOT" items={actions.data?.doNot ?? []} />
-          <ActionGroup title="WATCH" items={actions.data?.watch ?? []} />
-          {!actions.isPending &&
-          !(
-            actions.data.mustAct?.length ||
-            actions.data.doNot?.length ||
-            actions.data.watch?.length
-          ) ? (
-            <p className="empty">
-              Analysis readiness has not been confirmed. No action conclusion is
-              available yet.
-            </p>
-          ) : null}
-        </article>
-        <article className="context-card">
-          <p className="eyebrow">CLASSIFICATION AND TRADE PLANS</p>
-          <p className="quality-policy">
-            This functionality is being migrated to server-side calculations
-            based on the selected position and the real portfolio. It is not
-            currently available.
-          </p>
-        </article>
       </section>
+      {holdings.isError ? (
+        <section className="context-card" role="alert">
+          <h2>无法加载持仓</h2>
+          <p>请确认已经登录，或稍后重试。系统不会用示例数据代替真实持仓。</p>
+        </section>
+      ) : holdings.isPending ? (
+        <section className="context-card">正在加载持仓…</section>
+      ) : !holdings.data.length ? (
+        <section className="context-card">
+          <h2>尚未导入投资组合</h2>
+          <p>导入并确认持仓后，这里会显示真实资产及其分析状态。</p>
+          <a href="/portfolio/import">开始导入</a>
+        </section>
+      ) : (
+        <>
+          <div className="portfolio-filters" role="group" aria-label="持仓筛选">
+            {filters.map((item) => (
+              <button
+                className={filter === item ? "active" : ""}
+                key={item}
+                onClick={() => { setFilter(item); }}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <section className="holdings-table-wrap">
+            <table className="holdings-table">
+              <thead>
+                <tr>
+                  <th>代码 / 名称</th>
+                  <th>类型</th>
+                  <th>当前市值</th>
+                  <th>当前权重</th>
+                  <th>目标区间</th>
+                  <th>建议</th>
+                  <th>置信度</th>
+                  <th>趋势</th>
+                  <th>下一事件</th>
+                  <th>数据状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} data-priority={row.priority}>
+                    <td>
+                      <a href={`/positions/${row.id}`}>
+                        <strong>{row.symbol}</strong>
+                        <span>{row.name}</span>
+                      </a>
+                      {!row.classificationConfirmed ? (
+                        <div className="classification-required">
+                          <em>未分类</em>
+                          <button onClick={() => { setClassificationTarget(row); }}>
+                            查看系统建议
+                          </button>
+                        </div>
+                      ) : null}
+                    </td>
+                    <td>
+                      {row.assetType}
+                      <small>
+                        {row.classificationConfirmed
+                          ? row.classification
+                          : "待确认"}
+                      </small>
+                    </td>
+                    <td>{money(row.marketValue)}</td>
+                    <td>{pct(row.currentWeight)}</td>
+                    <td>{target(row)}</td>
+                    <td>
+                      <span
+                        className={`priority-pill ${row.priority.toLowerCase()}`}
+                      >
+                        {row.action}
+                      </span>
+                    </td>
+                    <td>{row.confidence}</td>
+                    <td>{row.trend}</td>
+                    <td>
+                      {row.nextEvent
+                        ? new Date(row.nextEvent).toLocaleDateString("zh-CN")
+                        : "—"}
+                    </td>
+                    <td>{row.dataStatus}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!rows.length ? (
+              <p className="empty-state">此筛选条件下没有持仓。</p>
+            ) : null}
+          </section>
+        </>
+      )}
+      {classificationTarget ? (
+        <ClassificationModal
+          positionId={classificationTarget.id}
+          version={classificationTarget.version}
+          onClose={() => { setClassificationTarget(undefined); }}
+        />
+      ) : null}
       <footer>
-        <span>NO AUTO TRADING</span>
-        <span>MAX 3 MUST-ACT ITEMS</span>
-        <span>DECIMALS PRESERVED AS STRINGS</span>
+        <span>按行动优先级排序</span>
+        <span>分类需逐项确认</span>
+        <span>不会自动交易</span>
       </footer>
     </main>
-  );
-}
-
-function ActionGroup({
-  title,
-  items = [],
-}: {
-  title: string;
-  items?: components["schemas"]["RecommendationResponse"][];
-}) {
-  return (
-    <section className="action-group">
-      <h2>{title}</h2>
-      {items.map((item) => (
-        <p key={item.id}>
-          <strong>{item.symbol ?? "PORTFOLIO"}</strong> {item.action}
-        </p>
-      ))}
-    </section>
   );
 }

@@ -318,13 +318,14 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
     @Test
     void acknowledgingRecommendationIsIdempotentAndNeverExecutes() throws Exception {
         var recommendationId = "20000000-0000-0000-0000-000000000001";
-        var body = "{\"idempotencyKey\":\"ack-1\"}";
+        var body = "{\"idempotencyKey\":\"ack-1\",\"decisionType\":\"DEFERRED\",\"rationale\":\"Wait for earnings\"}";
         mockMvc.perform(post("/api/v1/recommendations/{id}/acknowledge", recommendationId)
                         .with(httpBasic("admin@example.local", "change-before-use"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decisionType").value("DEFERRED"))
                 .andExpect(jsonPath("$.newlyAcknowledged").value(true))
                 .andExpect(jsonPath("$.executionSubmitted").value(false));
         mockMvc.perform(post("/api/v1/recommendations/{id}/acknowledge", recommendationId)
@@ -335,6 +336,37 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.newlyAcknowledged").value(false))
                 .andExpect(jsonPath("$.executionSubmitted").value(false));
+        assertThat(jdbc.sql(
+                                "SELECT CONCAT(decision_type, ':', rationale) FROM recommendation_acknowledgement WHERE recommendation_id=UUID_TO_BIN(:id)")
+                        .param("id", recommendationId)
+                        .query(String.class)
+                        .single())
+                .isEqualTo("DEFERRED:Wait for earnings");
+    }
+
+    @Test
+    void portfolioListAndChartContractsAreOwnedAndEvidenceBased() throws Exception {
+        mockMvc.perform(get("/api/v1/portfolio/holdings").with(httpBasic("admin@example.local", "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(OWNER_POSITION))
+                .andExpect(jsonPath("$[0].version").value(0))
+                .andExpect(jsonPath("$[0].symbol").value("SPY"))
+                .andExpect(jsonPath("$[0].marketValue").value("5000.125"))
+                .andExpect(jsonPath("$[0].classificationConfirmed").value(false));
+        mockMvc.perform(get("/api/v1/positions/{id}/chart", OWNER_POSITION)
+                        .param("range", "1Y")
+                        .with(httpBasic("admin@example.local", "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bars").isArray())
+                .andExpect(jsonPath("$.entryMarkers").isArray())
+                .andExpect(jsonPath("$.stopSeries").isArray())
+                .andExpect(jsonPath("$.earningsMarkers").isArray())
+                .andExpect(jsonPath("$.tradeMarkers").isArray())
+                .andExpect(jsonPath("$.quality").value("MISSING"));
+        mockMvc.perform(get("/api/v1/positions/{id}/chart", OTHER_POSITION)
+                        .with(httpBasic("admin@example.local", "change-before-use")))
+                .andExpect(status().isNotFound());
     }
 
     private void seedPositionIntelligence() {

@@ -1,220 +1,312 @@
-import { api } from "@portfolio/api-client";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { useParams } from "react-router";
+import { getJson } from "./http";
+import { PositionChart, type PositionChartData } from "./position-chart";
+import { WorkspaceNav } from "./workspace-nav";
 
-async function requireData<T>(
-  request: Promise<{ data?: T; error?: unknown; response: Response }>,
-) {
-  const { data, error, response } = await request;
-  if (data === undefined)
-    throw new Error(
-      `API request failed (${String(response.status)}): ${JSON.stringify(error)}`,
-    );
-  return data;
+type PositionReport = {
+  position: {
+    id: string;
+    symbol: string;
+    classification: string;
+    classificationSource: string;
+  };
+  readiness: string;
+  recommendation: {
+    id?: string | null;
+    action?: string | null;
+    priority?: string | null;
+    quantityMin?: string | null;
+    quantityMax?: string | null;
+    currentWeight?: string | null;
+    targetWeightMin?: string | null;
+    targetWeightMax?: string | null;
+    confidence?: string | null;
+    reasons: string[];
+    risks: string[];
+    changeConditions: string[];
+    winningRule?: string | null;
+    resolutionReason?: string | null;
+    validUntil?: string | null;
+  };
+  evidence: {
+    analysisStatus: string;
+    exactQuantityAllowed: boolean;
+    ruleIds: string[];
+    strategyVersion?: string | null;
+    configHash?: string | null;
+  };
+  dataAsOf?: string | null;
+};
+type JournalEntry = {
+  id: string;
+  entryType: string;
+  taxStatus?: string | null;
+  realizedR?: string | null;
+  mfeR?: string | null;
+  maeR?: string | null;
+  exitReason?: string | null;
+  createdAt?: string | null;
+};
+function pct(value?: string | null) {
+  return value == null ? "—" : `${(Number(value) * 100).toFixed(1)}%`;
 }
-
-function jsonArray(value?: string) {
-  if (!value) return [];
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
+function quantity(report: PositionReport) {
+  const r = report.recommendation;
+  if (
+    !report.evidence.exactQuantityAllowed ||
+    (!r.quantityMin && !r.quantityMax)
+  )
+    return "当前无需交易或证据不足，未提供精确数量";
+  return r.quantityMin === r.quantityMax
+    ? `${r.quantityMin ?? r.quantityMax ?? "—"} 股`
+    : `${r.quantityMin ?? "—"}–${r.quantityMax ?? "—"} 股`;
 }
 
 export function PositionDetailPage() {
   const { positionId = "" } = useParams();
-  const position = useQuery({
-    queryKey: ["position", positionId],
+  const report = useQuery({
+    queryKey: ["position-report", positionId],
     queryFn: () =>
-      requireData(
-        api.GET("/api/v1/positions/{id}", {
-          params: { path: { id: positionId } },
-        }),
-      ),
-    enabled: positionId !== "",
+      getJson<PositionReport>(`/api/v1/positions/${positionId}/report`),
+    enabled: Boolean(positionId),
     retry: false,
   });
-  const intelligence = useQuery({
-    queryKey: ["position-intelligence", positionId],
+  const chart = useQuery({
+    queryKey: ["position-chart", positionId, "1Y"],
     queryFn: () =>
-      requireData(
-        api.GET("/api/v1/positions/{positionId}/intelligence", {
-          params: { path: { positionId } },
-        }),
+      getJson<PositionChartData>(
+        `/api/v1/positions/${positionId}/chart?range=1Y`,
       ),
-    enabled: positionId !== "",
+    enabled: Boolean(positionId),
     retry: false,
   });
-
-  if (position.isError || intelligence.isError)
+  const journal = useQuery({
+    queryKey: ["position-journal", positionId],
+    queryFn: () =>
+      getJson<JournalEntry[]>(`/api/v1/positions/${positionId}/journal`),
+    enabled: Boolean(positionId),
+    retry: false,
+  });
+  if (report.isPending)
     return (
-      <main className="inspection-shell">
-        <a className="back-link" href="/portfolio">
-          <ArrowLeft aria-hidden="true" /> Portfolio
-        </a>
-        <aside className="error portfolio-auth" role="alert">
-          <strong>Position unavailable</strong>
-          <span>
-            Sign in or verify that this position belongs to your account.
-          </span>
-        </aside>
+      <main className="shell workspace-shell">
+        <WorkspaceNav />
+        <section className="context-card">正在加载持仓分析…</section>
       </main>
     );
-  const data = intelligence.data;
-  const stale =
-    data?.stop?.qualityStatus && data.stop.qualityStatus !== "HEALTHY";
+  if (report.isError)
+    return (
+      <main className="shell workspace-shell">
+        <WorkspaceNav />
+        <section className="context-card" role="alert">
+          <h1>持仓分析尚不可用</h1>
+          <p>
+            请确认已经登录，且该持仓已完成分析。系统不会用示例结论填充报告。
+          </p>
+          <a href="/portfolio">返回我的持仓</a>
+        </section>
+      </main>
+    );
+  const data = report.data;
+  const r = data.recommendation;
   return (
-    <main className="inspection-shell position-detail-shell">
-      <header className="inspection-header">
-        <a className="back-link" href="/portfolio">
-          <ArrowLeft aria-hidden="true" /> Portfolio
-        </a>
+    <main className="shell workspace-shell position-detail-shell">
+      <WorkspaceNav />
+      <a className="back-link" href="/portfolio">
+        ← 返回我的持仓
+      </a>
+      <section className="position-hero">
         <div>
-          <p className="eyebrow">PACKET 05 / POSITION INTELLIGENCE</p>
-          <h1>{position.data?.symbol ?? "Position"}</h1>
+          <p className="eyebrow">持仓分析</p>
+          <h1>{data.position.symbol}</h1>
+          <span>{data.position.classification}</span>
         </div>
-        <span className="health-pill">
-          {position.data?.classification ?? "LOADING"}
-        </span>
-      </header>
-      {stale ? (
-        <aside className="quality-warning" role="alert">
-          <AlertTriangle aria-hidden="true" />
-          <span>
-            <strong>Stale stop evidence</strong> Review only; no precise
-            execution quantity.
-          </span>
-        </aside>
-      ) : null}
-      <section className="position-intelligence-grid">
-        <article className="context-card position-chart">
-          <p className="eyebrow">PRICE / ENTRY / STOP / EARNINGS</p>
-          <div
-            className="chart-placeholder"
-            aria-label="Position chart scaffold"
-          >
-            <span>Server-owned chart series</span>
-            {data?.stop ? (
-              <>
-                <i className="entry-line">ENTRY {data.stop.entryPrice}</i>
-                <i className="stop-line">LIVE STOP {data.stop.liveStop}</i>
-              </>
-            ) : (
-              <p className="empty">No stop series yet.</p>
-            )}
-          </div>
-        </article>
-        <article className="context-card">
-          <p className="eyebrow">STOPS</p>
-          {data?.stop ? (
-            <dl className="score-breakdown">
-              <div>
-                <dt>Initial</dt>
-                <dd>{data.stop.initialStop}</dd>
-              </div>
-              <div>
-                <dt>Live</dt>
-                <dd>{data.stop.liveStop}</dd>
-              </div>
-              <div>
-                <dt>Soft alert</dt>
-                <dd>{data.stop.softAlert}</dd>
-              </div>
-              <div>
-                <dt>Catastrophic</dt>
-                <dd>{data.stop.catastrophicStop}</dd>
-              </div>
-            </dl>
+        <div className="position-verdict">
+          <h2>建议：{r.action ?? "等待数据"}</h2>
+          <p>置信度：{r.confidence ?? "WAIT_FOR_DATA"}</p>
+          <p>
+            当前仓位：{pct(r.currentWeight)} · 目标：{pct(r.targetWeightMin)}–
+            {pct(r.targetWeightMax)}
+          </p>
+          <p>建议数量：{quantity(data)}</p>
+          <p>
+            有效期：
+            {r.validUntil
+              ? new Date(r.validUntil).toLocaleString("zh-CN")
+              : "等待有效期证据"}
+          </p>
+        </div>
+      </section>
+      <div className="position-modules">
+        <section className="context-card">
+          <span className="module-number">1</span>
+          <h2>最终结论</h2>
+          <p>
+            {r.resolutionReason ?? r.reasons[0] ?? "分析尚未形成完整结论。"}
+          </p>
+          <ul>
+            {r.reasons.slice(0, 3).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+        <section className="context-card">
+          <span className="module-number">2</span>
+          <h2>组合中的角色</h2>
+          <dl className="module-metrics">
+            <div>
+              <dt>资产分类</dt>
+              <dd>{data.position.classification}</dd>
+            </div>
+            <div>
+              <dt>当前权重</dt>
+              <dd>{pct(r.currentWeight)}</dd>
+            </div>
+            <div>
+              <dt>目标区间</dt>
+              <dd>
+                {pct(r.targetWeightMin)}–{pct(r.targetWeightMax)}
+              </dd>
+            </div>
+          </dl>
+        </section>
+        <section className="context-card">
+          <span className="module-number">3</span>
+          <h2>公司质量</h2>
+          <p>
+            {data.position.classification.includes("ETF")
+              ? "该资产按 ETF 证据路径分析，不套用单公司质量模型。"
+              : (r.reasons.find((item) =>
+                  /quality|fundamental|质量|现金流|增长/i.test(item),
+                ) ?? "当前报告没有足够的公司质量明细。")}
+          </p>
+        </section>
+        <section className="context-card">
+          <span className="module-number">4</span>
+          <h2>估值</h2>
+          <p>
+            {r.reasons.find((item) => /valuation|估值|折价/i.test(item)) ??
+              "当前报告没有足够的估值证据。"}
+          </p>
+        </section>
+        <section className="context-card chart-module">
+          <span className="module-number">5</span>
+          <h2>价格趋势</h2>
+          {chart.isPending ? (
+            <p>正在加载真实日线…</p>
+          ) : chart.isError ? (
+            <div className="chart-empty">无法读取图表数据。</div>
           ) : (
-            <p className="empty">
-              Core ETFs or missing EOD evidence may have no ordinary stock stop.
-            </p>
+            <PositionChart data={chart.data} />
           )}
-        </article>
-        <article className="context-card">
-          <p className="eyebrow">THESIS</p>
-          {data?.thesis ? (
-            <>
-              <h2>{data.thesis.status}</h2>
-              <p>{data.thesis.summary}</p>
-              <small>
-                {data.thesis.userConfirmed
-                  ? "USER CONFIRMED"
-                  : "CONFIRMATION REQUIRED"}{" "}
-                · expires {data.thesis.expiresAt}
-              </small>
-              <ul>
-                {jsonArray(data.thesis.sourcesJson).map((source) => (
-                  <li key={source}>{source}</li>
-                ))}
-              </ul>
-            </>
+        </section>
+        <section className="context-card">
+          <span className="module-number">6</span>
+          <h2>风险和 Stops</h2>
+          {r.risks.length ? (
+            <ul>
+              {r.risks.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           ) : (
-            <p className="empty">
-              No structured thesis. LLM summaries cannot create a status.
-            </p>
+            <p>暂无完整风险证据。</p>
           )}
-        </article>
-        <article className="context-card">
-          <p className="eyebrow">QUALITY / VALUATION</p>
-          {data?.valuation ? (
-            <>
-              <h2>{data.valuation.action}</h2>
-              <p>
-                Fundamentals {data.valuation.fundamentalHealth} · revisions{" "}
-                {data.valuation.earningsRevisions} · stabilization{" "}
-                {data.valuation.priceStabilization}
-              </p>
-              <small>
-                Discount tactical sleeve {data.valuation.discountTacticalWeight}
-              </small>
-            </>
+          <p>
+            风险线只在完整收盘数据后确认；数据不完整时不会给出精确交易数量。
+          </p>
+        </section>
+        <section className="context-card">
+          <span className="module-number">7</span>
+          <h2>Thesis</h2>
+          <p>
+            {r.changeConditions.length
+              ? `建议改变条件：${r.changeConditions.join("；")}`
+              : "尚无结构化 Thesis 变化条件。"}
+          </p>
+        </section>
+        <section className="context-card">
+          <span className="module-number">8</span>
+          <h2>财报 / 事件</h2>
+          {chart.data?.earningsMarkers.length ? (
+            <ul>
+              {chart.data.earningsMarkers.map((item) => (
+                <li key={`${item.marketDate}-${item.label}`}>
+                  {item.marketDate} · {item.label}
+                </li>
+              ))}
+            </ul>
           ) : (
-            <p className="empty">No valuation evidence.</p>
+            <p>当前时间范围内没有可靠的财报或事件数据。</p>
           )}
-        </article>
-        <article className="context-card">
-          <p className="eyebrow">EARNINGS RISK</p>
-          {data?.earnings ? (
-            <>
-              <h2>{data.earnings.action}</h2>
-              <p>
-                {data.earnings.eventCount} events · P90 gap{" "}
-                {data.earnings.gapP90Fraction} · cushion{" "}
-                {data.earnings.profitCushionR}R
-              </p>
-              <small>Next event {data.earnings.nextEventAt ?? "unknown"}</small>
-            </>
-          ) : (
-            <p className="empty">8–12 historical events required.</p>
-          )}
-        </article>
-        <article className="context-card">
-          <p className="eyebrow">TAX / JOURNAL</p>
-          {(data?.journal ?? []).length ? (
-            (data?.journal ?? []).map((item) => (
-              <div className="journal-row" key={item.id}>
+        </section>
+        <section className="context-card">
+          <span className="module-number">9</span>
+          <h2>Cluster overlap</h2>
+          <p>
+            {r.risks.find((item) => /cluster|overlap|集中|重叠/i.test(item)) ??
+              "当前报告没有单独的重叠风险明细。"}
+          </p>
+        </section>
+        <section className="context-card">
+          <span className="module-number">10</span>
+          <h2>Tax lots</h2>
+          <p>当前没有可核验的税务批次明细；系统不会估算或补造成本批次。</p>
+        </section>
+        <section className="context-card">
+          <span className="module-number">11</span>
+          <h2>数据来源和时效</h2>
+          <dl className="module-metrics">
+            <div>
+              <dt>分析状态</dt>
+              <dd>{data.evidence.analysisStatus}</dd>
+            </div>
+            <div>
+              <dt>就绪状态</dt>
+              <dd>{data.readiness}</dd>
+            </div>
+            <div>
+              <dt>数据截至</dt>
+              <dd>
+                {data.dataAsOf
+                  ? new Date(data.dataAsOf).toLocaleString("zh-CN")
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+          <details>
+            <summary>审计依据</summary>
+            <p>策略版本：{data.evidence.strategyVersion ?? "—"}</p>
+            <p>规则：{data.evidence.ruleIds.join("、") || "—"}</p>
+            <p>配置摘要：{data.evidence.configHash ?? "—"}</p>
+          </details>
+        </section>
+        <section className="context-card">
+          <span className="module-number">12</span>
+          <h2>决策历史</h2>
+          {journal.isPending ? (
+            <p>正在加载…</p>
+          ) : journal.data?.length ? (
+            journal.data.map((item) => (
+              <article className="journal-row" key={item.id}>
                 <strong>{item.entryType}</strong>
-                <span>{item.taxStatus}</span>
-                <span>
-                  Realized {item.realizedR ?? "—"}R · MFE {item.mfeR ?? "—"}R ·
-                  MAE {item.maeR ?? "—"}R
-                </span>
-                <small>{item.exitReason ?? "OPEN"}</small>
-              </div>
+                <span>{item.taxStatus ?? "税务状态未知"}</span>
+                <small>
+                  已实现 {item.realizedR ?? "—"}R · MFE {item.mfeR ?? "—"}R ·
+                  MAE {item.maeR ?? "—"}R · {item.exitReason ?? "持有中"}
+                </small>
+              </article>
             ))
           ) : (
-            <p className="empty">No journal entries.</p>
+            <p>暂无可核验的决策或交易历史。</p>
           )}
-        </article>
-      </section>
+        </section>
+      </div>
       <footer>
-        <span>FORMAL STOPS AFTER COMPLETED DAILY BAR</span>
-        <span>RISK BEFORE TAX</span>
-        <span>NO AUTO TRADING</span>
+        <span>仅供决策支持</span>
+        <span>风险优先于税务影响</span>
+        <span>不会自动交易</span>
       </footer>
     </main>
   );

@@ -324,6 +324,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/positions/{positionId}/chart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["chart"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/positions/{id}": {
     parameters: {
       query?: never;
@@ -364,6 +380,22 @@ export interface paths {
       cookie?: never;
     };
     get: operations["summary"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio/holdings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["holdings"];
     put?: never;
     post?: never;
     delete?: never;
@@ -678,10 +710,13 @@ export interface components {
     };
     AcknowledgementRequest: {
       idempotencyKey: string;
+      decisionType?: string;
+      rationale?: string;
     };
     AcknowledgementResponse: {
       /** Format: uuid */
       recommendationId?: string;
+      decisionType?: string;
       newlyAcknowledged?: boolean;
       executionSubmitted?: boolean;
       /** Format: date-time */
@@ -1087,6 +1122,44 @@ export interface components {
       /** Format: date-time */
       validUntil?: string;
     };
+    ChartBarResponse: {
+      /** Format: date */
+      marketDate?: string;
+      open?: string;
+      high?: string;
+      low?: string;
+      close?: string;
+      quality?: string;
+    };
+    ChartMarkerResponse: {
+      /** Format: date */
+      marketDate?: string;
+      price?: string;
+      markerType?: string;
+    };
+    ChartResponse: {
+      bars?: components["schemas"]["ChartBarResponse"][];
+      entryMarkers?: components["schemas"]["ChartMarkerResponse"][];
+      stopSeries?: components["schemas"]["StopSeriesResponse"][];
+      earningsMarkers?: components["schemas"]["EventMarkerResponse"][];
+      tradeMarkers?: components["schemas"]["EventMarkerResponse"][];
+      /** Format: date-time */
+      dataAsOf?: string;
+      quality?: string;
+    };
+    EventMarkerResponse: {
+      /** Format: date */
+      marketDate?: string;
+      markerType?: string;
+      label?: string;
+    };
+    StopSeriesResponse: {
+      /** Format: date */
+      marketDate?: string;
+      formalStop?: string;
+      liveStop?: string;
+      softAlert?: string;
+    };
     ClassificationSuggestionResponse: {
       /** Format: uuid */
       positionId?: string;
@@ -1105,6 +1178,29 @@ export interface components {
       openPositions?: number;
       /** Format: date-time */
       dataAsOf?: string;
+    };
+    PortfolioHoldingResponse: {
+      /** Format: uuid */
+      id?: string;
+      /** Format: int64 */
+      version?: number;
+      symbol?: string;
+      name?: string;
+      assetType?: string;
+      bucket?: string;
+      classification?: string;
+      classificationConfirmed?: boolean;
+      marketValue?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      action?: string;
+      priority?: string;
+      confidence?: string;
+      trend?: string;
+      /** Format: date-time */
+      nextEvent?: string;
+      dataStatus?: string;
     };
     DrawdownResponse: {
       strategyVersion?: string;
@@ -1310,11 +1406,21 @@ export interface components {
       /** Format: uuid */
       positionId?: string;
       symbol?: string;
+      classification?: string;
       action: string;
       priority: string;
+      quantityMin?: string;
+      quantityMax?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      estimatedAmount?: string;
+      riskBeforeFraction?: string;
+      riskAfterFraction?: string;
       confidence: string;
       reasonsJson: string;
       risksJson: string;
+      changeConditionsJson: string;
       /** Format: date-time */
       dataAsOf: string;
       /** Format: date-time */
@@ -1426,6 +1532,7 @@ export interface components {
       /** Format: uuid */
       positionId?: string;
       symbol?: string;
+      classification?: string;
       action?: string;
       priority?: string;
       quantityMin?: string;
@@ -1434,6 +1541,8 @@ export interface components {
       targetWeightMax?: string;
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
+      currentWeight?: string;
+      estimatedAmount?: string;
       confidence?: string;
       reasonsJson?: string;
       risksJson?: string;
@@ -1943,6 +2052,30 @@ export interface operations {
       };
     };
   };
+  chart: {
+    parameters: {
+      query?: {
+        range?: string;
+      };
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ChartResponse"];
+        };
+      };
+    };
+  };
   position: {
     parameters: {
       query?: never;
@@ -2003,6 +2136,26 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["PortfolioSummaryResponse"];
+        };
+      };
+    };
+  };
+  holdings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PortfolioHoldingResponse"][];
         };
       };
     };

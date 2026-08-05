@@ -82,7 +82,7 @@ function json(value: unknown) {
   );
 }
 
-describe("PortfolioImportPage", () => {
+describe("PortfolioImportPageTest", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {

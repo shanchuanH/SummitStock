@@ -1,15 +1,19 @@
 export function EmptyPortfolioState() {
   return (
-    <article className="context-card dashboard-actions">
-      <p className="eyebrow">PORTFOLIO REQUIRED</p>
-      <h2>No portfolio has been imported</h2>
-      <p>
-        No analysis or action conclusion is available until real holdings are
-        imported and confirmed.
-      </p>
-      <a className="market-link" href="/portfolio-import">
-        Import Fidelity holdings →
-      </a>
+    <article className="context-card dashboard-actions empty-portfolio">
+      <h2>尚未导入投资组合</h2>
+      <p>上传 Fidelity Positions CSV 后，系统会分析全部持仓并生成今日简报。</p>
+      <div className="empty-portfolio-actions">
+        <a className="market-link" href="/portfolio/import?mode=file">
+          导入 Fidelity CSV
+        </a>
+        <a className="market-link" href="/portfolio/import?mode=paste">
+          粘贴持仓表
+        </a>
+        <a className="market-link" href="/portfolio/import?mode=manual">
+          手动录入
+        </a>
+      </div>
     </article>
   );
 }

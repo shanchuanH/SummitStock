@@ -115,9 +115,9 @@ export function PortfolioImportPage() {
     <main className="shell workspace-shell import-shell">
       <WorkspaceNav />
       <section className="workspace-heading">
-        <p className="eyebrow">PORTFOLIO INTAKE</p>
-        <h1>Import</h1>
-        <p>Preview first. Reconcile only after explicit confirmation.</p>
+        <p className="eyebrow">投资组合导入</p>
+        <h1>导入持仓</h1>
+        <p>先预览并修正识别结果，明确确认后才会写入投资组合。</p>
       </section>
       {error ? (
         <aside className="error" role="alert">
@@ -170,9 +170,9 @@ export function PortfolioImportPage() {
         </>
       )}
       <footer>
-        <span>FILE ANALYSIS ONLY</span>
-        <span>NO BROKER CONNECTION</span>
-        <span>NO AUTO TRADING</span>
+        <span>仅分析导入文件</span>
+        <span>不连接券商</span>
+        <span>不会自动交易</span>
       </footer>
     </main>
   );

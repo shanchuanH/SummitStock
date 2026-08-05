@@ -2,6 +2,7 @@ package com.example.portfolio.portfolio;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import java.security.Principal;
 import java.time.Clock;
 import java.time.Instant;
@@ -41,24 +42,47 @@ class RecommendationAcknowledgementController {
         var ackId = UUID.randomUUID();
         var inserted = jdbc.sql(
                         """
-                INSERT IGNORE INTO recommendation_acknowledgement (id,user_id,recommendation_id,idempotency_key,acknowledged_at,created_at)
-                SELECT UUID_TO_BIN(:ackId),u.id,UUID_TO_BIN(:recommendationId),:key,:now,:now FROM app_user u WHERE u.email=:email
+                INSERT IGNORE INTO recommendation_acknowledgement (
+                    id,user_id,recommendation_id,idempotency_key,decision_type,rationale,acknowledged_at,created_at)
+                SELECT UUID_TO_BIN(:ackId),u.id,UUID_TO_BIN(:recommendationId),:key,:decision,:rationale,:now,:now
+                FROM app_user u WHERE u.email=:email
                 """)
                 .param("ackId", ackId.toString())
                 .param("recommendationId", id.toString())
                 .param("key", request.idempotencyKey())
+                .param("decision", request.decisionType())
+                .param("rationale", request.rationale())
                 .param("now", clock.instant())
                 .param("email", principal.getName())
                 .update();
         if (inserted == 1)
-            jdbc.sql("UPDATE recommendation SET status='ACKNOWLEDGED' WHERE id=UUID_TO_BIN(:id)")
+            jdbc.sql("UPDATE recommendation SET status=:status WHERE id=UUID_TO_BIN(:id)")
                     .param("id", id.toString())
+                    .param(
+                            "status",
+                            switch (request.decisionType()) {
+                                case "HANDLED" -> "ACKNOWLEDGED";
+                                case "DEFERRED" -> "ACTIVE";
+                                case "IGNORED" -> "OVERRIDDEN";
+                                default -> throw new IllegalStateException("Validated decision is unsupported");
+                            })
                     .update();
-        return new AcknowledgementResponse(id, inserted == 1, false, clock.instant());
+        return new AcknowledgementResponse(id, request.decisionType(), inserted == 1, false, clock.instant());
     }
 
-    record AcknowledgementRequest(@NotBlank String idempotencyKey) {}
+    record AcknowledgementRequest(
+            @NotBlank String idempotencyKey,
+            @Pattern(regexp = "HANDLED|DEFERRED|IGNORED") String decisionType,
+            String rationale) {
+        AcknowledgementRequest {
+            if (decisionType == null) decisionType = "HANDLED";
+        }
+    }
 
     record AcknowledgementResponse(
-            UUID recommendationId, boolean newlyAcknowledged, boolean executionSubmitted, Instant acknowledgedAt) {}
+            UUID recommendationId,
+            String decisionType,
+            boolean newlyAcknowledged,
+            boolean executionSubmitted,
+            Instant acknowledgedAt) {}
 }

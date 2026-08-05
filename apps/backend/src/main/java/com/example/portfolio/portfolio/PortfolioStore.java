@@ -101,6 +101,58 @@ public class PortfolioStore {
                 .optional();
     }
 
+    public List<PortfolioHoldingView> holdings(String email) {
+        return jdbc.sql(
+                        """
+                        WITH owned AS (
+                            SELECT p.*, i.symbol, i.asset_type,
+                                   COALESCE(JSON_UNQUOTE(JSON_EXTRACT(i.metadata,'$.name')),i.symbol) instrument_name,
+                                   a.user_id
+                            FROM position p
+                            JOIN investment_account a ON a.id=p.account_id
+                            JOIN app_user u ON u.id=a.user_id
+                            JOIN instrument i ON i.id=p.instrument_id
+                            WHERE u.email=:email AND p.status='OPEN'
+                        ), totals AS (
+                            SELECT COALESCE(SUM(market_value),0)
+                                   + COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
+                                               WHERE c.user_id=(SELECT user_id FROM owned LIMIT 1)),0) liquid
+                            FROM owned
+                        )
+                        SELECT BIN_TO_UUID(o.id) id, o.version, o.symbol, o.instrument_name name, o.asset_type assetType,
+                               o.bucket, o.classification, o.classification_confirmed classificationConfirmed,
+                               o.market_value marketValue,
+                               CASE WHEN t.liquid=0 THEN 0 ELSE o.market_value/t.liquid END currentWeight,
+                               h.target_weight_min targetWeightMin, h.target_weight_max targetWeightMax,
+                               COALESCE(r.action,h.recommended_action,'WAIT_FOR_DATA') action,
+                               COALESCE(r.priority,'WATCH') priority,
+                               COALESCE(r.confidence,h.confidence,'WAIT_FOR_DATA') confidence,
+                               CASE WHEN q.last_price IS NULL OR sma.value_double IS NULL THEN 'WAIT_FOR_DATA'
+                                    WHEN q.last_price>=sma.value_double THEN 'ABOVE_TREND' ELSE 'BELOW_TREND' END trend,
+                               (SELECT MIN(e.event_at) FROM company_event e
+                                WHERE e.instrument_id=o.instrument_id AND e.event_at>=UTC_TIMESTAMP(6)) nextEvent,
+                               COALESCE(h.readiness,o.data_readiness,'WAIT_FOR_DATA') dataStatus
+                        FROM owned o CROSS JOIN totals t
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=(
+                            SELECT x.id FROM holding_analysis_snapshot x WHERE x.position_id=o.id
+                            ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)
+                        LEFT JOIN recommendation r ON r.id=(
+                            SELECT y.id FROM recommendation y WHERE y.position_id=o.id AND y.status='ACTIVE'
+                            ORDER BY y.data_as_of DESC,y.created_at DESC LIMIT 1)
+                        LEFT JOIN quote q ON q.id=(
+                            SELECT z.id FROM quote z WHERE z.instrument_id=o.instrument_id
+                            ORDER BY z.data_as_of DESC,z.created_at DESC LIMIT 1)
+                        LEFT JOIN indicator_snapshot sma ON sma.id=(
+                            SELECT s.id FROM indicator_snapshot s WHERE s.instrument_id=o.instrument_id
+                              AND s.indicator_code='SMA_20' AND s.status='READY'
+                            ORDER BY s.market_date DESC,s.created_at DESC LIMIT 1)
+                        ORDER BY FIELD(COALESCE(r.priority,'WATCH'),'MUST_ACT','DO_NOT','WATCH','NORMAL'),o.symbol
+                        """)
+                .param("email", email)
+                .query(PortfolioHoldingView.class)
+                .list();
+    }
+
     @Transactional
     public ClassificationEvidence classificationEvidence(String email, UUID id) {
         return jdbc.sql(
@@ -197,15 +249,21 @@ public class PortfolioStore {
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(r.id) id, BIN_TO_UUID(r.position_id) position_id,
-                               i.symbol, r.action, r.priority, r.quantity_min, r.quantity_max,
+                               i.symbol, p.classification, p.market_value,
+                               h.current_weight, r.action, r.priority, r.quantity_min, r.quantity_max,
                                r.target_weight_min, r.target_weight_max, r.risk_before_fraction,
                                r.risk_after_fraction, r.confidence, r.reasons, r.risks,
                                r.change_conditions, r.rule_ids, r.strategy_version,
-                               r.data_as_of, r.valid_until
+                               r.data_as_of, r.valid_until,
+                               CASE WHEN r.quantity_max IS NULL OR q.last_price IS NULL THEN NULL
+                                    ELSE r.quantity_max*q.last_price END estimated_amount
                         FROM recommendation r
                         JOIN app_user u ON u.id = r.user_id
                         LEFT JOIN position p ON p.id = r.position_id
                         LEFT JOIN instrument i ON i.id = p.instrument_id
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
+                        LEFT JOIN quote q ON q.id=(SELECT x.id FROM quote x WHERE x.instrument_id=p.instrument_id
+                            ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)
                         WHERE u.email = :email AND r.status = 'ACTIVE' AND r.valid_until > UTC_TIMESTAMP(6)
                         ORDER BY FIELD(r.priority, 'MUST_ACT', 'DO_NOT', 'WATCH', 'NORMAL'), r.created_at
                         """)
@@ -242,6 +300,26 @@ public class PortfolioStore {
     public record ClassificationEvidence(
             String symbol, String assetType, boolean thematic, boolean unvestedCompensation) {}
 
+    public record PortfolioHoldingView(
+            UUID id,
+            long version,
+            String symbol,
+            String name,
+            String assetType,
+            String bucket,
+            String classification,
+            boolean classificationConfirmed,
+            BigDecimal marketValue,
+            BigDecimal currentWeight,
+            BigDecimal targetWeightMin,
+            BigDecimal targetWeightMax,
+            String action,
+            String priority,
+            String confidence,
+            String trend,
+            LocalDateTime nextEvent,
+            String dataStatus) {}
+
     public record HoldingAnalysisView(
             UUID id,
             UUID positionId,
@@ -264,6 +342,9 @@ public class PortfolioStore {
             UUID id,
             UUID positionId,
             String symbol,
+            String classification,
+            BigDecimal marketValue,
+            BigDecimal currentWeight,
             String action,
             String priority,
             BigDecimal quantityMin,
@@ -279,5 +360,6 @@ public class PortfolioStore {
             String ruleIds,
             String strategyVersion,
             LocalDateTime dataAsOf,
-            LocalDateTime validUntil) {}
+            LocalDateTime validUntil,
+            BigDecimal estimatedAmount) {}
 }

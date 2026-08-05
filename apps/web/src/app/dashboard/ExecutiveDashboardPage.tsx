@@ -1,6 +1,6 @@
 import { api, type components } from "@portfolio/api-client";
 import { useQuery } from "@tanstack/react-query";
-import { ActionCard } from "./ActionCard";
+import { ActionCard, type DashboardAction } from "./ActionCard";
 import { DataReadinessBanner } from "./DataReadinessBanner";
 import { EmptyPortfolioState } from "./EmptyPortfolioState";
 import { PortfolioHealthCard } from "./PortfolioHealthCard";
@@ -20,30 +20,70 @@ async function getExecutiveBrief(): Promise<ExecutiveBrief> {
   return data;
 }
 
+function money(value: string) {
+  return new Intl.NumberFormat("zh-CN", {
+    style: "currency",
+    currency: "USD",
+  }).format(Number(value));
+}
+
+function asOf(value?: string | null) {
+  if (!value) return "数据时间待确认";
+  return `${new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value))} ET`;
+}
+
 function SummaryCard({ brief }: { brief: ExecutiveBrief }) {
   return (
     <article className="context-card">
-      <p className="eyebrow">PORTFOLIO SUMMARY</p>
-      <h2>{brief.summary.openPositions} open positions</h2>
+      <p className="eyebrow">组合概览</p>
+      <h2>{brief.summary.openPositions} 个持仓</h2>
       <dl className="health-metrics">
         <div>
-          <dt>Invested value</dt>
-          <dd>${brief.summary.investedValue}</dd>
+          <dt>已投资资产</dt>
+          <dd>{money(brief.summary.investedValue)}</dd>
         </div>
         <div>
-          <dt>Tracked cash</dt>
-          <dd>${brief.summary.trackedCash}</dd>
+          <dt>已跟踪现金</dt>
+          <dd>{money(brief.summary.trackedCash)}</dd>
         </div>
         <div>
-          <dt>Emergency cash</dt>
-          <dd>${brief.summary.emergencyCash}</dd>
+          <dt>应急现金</dt>
+          <dd>{money(brief.summary.emergencyCash)}</dd>
         </div>
         <div>
-          <dt>Tactical reserve</dt>
-          <dd>${brief.summary.tacticalReserve}</dd>
+          <dt>战术储备</dt>
+          <dd>{money(brief.summary.tacticalReserve)}</dd>
         </div>
       </dl>
     </article>
+  );
+}
+
+function ActionSection({
+  title,
+  actions,
+}: {
+  title: string;
+  actions: DashboardAction[];
+}) {
+  if (!actions.length) return null;
+  return (
+    <section className="brief-action-section">
+      <h2>{title}</h2>
+      <ol className="action-list">
+        {actions.map((action) => (
+          <ActionCard key={action.id} action={action} />
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -53,33 +93,34 @@ export function ExecutiveDashboardPage() {
     queryFn: getExecutiveBrief,
     retry: false,
   });
-
   return (
     <main className="shell workspace-shell">
       <WorkspaceNav />
-      <section className="workspace-heading">
-        <p className="eyebrow">DAILY CONTROL SURFACE</p>
-        <h1>Dashboard</h1>
+      <section className="workspace-heading brief-heading">
+        <h1>今日简报</h1>
+        <p>数据截至 {asOf(brief.data?.dataAsOf)}</p>
       </section>
       {brief.isPending ? (
         <section className="context-card">
-          <p className="empty-state">Loading the executive brief…</p>
+          <p className="empty-state">正在加载分析…</p>
         </section>
       ) : brief.isError ? (
         <section className="context-card" role="alert">
           <h2>
             {brief.error instanceof BriefRequestError &&
             brief.error.status === 401
-              ? "Sign in required"
-              : "Executive brief unavailable"}
+              ? "请登录"
+              : "无法加载分析"}
           </h2>
           <p>
             {brief.error instanceof BriefRequestError &&
             brief.error.status === 401
-              ? "Sign in from Settings to view private portfolio decisions."
-              : "The analysis status is unknown. No action conclusion is available."}
+              ? "请前往设置登录后查看私人持仓建议。"
+              : "当前分析状态未知，系统不会把请求失败显示成无需操作。"}
           </p>
         </section>
+      ) : brief.data.state === "NO_PORTFOLIO" ? (
+        <EmptyPortfolioState />
       ) : (
         <>
           <DataReadinessBanner
@@ -87,49 +128,68 @@ export function ExecutiveDashboardPage() {
             headline={brief.data.headline}
             readiness={brief.data.dataReadiness}
           />
-          <section className="dashboard-grid">
-            {brief.data.state === "NO_PORTFOLIO" ? (
-              <EmptyPortfolioState />
-            ) : (
-              <article className="context-card dashboard-actions">
-                <h2>Priority actions</h2>
-                {brief.data.state === "ANALYSIS_READY" &&
-                brief.data.mustAct.length === 0 &&
-                brief.data.doNot.length === 0 &&
-                brief.data.watch.length === 0 ? (
-                  <div className="calm-state">
-                    <strong>NO URGENT ACTION</strong>
-                    <span>
-                      Analysis is complete and no action queue is active.
-                    </span>
-                  </div>
-                ) : brief.data.mustAct.length > 0 ? (
-                  <ol className="action-list">
-                    {brief.data.mustAct.slice(0, 3).map((action) => (
-                      <ActionCard key={action.id} action={action} />
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="empty-state">{brief.data.headline}</p>
+          <section className="brief-counts" aria-label="今日项目统计">
+            <article>
+              <strong>{brief.data.mustAct.length}</strong>
+              <span>项需要处理</span>
+            </article>
+            <article>
+              <strong>
+                {brief.data.doNot.length + brief.data.watch.length}
+              </strong>
+              <span>项需要观察</span>
+            </article>
+            <article>
+              <strong>
+                {Math.max(
+                  0,
+                  brief.data.summary.openPositions -
+                    brief.data.mustAct.length -
+                    brief.data.doNot.length -
+                    brief.data.watch.length,
                 )}
-              </article>
-            )}
+              </strong>
+              <span>项无需动作</span>
+            </article>
+          </section>
+          {brief.data.state === "ANALYSIS_READY" &&
+          !brief.data.mustAct.length &&
+          !brief.data.doNot.length &&
+          !brief.data.watch.length ? (
+            <section className="context-card calm-state">
+              <strong>当前无需紧急操作</strong>
+              <span>分析已完成，当前没有生效的行动建议。</span>
+            </section>
+          ) : null}
+          <ActionSection
+            title="需要处理"
+            actions={brief.data.mustAct.slice(0, 3)}
+          />
+          <ActionSection
+            title="不要执行"
+            actions={brief.data.doNot}
+          />
+          <ActionSection
+            title="持续观察"
+            actions={brief.data.watch}
+          />
+          <section className="dashboard-grid">
             <SummaryCard brief={brief.data} />
             <PortfolioHealthCard health={brief.data.portfolioHealth} />
           </section>
-          <section className="context-card">
-            <p className="eyebrow">EVIDENCE</p>
+          <details className="context-card audit-details">
+            <summary>数据与审计依据</summary>
             <p>
-              Strategy {brief.data.strategyVersion ?? "not selected"} · data as
-              of {brief.data.dataAsOf ?? "not available"}
+              策略版本：{brief.data.strategyVersion ?? "未选择"}；数据截至：
+              {asOf(brief.data.dataAsOf)}
             </p>
-          </section>
+          </details>
         </>
       )}
       <footer>
-        <span>DECISION SUPPORT ONLY</span>
-        <span>ACKNOWLEDGEMENT IS NOT EXECUTION</span>
-        <span>NO AUTO TRADING</span>
+        <span>仅供决策支持</span>
+        <span>确认不等于执行</span>
+        <span>不会自动交易</span>
       </footer>
     </main>
   );

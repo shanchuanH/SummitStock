@@ -62,6 +62,13 @@ public class PortfolioController {
                 .toList();
     }
 
+    @GetMapping("/portfolio/holdings")
+    List<PortfolioHoldingResponse> holdings(Principal principal) {
+        return store.holdings(principal.getName()).stream()
+                .map(PortfolioHoldingResponse::from)
+                .toList();
+    }
+
     @GetMapping("/positions/{id}")
     PositionResponse position(@PathVariable UUID id, Principal principal) {
         return store.position(principal.getName(), id)
@@ -213,6 +220,48 @@ public class PortfolioController {
         }
     }
 
+    public record PortfolioHoldingResponse(
+            UUID id,
+            long version,
+            String symbol,
+            String name,
+            String assetType,
+            String bucket,
+            String classification,
+            boolean classificationConfirmed,
+            String marketValue,
+            String currentWeight,
+            String targetWeightMin,
+            String targetWeightMax,
+            String action,
+            String priority,
+            String confidence,
+            String trend,
+            Instant nextEvent,
+            String dataStatus) {
+        static PortfolioHoldingResponse from(PortfolioStore.PortfolioHoldingView value) {
+            return new PortfolioHoldingResponse(
+                    value.id(),
+                    value.version(),
+                    value.symbol(),
+                    value.name(),
+                    value.assetType(),
+                    value.bucket(),
+                    value.classification(),
+                    value.classificationConfirmed(),
+                    decimal(value.marketValue()),
+                    decimal(value.currentWeight()),
+                    decimal(value.targetWeightMin()),
+                    decimal(value.targetWeightMax()),
+                    value.action(),
+                    value.priority(),
+                    value.confidence(),
+                    value.trend(),
+                    instant(value.nextEvent()),
+                    value.dataStatus());
+        }
+    }
+
     public record HoldingAnalysisResponse(
             UUID id,
             UUID positionId,
@@ -255,6 +304,7 @@ public class PortfolioController {
             UUID id,
             UUID positionId,
             String symbol,
+            String classification,
             String action,
             String priority,
             String quantityMin,
@@ -263,6 +313,8 @@ public class PortfolioController {
             String targetWeightMax,
             String riskBeforeFraction,
             String riskAfterFraction,
+            String currentWeight,
+            String estimatedAmount,
             String confidence,
             String reasonsJson,
             String risksJson,
@@ -276,6 +328,7 @@ public class PortfolioController {
                     value.id(),
                     value.positionId(),
                     value.symbol(),
+                    value.classification(),
                     value.action(),
                     value.priority(),
                     decimal(value.quantityMin()),
@@ -284,6 +337,8 @@ public class PortfolioController {
                     decimal(value.targetWeightMax()),
                     decimal(value.riskBeforeFraction()),
                     decimal(value.riskAfterFraction()),
+                    decimal(value.currentWeight()),
+                    decimal(value.estimatedAmount()),
                     value.confidence(),
                     value.reasons(),
                     value.risks(),

@@ -30,9 +30,7 @@ describe("DashboardNoFalseNoActionTest", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Executive brief unavailable",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("无法加载分析");
     expect(screen.queryByText("NO URGENT ACTION")).not.toBeInTheDocument();
   });
 
@@ -100,6 +98,6 @@ describe("DashboardNoFalseNoActionTest", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findAllByText("NO URGENT ACTION")).not.toHaveLength(0);
+    expect(await screen.findByText("当前无需紧急操作")).toBeInTheDocument();
   });
 });

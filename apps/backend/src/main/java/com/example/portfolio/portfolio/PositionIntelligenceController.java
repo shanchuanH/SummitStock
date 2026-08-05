@@ -11,7 +11,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.security.Principal;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,12 +35,17 @@ public class PositionIntelligenceController {
     private final PortfolioStore portfolio;
     private final PositionIntelligenceStore store;
     private final Optional<DebugApiAccess> debugAccess;
+    private final Clock clock;
 
     public PositionIntelligenceController(
-            PortfolioStore portfolio, PositionIntelligenceStore store, Optional<DebugApiAccess> debugAccess) {
+            PortfolioStore portfolio,
+            PositionIntelligenceStore store,
+            Optional<DebugApiAccess> debugAccess,
+            Clock clock) {
         this.portfolio = portfolio;
         this.store = store;
         this.debugAccess = debugAccess;
+        this.clock = clock;
     }
 
     @GetMapping("/intelligence")
@@ -68,6 +76,20 @@ public class PositionIntelligenceController {
         return store.journal(principal.getName(), positionId).stream()
                 .map(JournalResponse::from)
                 .toList();
+    }
+
+    @GetMapping("/chart")
+    ChartResponse chart(
+            @PathVariable UUID positionId, @RequestParam(defaultValue = "1Y") String range, Principal principal) {
+        var value = store.chart(principal.getName(), positionId, chartFrom(range));
+        return new ChartResponse(
+                value.bars().stream().map(ChartBarResponse::from).toList(),
+                value.entryMarkers().stream().map(ChartMarkerResponse::from).toList(),
+                value.stopSeries().stream().map(StopSeriesResponse::from).toList(),
+                value.earningsMarkers().stream().map(EventMarkerResponse::from).toList(),
+                value.tradeMarkers().stream().map(EventMarkerResponse::from).toList(),
+                instant(value.dataAsOf()),
+                value.quality());
     }
 
     @PostMapping("/stops/preview")
@@ -131,12 +153,69 @@ public class PositionIntelligenceController {
         return value == null ? null : value.toInstant(ZoneOffset.UTC);
     }
 
+    private LocalDate chartFrom(String range) {
+        var today = LocalDate.now(clock);
+        return switch (range.toUpperCase(java.util.Locale.ROOT)) {
+            case "1M" -> today.minusMonths(1);
+            case "3M" -> today.minusMonths(3);
+            case "6M" -> today.minusMonths(6);
+            case "1Y" -> today.minusYears(1);
+            case "5Y" -> today.minusYears(5);
+            case "MAX" -> LocalDate.of(1970, 1, 1);
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported chart range");
+        };
+    }
+
     public record IntelligenceResponse(
             StopSnapshotResponse stop,
             ThesisResponse thesis,
             ValuationResponse valuation,
             EarningsResponse earnings,
             List<JournalResponse> journal) {}
+
+    public record ChartResponse(
+            List<ChartBarResponse> bars,
+            List<ChartMarkerResponse> entryMarkers,
+            List<StopSeriesResponse> stopSeries,
+            List<EventMarkerResponse> earningsMarkers,
+            List<EventMarkerResponse> tradeMarkers,
+            Instant dataAsOf,
+            String quality) {}
+
+    public record ChartBarResponse(
+            LocalDate marketDate, String open, String high, String low, String close, String quality) {
+        static ChartBarResponse from(PositionIntelligenceStore.ChartBarView value) {
+            return new ChartBarResponse(
+                    value.marketDate(),
+                    decimal(value.open()),
+                    decimal(value.high()),
+                    decimal(value.low()),
+                    decimal(value.close()),
+                    value.quality());
+        }
+    }
+
+    public record ChartMarkerResponse(LocalDate marketDate, String price, String markerType) {
+        static ChartMarkerResponse from(PositionIntelligenceStore.ChartMarkerView value) {
+            return new ChartMarkerResponse(value.marketDate(), decimal(value.price()), value.markerType());
+        }
+    }
+
+    public record StopSeriesResponse(LocalDate marketDate, String formalStop, String liveStop, String softAlert) {
+        static StopSeriesResponse from(PositionIntelligenceStore.StopSeriesView value) {
+            return new StopSeriesResponse(
+                    value.marketDate(),
+                    decimal(value.formalStop()),
+                    decimal(value.liveStop()),
+                    decimal(value.softAlert()));
+        }
+    }
+
+    public record EventMarkerResponse(LocalDate marketDate, String markerType, String label) {
+        static EventMarkerResponse from(PositionIntelligenceStore.EventMarkerView value) {
+            return new EventMarkerResponse(value.marketDate(), value.markerType(), value.label());
+        }
+    }
 
     public record StopPreviewRequest(
             @NotBlank String classification,

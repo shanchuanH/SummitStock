@@ -1,14 +1,90 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PositionDetailPage } from "./position-detail-page";
 
-const { get } = vi.hoisted(() => ({ get: vi.fn() }));
-vi.mock("@portfolio/api-client", () => ({ api: { GET: get } }));
-
-function ok(data: unknown) {
-  return Promise.resolve({ data, response: new Response() });
+vi.mock("./position-chart", () => ({
+  PositionChart: ({ data }: { data: { bars: unknown[] } }) => (
+    <div aria-label="真实持仓图表">{data.bars.length} 根真实日线</div>
+  ),
+}));
+const report = {
+  position: {
+    id: "p1",
+    symbol: "GOOGL",
+    classification: "QUALITY_STOCK",
+    classificationSource: "USER_CONFIRMED",
+  },
+  readiness: "READY",
+  recommendation: {
+    id: "r1",
+    action: "HOLD_DO_NOT_ADD",
+    priority: "DO_NOT",
+    quantityMin: null,
+    quantityMax: null,
+    currentWeight: "0.156",
+    targetWeightMin: "0.08",
+    targetWeightMax: "0.12",
+    confidence: "MEDIUM",
+    reasons: [
+      "Company quality remains healthy.",
+      "Valuation does not offer enough discount.",
+    ],
+    risks: ["Technology cluster concentration."],
+    changeConditions: ["Material earnings deterioration"],
+    winningRule: "RISK_CAP",
+    resolutionReason: "Current weight is above target.",
+    validUntil: "2026-09-01T00:00:00Z",
+  },
+  evidence: {
+    analysisStatus: "READY",
+    exactQuantityAllowed: false,
+    ruleIds: ["RISK_CAP"],
+    strategyVersion: "v1",
+    configHash: "hash",
+  },
+  dataAsOf: "2026-08-05T20:00:00Z",
+};
+const chart = {
+  bars: [
+    {
+      marketDate: "2026-08-05",
+      open: "100",
+      high: "105",
+      low: "99",
+      close: "104",
+      quality: "HEALTHY",
+    },
+  ],
+  entryMarkers: [
+    { marketDate: "2026-08-05", price: "101", markerType: "AVERAGE_COST" },
+  ],
+  stopSeries: [
+    {
+      marketDate: "2026-08-05",
+      formalStop: "94",
+      liveStop: "95",
+      softAlert: "97",
+    },
+  ],
+  earningsMarkers: [
+    { marketDate: "2026-08-20", markerType: "EARNINGS", label: "Earnings" },
+  ],
+  tradeMarkers: [],
+  dataAsOf: "2026-08-05T20:00:00Z",
+  quality: "HEALTHY",
+};
+function response(value: unknown, status = 200) {
+  return Promise.resolve(
+    new Response(JSON.stringify(value), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
+}
+function requestUrl(input: string | URL | Request) {
+  return input instanceof Request ? input.url : input.toString();
 }
 function renderPage() {
   return render(
@@ -17,9 +93,7 @@ function renderPage() {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MemoryRouter
-        initialEntries={["/positions/cccccccc-cccc-cccc-cccc-cccccccccccc"]}
-      >
+      <MemoryRouter initialEntries={["/positions/p1"]}>
         <Routes>
           <Route
             path="/positions/:positionId"
@@ -31,112 +105,70 @@ function renderPage() {
   );
 }
 
-describe("PositionDetailPage", () => {
-  afterEach(cleanup);
-  beforeEach(() => get.mockReset());
-
-  it("shows stop, thesis, valuation, earnings, and risk journal evidence", async () => {
-    get.mockImplementation((path?: string) =>
-      path?.endsWith("intelligence") === true
-        ? ok({
-            stop: {
-              entryPrice: "100",
-              initialStop: "90",
-              liveStop: "94",
-              softAlert: "96",
-              catastrophicStop: "91",
-              qualityStatus: "HEALTHY",
+describe("PositionDetailPageTest", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+  it("renders the twelve modules and real chart contract without false precision", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = requestUrl(input);
+        if (url.endsWith("/report")) return response(report);
+        if (url.includes("/chart")) return response(chart);
+        if (url.endsWith("/journal"))
+          return response([
+            {
+              id: "j1",
+              entryType: "IMPORT",
+              taxStatus: "UNKNOWN",
+              realizedR: null,
+              mfeR: null,
+              maeR: null,
+              exitReason: null,
             },
-            thesis: {
-              status: "HEALTHY",
-              summary: "Margins remain durable",
-              userConfirmed: true,
-              expiresAt: "2027-01-01T00:00:00Z",
-              sourcesJson: '["filing"]',
-            },
-            valuation: {
-              action: "ADD_1_PERCENT_STARTER",
-              fundamentalHealth: "HEALTHY",
-              earningsRevisions: "IMPROVING",
-              priceStabilization: "CONFIRMED",
-              discountTacticalWeight: "0",
-            },
-            earnings: {
-              action: "HOLD_THROUGH_EVENT",
-              eventCount: 10,
-              gapP90Fraction: "0.1",
-              profitCushionR: "1.5",
-              nextEventAt: "2026-09-01T00:00:00Z",
-            },
-            journal: [
-              {
-                id: "1",
-                entryType: "INITIAL",
-                taxStatus: "LONG_TERM",
-                realizedR: "1.5",
-                mfeR: "2.5",
-                maeR: "-0.5",
-                exitReason: "TARGET",
-              },
-            ],
-          })
-        : ok({ symbol: "SPY", classification: "QUALITY_STOCK" }),
+          ]);
+        throw new Error(url);
+      }),
     );
     renderPage();
     expect(
-      await screen.findByText("Margins remain durable"),
+      await screen.findByRole("heading", { name: "GOOGL" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("LIVE STOP 94")).toBeInTheDocument();
-    expect(screen.getByText("ADD_1_PERCENT_STARTER")).toBeInTheDocument();
-    expect(screen.getByText("HOLD_THROUGH_EVENT")).toBeInTheDocument();
-    expect(screen.getByText(/Realized 1.5R/)).toBeInTheDocument();
-  });
-
-  it("uses honest empty states without inventing analysis", async () => {
-    get.mockImplementation((path?: string) =>
-      path?.endsWith("intelligence") === true
-        ? ok({ journal: [] })
-        : ok({ symbol: "QQQ", classification: "CORE_TECH_ETF" }),
-    );
-    renderPage();
     expect(
-      await screen.findByText(/no ordinary stock stop/i),
+      screen.getByText(/当前无需交易或证据不足，未提供精确数量/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/No structured thesis/)).toBeInTheDocument();
+    expect(screen.getByLabelText("真实持仓图表")).toHaveTextContent(
+      "1 根真实日线",
+    );
     expect(
-      screen.getByText("8–12 historical events required."),
-    ).toBeInTheDocument();
+      screen.getAllByText(
+        /最终结论|组合中的角色|公司质量|估值|价格趋势|风险和 Stops|Thesis|财报 \/ 事件|Cluster overlap|Tax lots|数据来源和时效|决策历史/,
+      ),
+    ).toHaveLength(12);
+    expect(screen.getByText(/规则：RISK_CAP/)).toBeInTheDocument();
   });
-
-  it("surfaces stale evidence and authentication errors", async () => {
-    get.mockImplementation((path?: string) =>
-      path?.endsWith("intelligence") === true
-        ? ok({
-            stop: {
-              entryPrice: "100",
-              initialStop: "90",
-              liveStop: "94",
-              softAlert: "96",
-              catastrophicStop: "91",
-              qualityStatus: "STALE",
-            },
-            journal: [],
-          })
-        : ok({ symbol: "DXYZ", classification: "SPECULATIVE" }),
+  it("uses an explicit unavailable state when report evidence is missing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) =>
+        requestUrl(input).endsWith("/report")
+          ? response({ detail: "not ready" }, 409)
+          : response({
+              bars: [],
+              entryMarkers: [],
+              stopSeries: [],
+              earningsMarkers: [],
+              tradeMarkers: [],
+              quality: "MISSING",
+            }),
+      ),
     );
-    const first = renderPage();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "no precise execution quantity",
-    );
-    first.unmount();
-    get.mockResolvedValue({
-      data: undefined,
-      error: { detail: "Unauthorized" },
-      response: new Response(null, { status: 401 }),
-    });
     renderPage();
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Position unavailable",
+      "持仓分析尚不可用",
     );
+    expect(screen.queryByText(/HOLD_DO_NOT_ADD/)).not.toBeInTheDocument();
   });
 });

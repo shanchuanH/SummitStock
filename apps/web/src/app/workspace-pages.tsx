@@ -86,6 +86,36 @@ export function DashboardPage() {
   return <ExecutiveDashboardPage />;
 }
 
+export function OpportunitiesPage() {
+  return (
+    <Frame eyebrow="市场状态与候选" title="市场与机会">
+      <section className="context-card concise-card">
+        <Activity aria-hidden="true" />
+        <h2>基于真实数据的机会列表</h2>
+        <p>
+          只有通过数据完整性、组合约束和风险门槛的候选才会出现在这里。当前没有合格候选时，系统不会生成占位机会。
+        </p>
+        <a href="/advanced/market-context">查看高级市场状态 →</a>
+      </section>
+    </Frame>
+  );
+}
+
+export function ReviewPage() {
+  return (
+    <Frame eyebrow="可审计的决策记录" title="复盘">
+      <section className="context-card concise-card">
+        <BookOpen aria-hidden="true" />
+        <h2>从建议到结果</h2>
+        <p>
+          按持仓查看建议、处理方式、交易记录与风险变化。访问页面不会创建分析任务或提交交易。
+        </p>
+        <a href="/portfolio">选择持仓查看决策历史 →</a>
+      </section>
+    </Frame>
+  );
+}
+
 export function PlanPage() {
   return (
     <Frame eyebrow="PRE-COMMITMENT CHECK" title="Trade plan">

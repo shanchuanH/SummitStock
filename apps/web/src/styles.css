@@ -351,6 +351,334 @@ h1 em {
       #dedbd1 80px
     );
 }
+
+.brief-heading h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  margin-bottom: 0.35rem;
+}
+.brief-counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.brief-counts article {
+  background: var(--surface, #172021);
+  border: 1px solid #344344;
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+}
+.brief-counts strong {
+  font-size: 2rem;
+  color: #f3f5ec;
+}
+.brief-action-section {
+  margin: 1.5rem 0;
+}
+.brief-action-section > h2 {
+  font-size: 1.1rem;
+  color: #b8c6c1;
+}
+.action-list {
+  list-style: none;
+  padding: 0;
+}
+.action-card {
+  background: #172021;
+  border: 1px solid #344344;
+  border-left: 4px solid #f6c85f;
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.action-card > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+.action-card > header div {
+  display: grid;
+  gap: 0.2rem;
+}
+.action-card > header strong {
+  font-size: 1.6rem;
+}
+.action-card > header span,
+.action-card small {
+  color: #9eb0aa;
+}
+.action-card > header b {
+  color: #f6c85f;
+}
+.action-metrics,
+.module-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.action-metrics div,
+.module-metrics div {
+  background: #101718;
+  border-radius: 8px;
+  padding: 0.7rem;
+}
+.action-metrics dt,
+.module-metrics dt {
+  color: #91a39d;
+  font-size: 0.78rem;
+}
+.action-metrics dd,
+.module-metrics dd {
+  margin: 0.25rem 0 0;
+}
+.action-evidence {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.action-evidence h3 {
+  font-size: 0.9rem;
+}
+.acknowledgement {
+  border-top: 1px solid #344344;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.acknowledgement label {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 34rem;
+}
+.acknowledgement > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.empty-portfolio {
+  max-width: 46rem;
+  margin: 3rem auto;
+  text-align: center;
+}
+.empty-portfolio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.portfolio-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+}
+.portfolio-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+.portfolio-filters button {
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+}
+.portfolio-filters button.active {
+  background: #e7eee9;
+  color: #101718;
+}
+.holdings-table-wrap {
+  overflow-x: auto;
+  background: #172021;
+  border: 1px solid #344344;
+  border-radius: 14px;
+}
+.holdings-table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+}
+.holdings-table th,
+.holdings-table td {
+  padding: 0.9rem 0.75rem;
+  border-bottom: 1px solid #2b393a;
+  text-align: left;
+  vertical-align: top;
+}
+.holdings-table th {
+  color: #9eb0aa;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+.holdings-table td:first-child a,
+.holdings-table td:nth-child(2) {
+  display: grid;
+  gap: 0.2rem;
+}
+.holdings-table td small,
+.holdings-table td:first-child span {
+  color: #91a39d;
+  font-size: 0.76rem;
+}
+.classification-required {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  margin-top: 0.45rem;
+}
+.classification-required em {
+  color: #f6c85f;
+  font-size: 0.75rem;
+}
+.classification-required button {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+}
+.priority-pill {
+  white-space: nowrap;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 9, 9, 0.78);
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.classification-modal {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #172021;
+  border: 1px solid #536565;
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+.modal-close {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  font-size: 1.35rem;
+}
+.classification-evidence {
+  display: grid;
+  gap: 0.7rem;
+}
+.classification-evidence div {
+  border-left: 2px solid #4bd2a0;
+  padding-left: 0.75rem;
+}
+.classification-evidence dt {
+  color: #91a39d;
+  font-size: 0.78rem;
+}
+.classification-evidence dd {
+  margin: 0.2rem 0;
+}
+.classification-modal label {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: end;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.position-hero {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.6fr) 1.4fr;
+  gap: 1rem;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  border: 1px solid #536565;
+  background: linear-gradient(135deg, #172021, #101718);
+  border-radius: 16px;
+}
+.position-hero h1 {
+  font-size: 3rem;
+  margin: 0.2rem 0;
+}
+.position-verdict {
+  border-left: 3px solid #f6c85f;
+  padding-left: 1.25rem;
+}
+.position-verdict h2 {
+  color: #f6c85f;
+}
+.position-modules {
+  display: grid;
+  gap: 1rem;
+}
+.position-modules .context-card {
+  position: relative;
+  padding-left: 3.25rem;
+}
+.module-number {
+  position: absolute;
+  left: 1.15rem;
+  top: 1.4rem;
+  color: #6f837d;
+  font-size: 0.8rem;
+}
+.chart-module {
+  padding-left: 1.25rem !important;
+}
+.chart-module .module-number {
+  position: static;
+  display: block;
+}
+.real-position-chart {
+  width: 100%;
+  min-height: 390px;
+  margin-top: 1rem;
+}
+.chart-caption {
+  color: #91a39d;
+  font-size: 0.78rem;
+}
+.chart-empty {
+  min-height: 180px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 0.5rem;
+  color: #91a39d;
+  border: 1px dashed #536565;
+  border-radius: 10px;
+}
+.chart-empty strong {
+  color: #e7eee9;
+}
+.audit-details summary {
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .brief-counts,
+  .action-evidence,
+  .position-hero {
+    grid-template-columns: 1fr;
+  }
+  .portfolio-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .position-verdict {
+    border-left: 0;
+    border-top: 3px solid #f6c85f;
+    padding: 1rem 0 0;
+  }
+}
 .chart-placeholder > span {
   color: #717a74;
   font:

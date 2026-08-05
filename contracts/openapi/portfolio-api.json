@@ -616,6 +616,44 @@
         }
       }
     },
+    "/api/v1/positions/{positionId}/chart": {
+      "get": {
+        "tags": ["position-intelligence-controller"],
+        "operationId": "chart",
+        "parameters": [
+          {
+            "name": "positionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "1Y"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/positions/{id}": {
       "get": {
         "tags": ["portfolio-controller"],
@@ -685,6 +723,27 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PortfolioSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio/holdings": {
+      "get": {
+        "tags": ["portfolio-controller"],
+        "operationId": "holdings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PortfolioHoldingResponse"
+                  }
                 }
               }
             }
@@ -1235,6 +1294,13 @@
           "idempotencyKey": {
             "type": "string",
             "minLength": 1
+          },
+          "decisionType": {
+            "type": "string",
+            "pattern": "HANDLED|DEFERRED|IGNORED"
+          },
+          "rationale": {
+            "type": "string"
           }
         },
         "required": ["idempotencyKey"]
@@ -1245,6 +1311,9 @@
           "recommendationId": {
             "type": "string",
             "format": "uuid"
+          },
+          "decisionType": {
+            "type": "string"
           },
           "newlyAcknowledged": {
             "type": "boolean"
@@ -2413,6 +2482,120 @@
           }
         }
       },
+      "ChartBarResponse": {
+        "type": "object",
+        "properties": {
+          "marketDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "open": {
+            "type": "string"
+          },
+          "high": {
+            "type": "string"
+          },
+          "low": {
+            "type": "string"
+          },
+          "close": {
+            "type": "string"
+          },
+          "quality": {
+            "type": "string"
+          }
+        }
+      },
+      "ChartMarkerResponse": {
+        "type": "object",
+        "properties": {
+          "marketDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "price": {
+            "type": "string"
+          },
+          "markerType": {
+            "type": "string"
+          }
+        }
+      },
+      "ChartResponse": {
+        "type": "object",
+        "properties": {
+          "bars": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartBarResponse"
+            }
+          },
+          "entryMarkers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartMarkerResponse"
+            }
+          },
+          "stopSeries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StopSeriesResponse"
+            }
+          },
+          "earningsMarkers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventMarkerResponse"
+            }
+          },
+          "tradeMarkers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventMarkerResponse"
+            }
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quality": {
+            "type": "string"
+          }
+        }
+      },
+      "EventMarkerResponse": {
+        "type": "object",
+        "properties": {
+          "marketDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "markerType": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "StopSeriesResponse": {
+        "type": "object",
+        "properties": {
+          "marketDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "formalStop": {
+            "type": "string"
+          },
+          "liveStop": {
+            "type": "string"
+          },
+          "softAlert": {
+            "type": "string"
+          }
+        }
+      },
       "ClassificationSuggestionResponse": {
         "type": "object",
         "properties": {
@@ -2459,6 +2642,68 @@
           "dataAsOf": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PortfolioHoldingResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "assetType": {
+            "type": "string"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "classification": {
+            "type": "string"
+          },
+          "classificationConfirmed": {
+            "type": "boolean"
+          },
+          "marketValue": {
+            "type": "string"
+          },
+          "currentWeight": {
+            "type": "string"
+          },
+          "targetWeightMin": {
+            "type": "string"
+          },
+          "targetWeightMax": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "trend": {
+            "type": "string"
+          },
+          "nextEvent": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dataStatus": {
+            "type": "string"
           }
         }
       },
@@ -2984,10 +3229,37 @@
           "symbol": {
             "type": "string"
           },
+          "classification": {
+            "type": "string"
+          },
           "action": {
             "type": "string"
           },
           "priority": {
+            "type": "string"
+          },
+          "quantityMin": {
+            "type": "string"
+          },
+          "quantityMax": {
+            "type": "string"
+          },
+          "currentWeight": {
+            "type": "string"
+          },
+          "targetWeightMin": {
+            "type": "string"
+          },
+          "targetWeightMax": {
+            "type": "string"
+          },
+          "estimatedAmount": {
+            "type": "string"
+          },
+          "riskBeforeFraction": {
+            "type": "string"
+          },
+          "riskAfterFraction": {
             "type": "string"
           },
           "confidence": {
@@ -2997,6 +3269,9 @@
             "type": "string"
           },
           "risksJson": {
+            "type": "string"
+          },
+          "changeConditionsJson": {
             "type": "string"
           },
           "dataAsOf": {
@@ -3010,6 +3285,7 @@
         },
         "required": [
           "action",
+          "changeConditionsJson",
           "confidence",
           "dataAsOf",
           "id",
@@ -3313,6 +3589,9 @@
           "symbol": {
             "type": "string"
           },
+          "classification": {
+            "type": "string"
+          },
           "action": {
             "type": "string"
           },
@@ -3335,6 +3614,12 @@
             "type": "string"
           },
           "riskAfterFraction": {
+            "type": "string"
+          },
+          "currentWeight": {
+            "type": "string"
+          },
+          "estimatedAmount": {
             "type": "string"
           },
           "confidence": {
