@@ -210,128 +210,12 @@ public class PortfolioAnalysisPipelineService {
                 .single();
     }
 
-    public int computeHoldingAnalysis(UUID userId) {
-        var total = jdbc.sql(
-                        """
-                        SELECT COALESCE(SUM(p.market_value),0) FROM position p
-                        JOIN investment_account a ON a.id=p.account_id
-                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
-                        """)
-                .param("userId", userId.toString())
-                .query(BigDecimal.class)
-                .single();
-        if (total.signum() <= 0) return 0;
-        int affected = 0;
-        for (var row : jdbc.sql(
-                        """
-                        SELECT BIN_TO_UUID(p.id) position_id, p.market_value, p.data_readiness,
-                               EXISTS(SELECT 1 FROM price_bar b WHERE b.instrument_id=p.instrument_id) has_bars
-                        FROM position p JOIN investment_account a ON a.id=p.account_id
-                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
-                        """)
-                .param("userId", userId.toString())
-                .query(HoldingInput.class)
-                .list()) {
-            var weight = row.marketValue().divide(total, MathContext.DECIMAL64);
-            boolean ready = "RESOLVED".equals(row.dataReadiness()) && row.hasBars();
-            var status = ready ? "READY" : "WAIT_FOR_DATA";
-            var checksum = sha256(row.positionId() + ":" + row.marketValue() + ":" + status);
-            affected += jdbc.sql(
-                            """
-                            INSERT IGNORE INTO holding_analysis_snapshot (
-                                id, position_id, strategy_version, analysis_status, confidence, current_weight,
-                                target_weight_min, target_weight_max, exact_quantity_allowed, reasons, risks,
-                                change_conditions, rule_ids, evidence_checksum, data_as_of, valid_until, created_at
-                            ) VALUES (
-                                UUID_TO_BIN(:id), UUID_TO_BIN(:positionId), :strategy, :status, :confidence, :weight,
-                                NULL, NULL, FALSE, CAST(:reasons AS JSON), JSON_ARRAY(), JSON_ARRAY(),
-                                JSON_ARRAY('HOLDING.READINESS.001'), :checksum, :now, :validUntil, :now
-                            )
-                            """)
-                    .param("id", UUID.randomUUID().toString())
-                    .param("positionId", row.positionId().toString())
-                    .param("strategy", properties.strategyVersion())
-                    .param("status", status)
-                    .param("confidence", ready ? "MEDIUM" : "WAIT_FOR_DATA")
-                    .param("weight", weight)
-                    .param(
-                            "reasons",
-                            ready
-                                    ? "[\"Position and completed price evidence are available.\"]"
-                                    : "[\"Required instrument or price evidence is missing.\"]")
-                    .param("checksum", checksum)
-                    .param("now", clock.instant())
-                    .param("validUntil", clock.instant().plusSeconds(86400))
-                    .update();
-        }
-        return affected;
-    }
-
     public int updateDipEvents(UUID userId) {
         return jdbc.sql("SELECT COUNT(*) FROM etf_dip_event WHERE user_id=UUID_TO_BIN(:userId) AND valid_until>=:now")
                 .param("userId", userId.toString())
                 .param("now", clock.instant())
                 .query(Integer.class)
                 .single();
-    }
-
-    public int generateRecommendations(UUID userId) {
-        jdbc.sql("UPDATE recommendation SET status='EXPIRED' WHERE user_id=UUID_TO_BIN(:userId) AND status='ACTIVE'")
-                .param("userId", userId.toString())
-                .update();
-        int affected = 0;
-        for (var row : jdbc.sql(
-                        """
-                        SELECT BIN_TO_UUID(h.id) analysis_id, BIN_TO_UUID(h.position_id) position_id,
-                               h.analysis_status, h.current_weight
-                        FROM holding_analysis_snapshot h
-                        JOIN position p ON p.id=h.position_id JOIN investment_account a ON a.id=p.account_id
-                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
-                          AND h.data_as_of=(SELECT MAX(x.data_as_of) FROM holding_analysis_snapshot x
-                                            WHERE x.position_id=h.position_id)
-                        """)
-                .param("userId", userId.toString())
-                .query(AnalysisInput.class)
-                .list()) {
-            boolean wait = !"READY".equals(row.analysisStatus());
-            boolean concentrated = row.currentWeight().compareTo(new BigDecimal("0.25")) > 0;
-            var action = wait ? "WAIT_FOR_DATA" : concentrated ? "REDUCE_REVIEW" : "HOLD_REVIEW";
-            var priority = wait ? "DO_NOT" : concentrated ? "MUST_ACT" : "WATCH";
-            var checksum = sha256(row.analysisId() + ":" + action);
-            affected += jdbc.sql(
-                            """
-                            INSERT IGNORE INTO recommendation (
-                                id, user_id, position_id, holding_analysis_id, strategy_version, action, priority,
-                                confidence, reasons, risks, change_conditions, rule_ids, evidence_checksum,
-                                data_as_of, valid_until, status, created_at
-                            ) VALUES (
-                                UUID_TO_BIN(:id), UUID_TO_BIN(:userId), UUID_TO_BIN(:positionId), UUID_TO_BIN(:analysisId),
-                                :strategy, :action, :priority, :confidence, CAST(:reasons AS JSON), JSON_ARRAY(),
-                                JSON_ARRAY(), JSON_ARRAY('RECOMMENDATION.PORTFOLIO.001'), :checksum,
-                                :now, :validUntil, 'ACTIVE', :now
-                            )
-                            """)
-                    .param("id", UUID.randomUUID().toString())
-                    .param("userId", userId.toString())
-                    .param("positionId", row.positionId().toString())
-                    .param("analysisId", row.analysisId().toString())
-                    .param("strategy", properties.strategyVersion())
-                    .param("action", action)
-                    .param("priority", priority)
-                    .param("confidence", wait ? "WAIT_FOR_DATA" : "MEDIUM")
-                    .param(
-                            "reasons",
-                            wait
-                                    ? "[\"Analysis evidence is incomplete; no action is permitted.\"]"
-                                    : concentrated
-                                            ? "[\"Position weight exceeds the 25% review threshold.\"]"
-                                            : "[\"Position evidence is ready and no concentration threshold is breached.\"]")
-                    .param("checksum", checksum)
-                    .param("now", clock.instant())
-                    .param("validUntil", clock.instant().plusSeconds(86400))
-                    .update();
-        }
-        return affected;
     }
 
     public int dailyDigest(UUID userId) {
@@ -452,10 +336,6 @@ public class PortfolioAnalysisPipelineService {
     record PortfolioTotals(BigDecimal invested, BigDecimal cash, BigDecimal largest) {}
 
     record StopInput(UUID positionId, BigDecimal entryPrice, BigDecimal closePrice, double atr) {}
-
-    record HoldingInput(UUID positionId, BigDecimal marketValue, String dataReadiness, boolean hasBars) {}
-
-    record AnalysisInput(UUID analysisId, UUID positionId, String analysisStatus, BigDecimal currentWeight) {}
 
     record BenchmarkRow(
             BigDecimal latestClose, BigDecimal average200, Double rsi, Double macd, Double realizedVolatility) {}

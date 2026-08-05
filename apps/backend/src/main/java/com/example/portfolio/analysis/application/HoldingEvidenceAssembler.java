@@ -1,0 +1,442 @@
+package com.example.portfolio.analysis.application;
+
+import com.example.portfolio.analysis.domain.HoldingEvidence;
+import com.example.portfolio.strategy.market.EvidenceQuality;
+import com.example.portfolio.strategy.portfolio.HoldingClassification;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Service;
+
+@Service
+public final class HoldingEvidenceAssembler {
+    private final JdbcClient jdbc;
+    private final PublishedStrategyService strategies;
+
+    public HoldingEvidenceAssembler(JdbcClient jdbc, PublishedStrategyService strategies) {
+        this.jdbc = jdbc;
+        this.strategies = strategies;
+    }
+
+    public List<HoldingEvidence> assembleAll(UUID userId) {
+        return positions(userId).stream().map(this::assemble).toList();
+    }
+
+    public HoldingEvidence assemble(UUID userId, UUID positionId) {
+        return positions(userId).stream()
+                .filter(value -> value.positionId().equals(positionId))
+                .findFirst()
+                .map(this::assemble)
+                .orElseThrow(() -> new IllegalArgumentException("Position is not owned by user"));
+    }
+
+    private HoldingEvidence assemble(PositionRow position) {
+        var totals = totals(position.userId());
+        var liquid = totals.invested().add(totals.cash());
+        var currentWeight =
+                liquid.signum() == 0 ? BigDecimal.ZERO : position.marketValue().divide(liquid, MathContext.DECIMAL64);
+        var cluster = cluster(position.positionId(), liquid);
+        var quote = quote(position.instrumentId());
+        var bars = bars(position.instrumentId());
+        var indicators = indicators(position.instrumentId(), bars);
+        var fundamentals = fundamentals(position.instrumentId());
+        var valuation = valuation(position.positionId());
+        var event = event(position.positionId(), position.instrumentId());
+        var thesis = thesis(position.positionId());
+        var regime = regime();
+        var drawdown = drawdown(position.userId());
+        var stop = stop(position.positionId());
+        var profile = profile(position.instrumentId());
+        var classification = classification(position.classification());
+        var quality =
+                switch (classification) {
+                    case QUALITY_STOCK, QUALITY_GROWTH_HIGH_VOL -> quality(quote.quality(), fundamentals.quality());
+                    default -> quote.quality();
+                };
+        var dataAsOf = quote.dataAsOf() == null
+                ? bars.stream()
+                        .map(HoldingEvidence.PriceBar::marketDate)
+                        .max(LocalDate::compareTo)
+                        .map(date -> date.atStartOfDay().toInstant(ZoneOffset.UTC))
+                        .orElse(Instant.EPOCH)
+                : quote.dataAsOf();
+        return new HoldingEvidence(
+                new HoldingEvidence.Position(
+                        position.positionId(),
+                        position.userId(),
+                        classification,
+                        position.classificationConfirmed(),
+                        position.quantity(),
+                        position.averageCost(),
+                        position.marketValue()),
+                new HoldingEvidence.Instrument(
+                        position.instrumentId(), position.symbol(), position.assetType(), position.active()),
+                money(liquid),
+                money(totals.cash()),
+                money(totals.emergency()),
+                money(totals.tactical()),
+                currentWeight,
+                cluster.weight(),
+                cluster.risk(),
+                totals.openRisk(),
+                quote,
+                bars,
+                indicators,
+                fundamentals,
+                valuation,
+                event,
+                thesis,
+                regime,
+                new HoldingEvidence.PortfolioDrawdownSnapshot(
+                        drawdown.available(),
+                        drawdown.fraction(),
+                        drawdown.state(),
+                        drawdown.available()
+                                && drawdown.fraction()
+                                                .compareTo(strategies.current().painLine())
+                                        >= 0,
+                        instant(drawdown.dataAsOf())),
+                stop,
+                profile,
+                quality,
+                strategies.current(),
+                dataAsOf);
+    }
+
+    private List<PositionRow> positions(UUID userId) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(p.id) positionId, BIN_TO_UUID(a.user_id) userId,
+                               BIN_TO_UUID(i.id) instrumentId, i.symbol, i.asset_type assetType, i.active,
+                               p.classification, p.classification_confirmed classificationConfirmed,
+                               p.quantity, p.average_cost averageCost, p.market_value marketValue
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        JOIN instrument i ON i.id=p.instrument_id
+                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                        ORDER BY i.symbol, p.id
+                        """)
+                .param("userId", userId.toString())
+                .query(PositionRow.class)
+                .list();
+    }
+
+    private PortfolioTotals totals(UUID userId) {
+        return jdbc.sql(
+                        """
+                        SELECT COALESCE(SUM(p.market_value),0) invested,
+                               COALESCE((SELECT SUM(current_amount) FROM cash_bucket
+                                         WHERE user_id=UUID_TO_BIN(:userId)),0) cash,
+                               COALESCE((SELECT SUM(current_amount) FROM cash_bucket
+                                         WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='EMERGENCY'),0) emergency,
+                               COALESCE((SELECT SUM(current_amount) FROM cash_bucket
+                                         WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='TACTICAL_RESERVE'),0) tactical,
+                               COALESCE((SELECT SUM(r.open_risk_fraction) FROM position_risk_snapshot r
+                                         JOIN position x ON x.id=r.position_id JOIN investment_account z ON z.id=x.account_id
+                                         WHERE z.user_id=UUID_TO_BIN(:userId)
+                                           AND r.data_as_of=(SELECT MAX(q.data_as_of) FROM position_risk_snapshot q
+                                                             WHERE q.position_id=r.position_id)),0) openRisk
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                        """)
+                .param("userId", userId.toString())
+                .query(PortfolioTotals.class)
+                .single();
+    }
+
+    private ClusterEvidence cluster(UUID positionId, BigDecimal liquid) {
+        var value = jdbc.sql(
+                        """
+                        SELECT COALESCE(SUM(other.market_value*m.contribution_weight),0) clusterValue,
+                               COALESCE(MAX(r.cluster_risk_fraction),0) clusterRisk
+                        FROM risk_cluster_membership own
+                        JOIN risk_cluster c ON c.id=own.risk_cluster_id
+                        JOIN risk_cluster_membership m ON m.risk_cluster_id=c.id
+                        JOIN position other ON other.id=m.position_id AND other.status='OPEN'
+                        LEFT JOIN position_risk_snapshot r ON r.position_id=other.id
+                          AND r.data_as_of=(SELECT MAX(x.data_as_of) FROM position_risk_snapshot x
+                                            WHERE x.position_id=other.id)
+                        WHERE own.position_id=UUID_TO_BIN(:positionId)
+                        """)
+                .param("positionId", positionId.toString())
+                .query(ClusterRow.class)
+                .single();
+        var weight =
+                liquid.signum() == 0 ? BigDecimal.ZERO : value.clusterValue().divide(liquid, MathContext.DECIMAL64);
+        return new ClusterEvidence(weight, value.clusterRisk());
+    }
+
+    private HoldingEvidence.LatestQuote quote(UUID instrumentId) {
+        return jdbc.sql(
+                        """
+                        SELECT last_price last, data_as_of dataAsOf, quality_status quality
+                        FROM quote WHERE instrument_id=UUID_TO_BIN(:id)
+                        ORDER BY data_as_of DESC, created_at DESC LIMIT 1
+                        """)
+                .param("id", instrumentId.toString())
+                .query(QuoteRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.LatestQuote(
+                        value.last(), instant(value.dataAsOf()), quality(value.quality())))
+                .orElse(new HoldingEvidence.LatestQuote(null, null, EvidenceQuality.MISSING));
+    }
+
+    private List<HoldingEvidence.PriceBar> bars(UUID instrumentId) {
+        return jdbc
+                .sql(
+                        """
+                        SELECT market_date marketDate, close_price close
+                        FROM price_bar WHERE instrument_id=UUID_TO_BIN(:id) AND adjusted=TRUE
+                        ORDER BY market_date DESC LIMIT 250
+                        """)
+                .param("id", instrumentId.toString())
+                .query(BarRow.class)
+                .list()
+                .stream()
+                .map(value -> new HoldingEvidence.PriceBar(value.marketDate(), value.close(), true))
+                .toList();
+    }
+
+    private HoldingEvidence.IndicatorSet indicators(UUID instrumentId, List<HoldingEvidence.PriceBar> bars) {
+        var values = jdbc.sql(
+                        """
+                        SELECT indicator_code code, value_double value
+                        FROM indicator_snapshot s
+                        WHERE instrument_id=UUID_TO_BIN(:id) AND status='READY'
+                          AND market_date=(SELECT MAX(x.market_date) FROM indicator_snapshot x
+                                           WHERE x.instrument_id=s.instrument_id)
+                          AND indicator_code IN ('SMA_20','RSI_14','ATR_14')
+                        """)
+                .param("id", instrumentId.toString())
+                .query(IndicatorRow.class)
+                .list();
+        var sma = indicator(values, "SMA_20");
+        var latest = bars.isEmpty() ? null : bars.getFirst().close();
+        return new HoldingEvidence.IndicatorSet(
+                sma != null,
+                sma != null && latest != null && latest.compareTo(BigDecimal.valueOf(sma)) >= 0,
+                indicator(values, "RSI_14"),
+                indicator(values, "ATR_14"));
+    }
+
+    private HoldingEvidence.FundamentalSnapshot fundamentals(UUID instrumentId) {
+        return jdbc.sql(
+                        """
+                        SELECT quality_status quality, MAX(data_as_of) dataAsOf
+                        FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN(:id)
+                        GROUP BY quality_status ORDER BY dataAsOf DESC LIMIT 1
+                        """)
+                .param("id", instrumentId.toString())
+                .query(QualityRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.FundamentalSnapshot(
+                        true, quality(value.quality()), instant(value.dataAsOf())))
+                .orElse(new HoldingEvidence.FundamentalSnapshot(false, EvidenceQuality.MISSING, null));
+    }
+
+    private HoldingEvidence.ValuationSnapshot valuation(UUID positionId) {
+        return jdbc.sql(
+                        "SELECT data_as_of FROM valuation_snapshot WHERE position_id=UUID_TO_BIN(:id) ORDER BY data_as_of DESC LIMIT 1")
+                .param("id", positionId.toString())
+                .query(LocalDateTime.class)
+                .optional()
+                .map(value -> new HoldingEvidence.ValuationSnapshot(true, instant(value)))
+                .orElse(new HoldingEvidence.ValuationSnapshot(false, null));
+    }
+
+    private HoldingEvidence.EarningsEvent event(UUID positionId, UUID instrumentId) {
+        var risk = jdbc.sql(
+                        """
+                        SELECT next_event_at eventAt, action riskLevel FROM earnings_risk_snapshot
+                        WHERE position_id=UUID_TO_BIN(:id) AND valid_until>=UTC_TIMESTAMP(6)
+                        ORDER BY data_as_of DESC LIMIT 1
+                        """)
+                .param("id", positionId.toString())
+                .query(EventRow.class)
+                .optional();
+        if (risk.isPresent()) {
+            var value = risk.orElseThrow();
+            return new HoldingEvidence.EarningsEvent(
+                    value.eventAt() != null, instant(value.eventAt()), value.riskLevel());
+        }
+        return jdbc.sql(
+                        """
+                        SELECT event_at eventAt, event_type riskLevel FROM company_event
+                        WHERE instrument_id=UUID_TO_BIN(:id) AND event_at>=UTC_TIMESTAMP(6)
+                        ORDER BY event_at LIMIT 1
+                        """)
+                .param("id", instrumentId.toString())
+                .query(EventRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.EarningsEvent(true, instant(value.eventAt()), value.riskLevel()))
+                .orElse(new HoldingEvidence.EarningsEvent(false, null, null));
+    }
+
+    private HoldingEvidence.Thesis thesis(UUID positionId) {
+        return jdbc.sql(
+                        """
+                        SELECT status, expires_at expiresAt FROM position_thesis
+                        WHERE position_id=UUID_TO_BIN(:id) LIMIT 1
+                        """)
+                .param("id", positionId.toString())
+                .query(ThesisRow.class)
+                .optional()
+                .map(value ->
+                        new HoldingEvidence.Thesis(true, "BROKEN".equals(value.status()), instant(value.expiresAt())))
+                .orElse(new HoldingEvidence.Thesis(false, false, null));
+    }
+
+    private HoldingEvidence.MarketRegimeSnapshot regime() {
+        return jdbc.sql(
+                        "SELECT regime_label label, data_as_of dataAsOf FROM market_regime_snapshot ORDER BY data_as_of DESC LIMIT 1")
+                .query(RegimeRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.MarketRegimeSnapshot(true, value.label(), instant(value.dataAsOf())))
+                .orElse(new HoldingEvidence.MarketRegimeSnapshot(false, null, null));
+    }
+
+    private DrawdownRow drawdown(UUID userId) {
+        return jdbc.sql(
+                        """
+                        SELECT TRUE available, drawdown_fraction fraction, drawdown_state state, data_as_of dataAsOf
+                        FROM portfolio_drawdown_snapshot WHERE user_id=UUID_TO_BIN(:userId)
+                        ORDER BY data_as_of DESC LIMIT 1
+                        """)
+                .param("userId", userId.toString())
+                .query(DrawdownRow.class)
+                .optional()
+                .orElse(new DrawdownRow(false, BigDecimal.ZERO, null, null));
+    }
+
+    private HoldingEvidence.StopEvidence stop(UUID positionId) {
+        return jdbc.sql(
+                        """
+                        SELECT initial_stop formalStop, live_stop liveStop, close_confirmed closeConfirmed,
+                               EXISTS(SELECT 1 FROM stop_alert a WHERE a.stop_snapshot_id=s.id
+                                      AND a.event_type='CATASTROPHIC') catastrophic
+                        FROM stop_snapshot s WHERE position_id=UUID_TO_BIN(:id)
+                        ORDER BY data_as_of DESC LIMIT 1
+                        """)
+                .param("id", positionId.toString())
+                .query(StopRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.StopEvidence(
+                        value.formalStop(), value.liveStop(), value.closeConfirmed(), value.catastrophic()))
+                .orElse(new HoldingEvidence.StopEvidence(null, null, false, false));
+    }
+
+    private HoldingEvidence.AnalysisProfile profile(UUID instrumentId) {
+        return jdbc.sql(
+                        """
+                        SELECT fund_profile_available fundProfileAvailable, thematic,
+                               top_holding_concentration topHoldingConcentration,
+                               fund_liquidity_status liquidityStatus,
+                               portfolio_overlap_fraction portfolioOverlap
+                        FROM instrument_analysis_profile WHERE instrument_id=UUID_TO_BIN(:id)
+                        ORDER BY data_as_of DESC LIMIT 1
+                        """)
+                .param("id", instrumentId.toString())
+                .query(ProfileRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.AnalysisProfile(
+                        value.fundProfileAvailable(),
+                        value.thematic(),
+                        value.topHoldingConcentration(),
+                        value.liquidityStatus(),
+                        value.portfolioOverlap()))
+                .orElse(new HoldingEvidence.AnalysisProfile(false, false, null, null, null));
+    }
+
+    private static Double indicator(List<IndicatorRow> values, String code) {
+        return values.stream()
+                .filter(value -> code.equals(value.code()))
+                .map(IndicatorRow::value)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static HoldingClassification classification(String value) {
+        try {
+            return HoldingClassification.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            return HoldingClassification.UNKNOWN;
+        }
+    }
+
+    private static EvidenceQuality quality(String value) {
+        if (value == null) return EvidenceQuality.MISSING;
+        try {
+            return EvidenceQuality.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            return EvidenceQuality.SUSPECT;
+        }
+    }
+
+    private static EvidenceQuality quality(EvidenceQuality first, EvidenceQuality second) {
+        if (first == EvidenceQuality.MISSING || second == EvidenceQuality.MISSING) {
+            return EvidenceQuality.MISSING;
+        }
+        if (first == EvidenceQuality.SUSPECT || second == EvidenceQuality.SUSPECT) return EvidenceQuality.SUSPECT;
+        if (first == EvidenceQuality.STALE || second == EvidenceQuality.STALE) return EvidenceQuality.STALE;
+        if (first == EvidenceQuality.PARTIAL || second == EvidenceQuality.PARTIAL) return EvidenceQuality.PARTIAL;
+        return first;
+    }
+
+    private static Instant instant(LocalDateTime value) {
+        return value == null ? null : value.toInstant(ZoneOffset.UTC);
+    }
+
+    private static HoldingEvidence.Money money(BigDecimal value) {
+        return new HoldingEvidence.Money(value, "USD");
+    }
+
+    record PositionRow(
+            UUID positionId,
+            UUID userId,
+            UUID instrumentId,
+            String symbol,
+            String assetType,
+            boolean active,
+            String classification,
+            boolean classificationConfirmed,
+            BigDecimal quantity,
+            BigDecimal averageCost,
+            BigDecimal marketValue) {}
+
+    record PortfolioTotals(
+            BigDecimal invested, BigDecimal cash, BigDecimal emergency, BigDecimal tactical, BigDecimal openRisk) {}
+
+    record ClusterRow(BigDecimal clusterValue, BigDecimal clusterRisk) {}
+
+    record ClusterEvidence(BigDecimal weight, BigDecimal risk) {}
+
+    record QuoteRow(BigDecimal last, LocalDateTime dataAsOf, String quality) {}
+
+    record BarRow(LocalDate marketDate, BigDecimal close) {}
+
+    record IndicatorRow(String code, Double value) {}
+
+    record QualityRow(String quality, LocalDateTime dataAsOf) {}
+
+    record EventRow(LocalDateTime eventAt, String riskLevel) {}
+
+    record ThesisRow(String status, LocalDateTime expiresAt) {}
+
+    record RegimeRow(String label, LocalDateTime dataAsOf) {}
+
+    record DrawdownRow(boolean available, BigDecimal fraction, String state, LocalDateTime dataAsOf) {}
+
+    record StopRow(BigDecimal formalStop, BigDecimal liveStop, boolean closeConfirmed, boolean catastrophic) {}
+
+    record ProfileRow(
+            boolean fundProfileAvailable,
+            boolean thematic,
+            BigDecimal topHoldingConcentration,
+            String liquidityStatus,
+            BigDecimal portfolioOverlap) {}
+}

@@ -102,7 +102,29 @@ public class PortfolioStore {
     }
 
     @Transactional
-    public PositionView confirmClassification(String email, UUID id, String classification, long expectedVersion) {
+    public ClassificationEvidence classificationEvidence(String email, UUID id) {
+        return jdbc.sql(
+                        """
+                        SELECT i.symbol, i.asset_type assetType,
+                               COALESCE((SELECT x.thematic FROM instrument_analysis_profile x
+                                         WHERE x.instrument_id=i.id ORDER BY x.data_as_of DESC LIMIT 1), FALSE) thematic,
+                               (p.classification='UNVESTED_COMPENSATION') unvestedCompensation
+                        FROM position p
+                        JOIN investment_account a ON a.id=p.account_id
+                        JOIN app_user u ON u.id=a.user_id
+                        JOIN instrument i ON i.id=p.instrument_id
+                        WHERE u.email=:email AND p.id=UUID_TO_BIN(:id)
+                        """)
+                .param("email", email)
+                .param("id", id.toString())
+                .query(ClassificationEvidence.class)
+                .optional()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    @Transactional
+    public PositionView confirmClassification(
+            String email, UUID id, String classification, String source, long expectedVersion) {
         var current = position(email, id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (current.version() != expectedVersion) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Position version changed");
@@ -114,11 +136,13 @@ public class PortfolioStore {
                         JOIN app_user u ON u.id = a.user_id
                         SET p.classification = :classification,
                             p.classification_confirmed = TRUE,
+                            p.classification_source = :source,
                             p.updated_at = :updatedAt,
                             p.version = p.version + 1
                         WHERE p.id = UUID_TO_BIN(:id) AND u.email = :email AND p.version = :version
                         """)
                 .param("classification", classification)
+                .param("source", source)
                 .param("updatedAt", clock.instant())
                 .param("id", id.toString())
                 .param("email", email)
@@ -133,12 +157,14 @@ public class PortfolioStore {
                         )
                         SELECT UUID_TO_BIN(:auditId), u.id, 'POSITION_CLASSIFIED', 'POSITION', :entityId,
                                '1.0.0-draft', JSON_ARRAY('POSITION.CLASSIFY.001'),
-                               JSON_OBJECT('classification', :classification, 'previousVersion', :version), :occurredAt
+                               JSON_OBJECT('classification', :classification, 'source', :source,
+                                           'previousVersion', :version), :occurredAt
                         FROM app_user u WHERE u.email = :email
                         """)
                 .param("auditId", UUID.randomUUID().toString())
                 .param("entityId", id.toString())
                 .param("classification", classification)
+                .param("source", source)
                 .param("version", expectedVersion)
                 .param("occurredAt", clock.instant())
                 .param("email", email)
@@ -212,6 +238,9 @@ public class PortfolioStore {
             BigDecimal marketValue,
             String status,
             long version) {}
+
+    public record ClassificationEvidence(
+            String symbol, String assetType, boolean thematic, boolean unvestedCompensation) {}
 
     public record HoldingAnalysisView(
             UUID id,

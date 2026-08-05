@@ -1,6 +1,9 @@
 package com.example.portfolio.runtime;
 
+import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService;
+import com.example.portfolio.analysis.application.RecommendationGenerationService;
 import com.example.portfolio.market.EodMarketPipelineService;
+import com.example.portfolio.portfolio.IntradayStopAlertService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,8 +29,18 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
-    JobHandler collectQuotesJobHandler(EodMarketPipelineService market, Clock clock) {
-        return handler("COLLECT_QUOTES", context -> count(market.collectQuotes(), clock.instant()));
+    JobHandler collectQuotesJobHandler(EodMarketPipelineService market, IntradayStopAlertService alerts, Clock clock) {
+        return handler("COLLECT_QUOTES", context -> {
+            var count = market.collectQuotes();
+            var breaches = alerts.evaluateLatestQuotes();
+            var warnings = count.observations() == 0 ? List.of("NO_OBSERVATIONS") : List.<String>of();
+            return new JobExecutionResult(
+                    warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
+                    "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected()
+                            + ",\"catastrophicAlerts\":" + breaches + "}",
+                    warnings,
+                    clock.instant());
+        });
     }
 
     @Bean
@@ -110,11 +123,13 @@ class PipelineJobHandlerConfiguration {
 
     @Bean
     JobHandler computeHoldingAnalysisJobHandler(
-            PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
+            HoldingAnalysisApplicationService analysis, ObjectMapper json, Clock clock) {
         return handler(
                 "COMPUTE_HOLDING_ANALYSIS",
                 context -> success(
-                        portfolio.computeHoldingAnalysis(requiredUser(payload(context, json))), clock.instant()));
+                        analysis.analyzeAll(requiredUser(payload(context, json)))
+                                .size(),
+                        clock.instant()));
     }
 
     @Bean
@@ -126,11 +141,14 @@ class PipelineJobHandlerConfiguration {
 
     @Bean
     JobHandler generateRecommendationsJobHandler(
-            PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
+            RecommendationGenerationService recommendations, ObjectMapper json, Clock clock) {
         return handler(
                 "GENERATE_RECOMMENDATIONS",
                 context -> success(
-                        portfolio.generateRecommendations(requiredUser(payload(context, json))), clock.instant()));
+                        recommendations
+                                .generateAll(requiredUser(payload(context, json)))
+                                .size(),
+                        clock.instant()));
     }
 
     @Bean

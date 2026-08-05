@@ -30,15 +30,12 @@ public final class StopEngine {
         var softAlert = liveStop.add(input.atr().multiply(HALF));
         var catastrophic = liveStop.subtract(input.atr().multiply(THREE_QUARTERS));
         var closeConfirmed = input.dailyClose().compareTo(liveStop) < 0;
-        var catastrophicBreach = input.dailyClose().compareTo(catastrophic) < 0;
         var rules = new java.util.ArrayList<String>();
         rules.add(RuleIds.STOP_INITIAL);
         rules.add(RuleIds.STOP_MONOTONIC);
         if (input.dailyClose().compareTo(softAlert) <= 0) rules.add(RuleIds.STOP_SOFT_ALERT);
         if (closeConfirmed) rules.add(RuleIds.STOP_CLOSE_CONFIRMED);
-        if (catastrophicBreach) rules.add(RuleIds.STOP_CATASTROPHIC);
-        return new Result(
-                true, initialStop, liveStop, softAlert, catastrophic, closeConfirmed, catastrophicBreach, rules);
+        return new Result(true, initialStop, liveStop, softAlert, catastrophic, closeConfirmed, false, rules);
     }
 
     private static boolean isCoreEtf(HoldingClassification classification) {

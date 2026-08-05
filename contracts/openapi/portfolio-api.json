@@ -526,6 +526,35 @@
         }
       }
     },
+    "/api/v1/positions/{positionId}/report": {
+      "get": {
+        "tags": ["position-report-controller"],
+        "operationId": "report",
+        "parameters": [
+          {
+            "name": "positionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/positions/{positionId}/journal": {
       "get": {
         "tags": ["position-intelligence-controller"],
@@ -616,43 +645,18 @@
         }
       }
     },
-    "/api/v1/positions/classification-suggestion": {
+    "/api/v1/positions/{id}/classification-suggestion": {
       "get": {
         "tags": ["portfolio-controller"],
         "operationId": "classificationSuggestion",
         "parameters": [
           {
-            "name": "symbol",
-            "in": "query",
+            "name": "id",
+            "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "assetType",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "thematic",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "unvestedCompensation",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -1181,6 +1185,9 @@
       "TradePlanPreviewResponse": {
         "type": "object",
         "properties": {
+          "debug": {
+            "type": "boolean"
+          },
           "allowed": {
             "type": "boolean"
           },
@@ -1354,6 +1361,9 @@
       "StopPreviewResponse": {
         "type": "object",
         "properties": {
+          "debug": {
+            "type": "boolean"
+          },
           "ordinaryStopApplicable": {
             "type": "boolean"
           },
@@ -1895,6 +1905,9 @@
               "type": "string"
             }
           },
+          "debug": {
+            "type": "boolean"
+          },
           "executionSubmitted": {
             "type": "boolean"
           }
@@ -2053,6 +2066,162 @@
           },
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "AuditEvidence": {
+        "type": "object",
+        "properties": {
+          "analysisStatus": {
+            "type": "string"
+          },
+          "exactQuantityAllowed": {
+            "type": "boolean"
+          },
+          "ruleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "strategyVersion": {
+            "type": "string"
+          },
+          "configHash": {
+            "type": "string"
+          }
+        }
+      },
+      "Position": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "classification": {
+            "type": "string"
+          },
+          "classificationSource": {
+            "type": "string"
+          }
+        }
+      },
+      "PositionReportResponse": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "$ref": "#/components/schemas/Position"
+          },
+          "readiness": {
+            "type": "string"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/Recommendation"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/AuditEvidence"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Recommendation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "quantityMin": {
+            "type": "string"
+          },
+          "quantityMax": {
+            "type": "string"
+          },
+          "currentWeight": {
+            "type": "string"
+          },
+          "targetWeightMin": {
+            "type": "string"
+          },
+          "targetWeightMax": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "changeConditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "winningRule": {
+            "type": "string"
+          },
+          "suppressedCandidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuppressedCandidate"
+            }
+          },
+          "resolutionReason": {
+            "type": "string"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SuppressedCandidate": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "riskRank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ruleId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2247,7 +2416,20 @@
       "ClassificationSuggestionResponse": {
         "type": "object",
         "properties": {
+          "positionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "assetType": {
+            "type": "string"
+          },
           "classification": {
+            "type": "string"
+          },
+          "source": {
             "type": "string"
           },
           "blocked": {

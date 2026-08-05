@@ -171,12 +171,13 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
 
     @Test
     void classifierDoesNotInventQualityAndStalePreviewBlocksExactQuantity() throws Exception {
-        mockMvc.perform(get("/api/v1/positions/classification-suggestion")
-                        .with(httpBasic("admin@example.local", "change-before-use"))
-                        .param("symbol", "DXYZ")
-                        .param("assetType", "EQUITY"))
+        mockMvc.perform(get("/api/v1/positions/{id}/classification-suggestion", OWNER_POSITION)
+                        .with(httpBasic("admin@example.local", "change-before-use")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.classification").value("UNKNOWN"))
+                .andExpect(jsonPath("$.positionId").value(OWNER_POSITION))
+                .andExpect(jsonPath("$.symbol").value("SPY"))
+                .andExpect(jsonPath("$.classification").value("CORE_BROAD_ETF"))
+                .andExpect(jsonPath("$.source").value("SYSTEM_RULE"))
                 .andExpect(jsonPath("$.confirmationRequired").value(true));
 
         mockMvc.perform(

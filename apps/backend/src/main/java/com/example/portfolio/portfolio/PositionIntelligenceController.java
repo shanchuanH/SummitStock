@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,15 +31,19 @@ import org.springframework.web.server.ResponseStatusException;
 public class PositionIntelligenceController {
     private final PortfolioStore portfolio;
     private final PositionIntelligenceStore store;
+    private final Optional<DebugApiAccess> debugAccess;
 
-    public PositionIntelligenceController(PortfolioStore portfolio, PositionIntelligenceStore store) {
+    public PositionIntelligenceController(
+            PortfolioStore portfolio, PositionIntelligenceStore store, Optional<DebugApiAccess> debugAccess) {
         this.portfolio = portfolio;
         this.store = store;
+        this.debugAccess = debugAccess;
     }
 
     @GetMapping("/intelligence")
     IntelligenceResponse intelligence(@PathVariable UUID positionId, Principal principal) {
         requireOwned(positionId, principal);
+        requireDebugProfile();
         return new IntelligenceResponse(
                 store.latestStop(principal.getName(), positionId)
                         .map(StopSnapshotResponse::from)
@@ -106,6 +111,10 @@ public class PositionIntelligenceController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
+    private void requireDebugProfile() {
+        if (debugAccess.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+    }
+
     private static HoldingClassification classification(String value) {
         try {
             return HoldingClassification.valueOf(value);
@@ -141,6 +150,7 @@ public class PositionIntelligenceController {
             @NotNull @DecimalMin("0.00000001") BigDecimal dailyClose) {}
 
     public record StopPreviewResponse(
+            boolean debug,
             boolean ordinaryStopApplicable,
             String initialStop,
             String liveStop,
@@ -151,6 +161,7 @@ public class PositionIntelligenceController {
             List<String> ruleIds) {
         static StopPreviewResponse from(StopEngine.Result value) {
             return new StopPreviewResponse(
+                    true,
                     value.ordinaryStopApplicable(),
                     decimal(value.initialStop()),
                     decimal(value.liveStop()),

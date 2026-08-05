@@ -25,6 +25,18 @@ class PositionIntelligenceTest {
     }
 
     @Test
+    void catastrophicBreachUsesIntradayEvidenceNotDailyClose() {
+        var formal = StopEngine.calculate(
+                input(HoldingClassification.QUALITY_STOCK, "100", "92", "4", "94", "93", "96", "95", "80"));
+
+        assertThat(formal.closeConfirmed()).isTrue();
+        assertThat(formal.catastrophicBreach()).isFalse();
+        assertThat(IntradayBreachEvaluator.evaluate(new BigDecimal("90"), formal.catastrophicStop())
+                        .breached())
+                .isTrue();
+    }
+
+    @Test
     void calculatesRealizedRAndExcursionsWithoutDouble() {
         var metrics = TradeExcursion.calculate(bd("100"), bd("90"), bd("125"), bd("85"), bd("115"));
         assertThat(metrics.realizedR()).isEqualByComparingTo("1.5");

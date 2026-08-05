@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Rescue Phase 4 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 5 onward remain pending and must be implemented in order.
+Rescue Phase 5 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 6 onward remain pending and must be implemented in order.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -13,6 +13,8 @@ Phase 2 added preview-first Fidelity CSV, pasted-table, and manual-holding intak
 Phase 3 added fail-closed production provider configuration, an Alpha Vantage market adapter, and an SEC EDGAR submissions/companyfacts adapter. HTTP calls now use configured timeouts, retry/backoff, concurrency-safe rate limiting, 429/5xx handling, checksums, source/fetch timestamps, warnings, and explicit data-quality states. SEC facts use ten named business mappings while preserving raw concepts and units. Fidelity symbols resolve through durable system/user mappings; unknown symbols create inactive placeholders and positions remain `WAIT_FOR_DATA` until a user mapping resolves them.
 
 Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry and a durable coordinator that records handler output, warnings, timestamps, attempts, retries, permanent failures, and sanitized unexpected errors. Analysis runs now advance through persisted step dependencies rather than scheduled-time offsets. The executable EOD chain collects quotes/bars/actions, validates completed bars, computes indicators and server-owned regime inputs, synchronizes imported snapshots, writes user-scoped drawdown/stops/holding analysis, and generates formal recommendations and a daily digest. Unknown jobs fail permanently, provider failures preserve retryability, weekly/monthly summaries query persisted evidence, and no handler or integration test inserts a final recommendation directly.
+
+Phase 5 replaced placeholder holding outputs with an evidence assembler, classification-specific readiness, YAML-backed immutable strategy definitions, deterministic sizing gates, and hard-risk-first recommendation conflict resolution. Analysis and recommendation snapshots retain strategy/config hashes, winning rules, suppressed candidates, reasons, quantities, validity, and evidence checksums. Classification suggestions are owner-scoped by position ID and never infer company quality from a ticker. GOOGL Quality, DRAM Thematic ETF, and DXYZ Speculative integration fixtures prove distinct templates. Formal daily-close stops are separated from intraday catastrophic quote breaches, and debug previews are unavailable outside explicit test/local-fixture profiles.
 
 ## Completed Packets
 
@@ -55,7 +57,7 @@ Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry 
 - Drawdown uses high-water marks and 8/10/12/15/20 control states with market/position/mixed source classification
 - Holding classifications require explicit server-side position selection and confirmation; the incomplete browser classifier is disabled during the rescue implementation
 - Hard position, per-trade, total-stock, cluster, cooling-period, averaging, anchoring, and evidence-quality gates run in pure Java
-- Individual-stock stops are EOD, structure/ATR based, monotonic, and separated into soft/close-confirmed/catastrophic levels; Core ETFs are exempt
+- Individual-stock formal stops are completed-daily-close, structure/ATR based, and monotonic; intraday quotes independently evaluate catastrophic alerts; Core ETFs are exempt
 - Thesis state is structured, source-backed, expiring, and user-confirmed; Quality Discount and earnings policies are classification aware
 - ETF Dip requires complete, market-driven 15% drawdown evidence, setup score 60+, two triggers, emergency protection, unique 20/25/30/25 tranches, and five-day cooldown
 - Monthly cashflow fills the $20k emergency floor first; no-signal Quality allocation falls back to Broad Core
@@ -70,7 +72,7 @@ Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry 
 
 ## Database
 
-- Flyway head: `V11__durable_pipeline_and_user_drawdown.sql`
+- Flyway head: `V12__holding_analysis_and_recommendation_evidence.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -90,7 +92,7 @@ Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry 
 
 - OpenAPI: initialized at `contracts/openapi/portfolio-api.json`
 - Generated client: initialized at `contracts/generated/src/schema.d.ts`
-- Runtime endpoints: unified Today Brief, portfolio import preview/confirm/query, portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
+- Runtime endpoints: unified Today Brief, portfolio import preview/confirm/query, position-scoped classification suggestion/confirmation/report, portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
 - Errors: RFC 9457 Problem Details enabled; request IDs returned as `X-Request-ID`
 
 ## Providers
@@ -132,6 +134,7 @@ Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry 
 - ETF market attribution, setup/trigger/cooldown/tranche, emergency-first cashflow, fallback, accountability, and Dip UI tests
 - Durable job idempotency/claim/lease/retry/scanner tests, login throttling/audit tests, acknowledgement-without-execution tests, and ten-page workspace tests
 - Handler registry/coordinator, analysis dependency/blocking, retry idempotency, and full import-to-recommendation EOD vertical integration tests
+- Evidence readiness, position sizing, conflict resolution, ETF/classification policy, GOOGL/DRAM/DXYZ analysis, formal recommendation persistence, and position report contract tests
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -148,4 +151,4 @@ Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry 
 
 ## Next Step
 
-Implement Rescue Phase 5: holding evidence assembly, readiness-specific analysis, classification APIs, strategy configuration loading, and portfolio-level recommendation conflict resolution.
+Implement Rescue Phase 6: analyst-first navigation, Dashboard, Portfolio List, classification UX, Position Detail, and real server-owned chart presentation.

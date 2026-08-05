@@ -276,6 +276,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/positions/{positionId}/report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/positions/{positionId}/journal": {
     parameters: {
       query?: never;
@@ -324,7 +340,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/positions/classification-suggestion": {
+  "/api/v1/positions/{id}/classification-suggestion": {
     parameters: {
       query?: never;
       header?: never;
@@ -648,6 +664,7 @@ export interface components {
       quality: string;
     };
     TradePlanPreviewResponse: {
+      debug?: boolean;
       allowed?: boolean;
       preciseQuantityAllowed?: boolean;
       weightCap?: string;
@@ -702,6 +719,7 @@ export interface components {
       dailyClose: number;
     };
     StopPreviewResponse: {
+      debug?: boolean;
       ordinaryStopApplicable?: boolean;
       initialStop?: string;
       liveStop?: string;
@@ -892,6 +910,7 @@ export interface components {
       trancheNumber?: number;
       reserveFraction?: string;
       ruleIds?: string[];
+      debug?: boolean;
       executionSubmitted?: boolean;
     };
     CashflowPlanRequest: {
@@ -946,6 +965,57 @@ export interface components {
       /** Format: date-time */
       validUntil?: string;
       status?: string;
+    };
+    AuditEvidence: {
+      analysisStatus?: string;
+      exactQuantityAllowed?: boolean;
+      ruleIds?: string[];
+      strategyVersion?: string;
+      configHash?: string;
+    };
+    Position: {
+      /** Format: uuid */
+      id?: string;
+      symbol?: string;
+      classification?: string;
+      classificationSource?: string;
+    };
+    PositionReportResponse: {
+      position?: components["schemas"]["Position"];
+      readiness?: string;
+      recommendation?: components["schemas"]["Recommendation"];
+      evidence?: components["schemas"]["AuditEvidence"];
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    Recommendation: {
+      /** Format: uuid */
+      id?: string;
+      action?: string;
+      priority?: string;
+      quantityMin?: string;
+      quantityMax?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      confidence?: string;
+      reasons?: string[];
+      risks?: string[];
+      changeConditions?: string[];
+      winningRule?: string;
+      suppressedCandidates?: components["schemas"]["SuppressedCandidate"][];
+      resolutionReason?: string;
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    SuppressedCandidate: {
+      action?: string;
+      priority?: string;
+      /** Format: int32 */
+      riskRank?: number;
+      ruleId?: string;
+      reason?: string;
+      risks?: string[];
     };
     JournalResponse: {
       /** Format: uuid */
@@ -1018,7 +1088,12 @@ export interface components {
       validUntil?: string;
     };
     ClassificationSuggestionResponse: {
+      /** Format: uuid */
+      positionId?: string;
+      symbol?: string;
+      assetType?: string;
       classification?: string;
+      source?: string;
       blocked?: boolean;
       reason?: string;
       confirmationRequired?: boolean;
@@ -1802,6 +1877,28 @@ export interface operations {
       };
     };
   };
+  report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionReportResponse"];
+        };
+      };
+    };
+  };
   journal: {
     parameters: {
       query?: never;
@@ -1870,14 +1967,11 @@ export interface operations {
   };
   classificationSuggestion: {
     parameters: {
-      query: {
-        symbol: string;
-        assetType: string;
-        thematic?: boolean;
-        unvestedCompensation?: boolean;
-      };
+      query?: never;
       header?: never;
-      path?: never;
+      path: {
+        id: string;
+      };
       cookie?: never;
     };
     requestBody?: never;
