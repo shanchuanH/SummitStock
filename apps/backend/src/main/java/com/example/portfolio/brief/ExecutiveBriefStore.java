@@ -22,13 +22,13 @@ class ExecutiveBriefStore {
                                COALESCE(SUM(NOT EXISTS (
                                    SELECT 1 FROM price_bar b
                                    WHERE b.instrument_id=p.instrument_id AND b.adjusted=TRUE
-                                     AND b.quality_status NOT IN ('INVALID', 'MISSING_DATA')
+                                     AND b.quality_status NOT IN ('SUSPECT', 'MISSING')
                                )), 0) missing_market_positions,
                                COALESCE(SUM(p.classification='QUALITY_STOCK'), 0) required_fundamental_positions,
                                COALESCE(SUM(p.classification='QUALITY_STOCK' AND NOT EXISTS (
                                    SELECT 1 FROM fundamental_observation f
                                    WHERE f.instrument_id=p.instrument_id
-                                     AND f.quality_status NOT IN ('INVALID', 'MISSING_DATA')
+                                     AND f.quality_status NOT IN ('SUSPECT', 'MISSING')
                                )), 0) missing_fundamental_positions,
                                COALESCE(SUM(EXISTS (
                                    SELECT 1 FROM holding_analysis_snapshot h WHERE h.position_id=p.id

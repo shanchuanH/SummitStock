@@ -90,7 +90,7 @@ class MarketDataIntegrationTest extends MySqlIntegrationTest {
                 at,
                 "raw-checksum",
                 "v1",
-                "VALID",
+                "HEALTHY",
                 Instant.now(),
                 "{}",
                 Instant.now())));

@@ -2,7 +2,6 @@ package com.example.portfolio.market.provider;
 
 import java.time.Clock;
 import java.util.List;
-import java.util.Map;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +17,7 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
 
     @Override
     public ProviderModels.CompanyFactsResult fetchCompanyFacts(String cik) {
-        return new ProviderModels.CompanyFactsResult(cik, Map.of(), provenance(cik));
+        return new ProviderModels.CompanyFactsResult(cik, List.of(), provenance(cik));
     }
 
     private ProviderModels.Provenance provenance(String checksum) {
@@ -29,7 +28,7 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
                 now,
                 String.format("%064x", checksum.hashCode()),
                 "v1",
-                ProviderModels.QualityStatus.VALID,
-                List.of());
+                ProviderModels.QualityStatus.MISSING,
+                List.of("FIXTURE_HAS_NO_FUNDAMENTALS"));
     }
 }

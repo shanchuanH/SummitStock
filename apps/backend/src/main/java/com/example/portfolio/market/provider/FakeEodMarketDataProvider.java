@@ -29,6 +29,11 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
     }
 
     @Override
+    public String providerId() {
+        return "fake-eod";
+    }
+
+    @Override
     public ProviderModels.DailyBarsResult fetchDailyBars(String symbol, LocalDate from, LocalDate to) {
         failIfConfigured();
         var bars = new ArrayList<ProviderModels.DailyBar>();
@@ -74,7 +79,7 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
     private ProviderModels.Provenance provenance(String content) {
         var now = clock.instant();
         return new ProviderModels.Provenance(
-                "fake-eod", now, now, sha256(content), "v1", ProviderModels.QualityStatus.VALID, List.of());
+                "fake-eod", now, now, sha256(content), "v1", ProviderModels.QualityStatus.HEALTHY, List.of());
     }
 
     private void failIfConfigured() {

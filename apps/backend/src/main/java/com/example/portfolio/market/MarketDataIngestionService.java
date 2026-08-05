@@ -7,7 +7,6 @@ import com.example.portfolio.market.persistence.MarketDataStore.PriceBarWrite;
 import com.example.portfolio.market.persistence.ProviderRequestJournal;
 import com.example.portfolio.market.provider.MarketDataProvider;
 import com.example.portfolio.market.provider.ProviderCallException;
-import com.example.portfolio.market.provider.ProviderExecutor;
 import com.example.portfolio.market.provider.ProviderModels.DailyBar;
 import com.example.portfolio.quant.IndicatorResult;
 import com.example.portfolio.quant.Indicators;
@@ -33,7 +32,6 @@ public class MarketDataIngestionService {
     private final MarketDataProvider provider;
     private final MarketDataStore store;
     private final ProviderRequestJournal journal;
-    private final ProviderExecutor providerExecutor;
     private final Clock clock;
 
     public MarketDataIngestionService(
@@ -41,13 +39,11 @@ public class MarketDataIngestionService {
             MarketDataProvider provider,
             MarketDataStore store,
             ProviderRequestJournal journal,
-            ProviderExecutor providerExecutor,
             Clock clock) {
         this.instruments = instruments;
         this.provider = provider;
         this.store = store;
         this.journal = journal;
-        this.providerExecutor = providerExecutor;
         this.clock = clock;
     }
 
@@ -55,24 +51,22 @@ public class MarketDataIngestionService {
         var instrument = instruments
                 .findFirstBySymbolIgnoreCaseAndActiveTrue(symbol)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown active instrument: " + symbol));
-        var requestKey = sha256("fake-eod:daily-bars:" + instrument.symbol() + ":" + from + ":" + to);
+        var requestKey = sha256(provider.providerId() + ":daily-bars:" + instrument.symbol() + ":" + from + ":" + to);
         var context = "{\"symbol\":\"" + instrument.symbol() + "\",\"from\":\"" + from + "\",\"to\":\"" + to + "\"}";
-        var result = providerExecutor.execute(() -> {
-            journal.start(requestKey, "fake-eod", "daily-bars", context);
-            try {
-                var response = provider.fetchDailyBars(instrument.symbol(), from, to);
-                journal.succeed(
-                        requestKey,
-                        response.provenance().sourceTimestamp(),
-                        response.provenance().checksum(),
-                        response.provenance().qualityStatus().name(),
-                        "{\"barCount\":" + response.bars().size() + "}");
-                return response;
-            } catch (ProviderCallException exception) {
-                journal.fail(requestKey, exception.httpStatus(), exception.code(), exception.getMessage());
-                throw exception;
-            }
-        });
+        journal.start(requestKey, provider.providerId(), "daily-bars", context);
+        final com.example.portfolio.market.provider.ProviderModels.DailyBarsResult result;
+        try {
+            result = provider.fetchDailyBars(instrument.symbol(), from, to);
+            journal.succeed(
+                    requestKey,
+                    result.provenance().sourceTimestamp(),
+                    result.provenance().checksum(),
+                    result.provenance().qualityStatus().name(),
+                    "{\"barCount\":" + result.bars().size() + "}");
+        } catch (ProviderCallException exception) {
+            journal.fail(requestKey, exception.httpStatus(), exception.code(), exception.getMessage());
+            throw exception;
+        }
         var now = clock.instant();
         var writes = result.bars().stream()
                 .map(bar -> toWrite(instrument.id(), bar, result.provenance(), now))

@@ -203,8 +203,8 @@ public class MarketDataStore {
                              (SELECT COUNT(*) FROM fundamental_observation WHERE quality_status = 'STALE')) stale_observations,
                             ((SELECT COUNT(*) FROM price_bar WHERE quality_status = 'PARTIAL') +
                              (SELECT COUNT(*) FROM fundamental_observation WHERE quality_status = 'PARTIAL')) partial_observations,
-                            ((SELECT COUNT(*) FROM price_bar WHERE quality_status IN ('SUSPECT', 'MALFORMED', 'INVALID')) +
-                             (SELECT COUNT(*) FROM fundamental_observation WHERE quality_status IN ('SUSPECT', 'MALFORMED', 'INVALID'))) suspect_observations,
+                            ((SELECT COUNT(*) FROM price_bar WHERE quality_status = 'SUSPECT') +
+                             (SELECT COUNT(*) FROM fundamental_observation WHERE quality_status = 'SUSPECT')) suspect_observations,
                             (SELECT MAX(data_as_of) FROM price_bar) latest_price_data_as_of,
                             (SELECT MAX(data_as_of) FROM indicator_snapshot) latest_indicator_data_as_of
                         """)

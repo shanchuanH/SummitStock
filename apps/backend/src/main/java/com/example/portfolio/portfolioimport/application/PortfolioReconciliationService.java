@@ -1,5 +1,6 @@
 package com.example.portfolio.portfolioimport.application;
 
+import com.example.portfolio.market.InstrumentResolutionService;
 import com.example.portfolio.portfolioimport.infrastructure.PortfolioImportStore;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -23,10 +24,13 @@ import org.springframework.web.server.ResponseStatusException;
 public class PortfolioReconciliationService {
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final InstrumentResolutionService instrumentResolution;
 
-    public PortfolioReconciliationService(JdbcClient jdbc, Clock clock) {
+    public PortfolioReconciliationService(
+            JdbcClient jdbc, Clock clock, InstrumentResolutionService instrumentResolution) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.instrumentResolution = instrumentResolution;
     }
 
     public ReconciliationResult reconcile(
@@ -74,7 +78,7 @@ public class PortfolioReconciliationService {
             if ("IGNORED".equals(row.status())) continue;
             var accountId = accountIds.get(accountKey(row));
             switch (row.rowType()) {
-                case "HOLDING" -> positionIds.add(upsertPosition(accountId, batchId, row));
+                case "HOLDING" -> positionIds.add(upsertPosition(email, accountId, batchId, row));
                 case "CASH" -> cashByAccount.merge(accountId, row.currentValue(), BigDecimal::add);
                 case "UNVESTED_COMPENSATION" -> {
                     upsertCompensation(userId, accountId, batchId, row);
@@ -232,22 +236,24 @@ public class PortfolioReconciliationService {
                 .update();
     }
 
-    private UUID upsertPosition(UUID accountId, UUID batchId, PortfolioImportStore.ImportRow row) {
-        var instrumentId = instrument(row.symbol(), row.assetType());
+    private UUID upsertPosition(String email, UUID accountId, UUID batchId, PortfolioImportStore.ImportRow row) {
+        var resolution = instrumentResolution.resolve(email, row.symbol(), row.assetType());
+        var instrumentId = resolution.instrumentId();
         var id = UUID.randomUUID();
         jdbc.sql(
                         """
                         INSERT INTO position (
                             id, account_id, instrument_id, bucket, classification, classification_confirmed,
                             quantity, average_cost, market_value, status, opened_at, closed_at, created_at,
-                            updated_at, version, external_position_key, import_source, data_as_of
+                            updated_at, version, external_position_key, import_source, data_as_of, data_readiness
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:accountId), UUID_TO_BIN(:instrumentId), 'CORE', 'UNKNOWN', FALSE,
                             :quantity, :averageCost, :marketValue, 'OPEN', :now, NULL, :now, :now, 0,
-                            :externalKey, 'FIDELITY_CSV', :dataAsOf
+                            :externalKey, 'FIDELITY_CSV', :dataAsOf, :dataReadiness
                         ) ON DUPLICATE KEY UPDATE instrument_id=VALUES(instrument_id), quantity=VALUES(quantity),
                             average_cost=VALUES(average_cost), market_value=VALUES(market_value), status='OPEN',
-                            closed_at=NULL, data_as_of=VALUES(data_as_of), updated_at=VALUES(updated_at), version=version+1
+                            closed_at=NULL, data_as_of=VALUES(data_as_of), data_readiness=VALUES(data_readiness),
+                            updated_at=VALUES(updated_at), version=version+1
                         """)
                 .param("id", id.toString())
                 .param("accountId", accountId.toString())
@@ -258,6 +264,7 @@ public class PortfolioReconciliationService {
                 .param("now", clock.instant())
                 .param("externalKey", row.symbol())
                 .param("dataAsOf", clock.instant())
+                .param("dataReadiness", resolution.readiness().name())
                 .update();
         var positionId = jdbc.sql(
                         """
@@ -291,38 +298,6 @@ public class PortfolioReconciliationService {
                 .param("now", clock.instant())
                 .update();
         return positionId;
-    }
-
-    private UUID instrument(String symbol, String assetType) {
-        var existing = jdbc.sql(
-                        "SELECT BIN_TO_UUID(id) FROM instrument WHERE symbol=:symbol AND active=TRUE ORDER BY exchange LIMIT 1")
-                .param("symbol", symbol)
-                .query(UUID.class)
-                .optional();
-        if (existing.isPresent()) return existing.orElseThrow();
-        var id = UUID.randomUUID();
-        var normalizedType =
-                switch (assetType) {
-                    case "ETF", "MUTUAL_FUND", "EQUITY" -> assetType;
-                    default ->
-                        throw new ResponseStatusException(
-                                HttpStatus.UNPROCESSABLE_ENTITY, "Unknown asset type for " + symbol);
-                };
-        jdbc.sql(
-                        """
-                        INSERT INTO instrument (
-                            id, symbol, exchange, asset_type, currency, active, metadata, created_at, updated_at, version
-                        ) VALUES (
-                            UUID_TO_BIN(:id), :symbol, 'FIDELITY', :assetType, 'USD', TRUE,
-                            JSON_OBJECT('importSource','FIDELITY_CSV'), :now, :now, 0
-                        )
-                        """)
-                .param("id", id.toString())
-                .param("symbol", symbol)
-                .param("assetType", normalizedType)
-                .param("now", clock.instant())
-                .update();
-        return id;
     }
 
     private void upsertCash(UUID userId, UUID accountId, BigDecimal amount) {

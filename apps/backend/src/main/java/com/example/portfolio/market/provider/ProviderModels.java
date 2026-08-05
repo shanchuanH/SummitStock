@@ -4,16 +4,16 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
 public final class ProviderModels {
     private ProviderModels() {}
 
     public enum QualityStatus {
-        VALID,
+        HEALTHY,
         PARTIAL,
         STALE,
-        MALFORMED
+        SUSPECT,
+        MISSING
     }
 
     public record Provenance(
@@ -29,7 +29,7 @@ public final class ProviderModels {
         }
 
         public boolean freshAt(Instant cutoff) {
-            return !sourceTimestamp.isBefore(cutoff) && qualityStatus == QualityStatus.VALID;
+            return !sourceTimestamp.isBefore(cutoff) && qualityStatus == QualityStatus.HEALTHY;
         }
     }
 
@@ -66,7 +66,13 @@ public final class ProviderModels {
         }
     }
 
-    public record Filing(String accessionNumber, String form, LocalDate filingDate, String sourceUrl) {}
+    public record Filing(
+            String accessionNumber,
+            String form,
+            LocalDate filingDate,
+            LocalDate periodEnd,
+            String sourceUrl,
+            String primaryDocument) {}
 
     public record FilingIndexResult(String cik, List<Filing> filings, Provenance provenance) {
         public FilingIndexResult {
@@ -74,9 +80,22 @@ public final class ProviderModels {
         }
     }
 
-    public record CompanyFactsResult(String cik, Map<String, String> facts, Provenance provenance) {
+    public record CompanyFact(
+            String businessMetric,
+            String taxonomy,
+            String concept,
+            String unit,
+            BigDecimal value,
+            LocalDate periodStart,
+            LocalDate periodEnd,
+            LocalDate filingDate,
+            String accessionNumber,
+            String form,
+            String sourceUri) {}
+
+    public record CompanyFactsResult(String cik, List<CompanyFact> facts, Provenance provenance) {
         public CompanyFactsResult {
-            facts = Map.copyOf(facts);
+            facts = List.copyOf(facts);
         }
     }
 }

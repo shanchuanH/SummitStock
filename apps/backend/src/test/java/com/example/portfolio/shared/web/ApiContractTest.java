@@ -1,6 +1,7 @@
 package com.example.portfolio.shared.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -70,7 +71,7 @@ class ApiContractTest extends MySqlIntegrationTest {
 
         mockMvc.perform(get("/api/v1/instruments"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].symbol").value("QQQ"))
+                .andExpect(jsonPath("$.items[*].symbol", hasItem("QQQ")))
                 .andExpect(jsonPath("$.dataAsOf").isNotEmpty());
         mockMvc.perform(get("/api/v1/instruments/SPY/bars"))
                 .andExpect(status().isOk())

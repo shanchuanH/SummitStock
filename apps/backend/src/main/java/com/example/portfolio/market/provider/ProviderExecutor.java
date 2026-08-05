@@ -40,7 +40,7 @@ public final class ProviderExecutor {
         throw Objects.requireNonNull(last);
     }
 
-    private void rateLimit() {
+    private synchronized void rateLimit() {
         var now = clock.instant();
         var previous = lastCall.get();
         var earliest = previous.equals(Instant.MIN) ? now : previous.plus(minimumInterval);

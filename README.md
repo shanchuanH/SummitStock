@@ -16,14 +16,15 @@ Prerequisites are JDK 25, Node.js 22.22+, pnpm 11+, and Docker Desktop. Copy `.e
 ```powershell
 docker compose -f infra/compose.yaml up -d mysql
 $env:SPRING_PROFILES_ACTIVE = "local-fixture"
-$env:PORTFOLIO_PROVIDER_MODE = "fake"
+$env:PORTFOLIO_MARKET_PROVIDER = "fake"
+$env:PORTFOLIO_FUNDAMENTALS_PROVIDER = "fake"
 .\mvnw.cmd -pl apps/backend -am spring-boot:run
 pnpm dev
 ```
 
 The API runs at `http://localhost:8080`; the SPA runs at `http://localhost:4173`. The default development login is documented in `.env.example` and must not be used outside local development. The explicit `local-fixture` profile is required for deterministic local providers; omitting it fails closed.
 
-The read-only market inspection page is available at `http://localhost:4173/market-data`. Deterministic fake EOD and SEC/IR adapters are available only under the explicit `local-fixture` and `test` profiles. The default provider mode is disabled, and a non-fixture runtime refuses to start with disabled or fake providers.
+The read-only market inspection page is available at `http://localhost:4173/market-data`. Deterministic fake EOD and SEC/IR adapters are available only under the explicit `local-fixture` and `test` profiles. Outside those profiles, Alpha Vantage market data requires `PORTFOLIO_MARKET_API_KEY`, and SEC EDGAR requires a declared organization/contact value in `SEC_USER_AGENT`; disabled, fake, or incomplete production configuration fails closed.
 
 Regime, drawdown source, and data-quality gates are shown at `http://localhost:4173/market-context`. Private portfolio drawdown requires authentication; missing snapshots remain explicit `EMPTY` / `WAIT_FOR_DATA` states.
 
