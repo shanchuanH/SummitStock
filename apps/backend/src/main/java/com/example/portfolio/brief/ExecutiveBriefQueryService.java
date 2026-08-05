@@ -32,11 +32,15 @@ public class ExecutiveBriefQueryService {
         var cash = briefStore.cashSummary(email);
         var evidence = briefStore.evidence(email);
         var metadata = briefStore.analysisMetadata(email);
+        var run = briefStore.latestAnalysisRun(email);
         var state = readiness.assess(new PortfolioReadinessService.ReadinessFacts(
                 evidence.openPositions(),
-                false,
-                false,
-                evidence.anyAnalysisPositions() > 0 || evidence.analysisQueued() || evidence.failedJobCount() > 0,
+                evidence.importPending(),
+                evidence.importing(),
+                evidence.analysisRunExists()
+                        || evidence.anyAnalysisPositions() > 0
+                        || evidence.analysisQueued()
+                        || evidence.failedJobCount() > 0,
                 evidence.analysisQueued(),
                 evidence.missingMarketPositions(),
                 evidence.requiredFundamentalPositions(),
@@ -62,10 +66,14 @@ public class ExecutiveBriefQueryService {
                 evidence.staleAnalysisPositions(),
                 Math.max(0, evidence.openPositions() - evidence.analyzedPositions()),
                 evidence.failedJobCount());
-        var strategyVersion = metadata.strategyVersion() == null
-                ? briefStore.currentStrategyVersion(email)
-                : metadata.strategyVersion();
-        var dataAsOf = metadata.dataAsOf() == null ? instant(summary.dataAsOf()) : instant(metadata.dataAsOf());
+        var strategyVersion = run != null
+                ? run.strategyVersion()
+                : metadata.strategyVersion() == null
+                        ? briefStore.currentStrategyVersion(email)
+                        : metadata.strategyVersion();
+        var dataAsOf = run != null && run.dataAsOf() != null
+                ? instant(run.dataAsOf())
+                : metadata.dataAsOf() == null ? instant(summary.dataAsOf()) : instant(metadata.dataAsOf());
         return new ExecutiveBrief(
                 state,
                 headline(state, mustAct.size(), watch.size()),
@@ -90,7 +98,7 @@ public class ExecutiveBriefQueryService {
                                 instant(event.eventAt()),
                                 event.qualityStatus()))
                         .toList(),
-                null,
+                run == null ? null : run.runId(),
                 strategyVersion,
                 dataAsOf);
     }

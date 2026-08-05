@@ -2,6 +2,7 @@ const links = [
   ["Dashboard", "/"],
   ["Regime", "/market-context"],
   ["Portfolio", "/portfolio"],
+  ["Import", "/portfolio-import"],
   ["Plan", "/plan"],
   ["Dip", "/dip-buy"],
   ["Thesis", "/thesis"],

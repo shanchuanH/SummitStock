@@ -3,6 +3,7 @@ package com.example.portfolio.brief;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -78,6 +79,27 @@ class ExecutiveBriefStore {
                 .param("email", email)
                 .query(JobEvidence.class)
                 .single();
+        var workflow = jdbc.sql(
+                        """
+                        SELECT COALESCE(SUM(b.status='PREVIEW'),0) import_pending,
+                               COALESCE(SUM(b.status='IMPORTING'),0) importing,
+                               (SELECT COUNT(*) FROM portfolio_analysis_run r
+                                JOIN app_user ru ON ru.id=r.user_id WHERE ru.email=:email) analysis_runs,
+                               (SELECT COUNT(*) FROM portfolio_analysis_run r
+                                JOIN app_user ru ON ru.id=r.user_id WHERE ru.email=:email
+                                  AND r.status='QUEUED') analysis_queued,
+                               (SELECT COUNT(*) FROM portfolio_analysis_run r
+                                JOIN app_user ru ON ru.id=r.user_id WHERE ru.email=:email
+                                  AND r.status='FAILED') analysis_failed,
+                               (SELECT COUNT(*) FROM portfolio_analysis_run r
+                                JOIN app_user ru ON ru.id=r.user_id WHERE ru.email=:email
+                                  AND r.status='BLOCKED') analysis_blocked
+                        FROM portfolio_import_batch b JOIN app_user u ON u.id=b.user_id
+                        WHERE u.email=:email
+                        """)
+                .param("email", email)
+                .query(WorkflowEvidence.class)
+                .single();
         var blocked = jdbc.sql(
                         """
                         SELECT COUNT(*)
@@ -98,9 +120,12 @@ class ExecutiveBriefStore {
                 positions.anyAnalysisPositions(),
                 positions.analyzedPositions(),
                 positions.staleAnalysisPositions(),
-                jobs.queued() > 0,
-                jobs.failed() + positions.failedAnalysisPositions(),
-                blocked > 0 || positions.blockedAnalysisPositions() > 0);
+                workflow.importPending() > 0,
+                workflow.importing() > 0,
+                workflow.analysisRuns() > 0,
+                jobs.queued() > 0 || workflow.analysisQueued() > 0,
+                jobs.failed() + workflow.analysisFailed() + positions.failedAnalysisPositions(),
+                blocked > 0 || workflow.analysisBlocked() > 0 || positions.blockedAnalysisPositions() > 0);
     }
 
     CashSummary cashSummary(String email) {
@@ -153,6 +178,20 @@ class ExecutiveBriefStore {
                 .single();
     }
 
+    AnalysisRunMetadata latestAnalysisRun(String email) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(r.id) run_id, r.status, r.strategy_version,
+                               r.data_as_of, r.created_at
+                        FROM portfolio_analysis_run r JOIN app_user u ON u.id=r.user_id
+                        WHERE u.email=:email ORDER BY r.created_at DESC LIMIT 1
+                        """)
+                .param("email", email)
+                .query(AnalysisRunMetadata.class)
+                .optional()
+                .orElse(null);
+    }
+
     String currentStrategyVersion(String email) {
         return jdbc.sql(
                         """
@@ -201,6 +240,14 @@ class ExecutiveBriefStore {
 
     record JobEvidence(long queued, long failed) {}
 
+    record WorkflowEvidence(
+            long importPending,
+            long importing,
+            long analysisRuns,
+            long analysisQueued,
+            long analysisFailed,
+            long analysisBlocked) {}
+
     record Evidence(
             long openPositions,
             long missingMarketPositions,
@@ -209,6 +256,9 @@ class ExecutiveBriefStore {
             long anyAnalysisPositions,
             long analyzedPositions,
             long staleAnalysisPositions,
+            boolean importPending,
+            boolean importing,
+            boolean analysisRunExists,
             boolean analysisQueued,
             long failedJobCount,
             boolean blocked) {}
@@ -216,6 +266,9 @@ class ExecutiveBriefStore {
     record CashSummary(BigDecimal trackedCash, BigDecimal emergencyCash, BigDecimal tacticalReserve) {}
 
     record AnalysisMetadata(LocalDateTime dataAsOf, String strategyVersion) {}
+
+    record AnalysisRunMetadata(
+            UUID runId, String status, String strategyVersion, LocalDateTime dataAsOf, LocalDateTime createdAt) {}
 
     record NextEvent(String symbol, String eventType, String title, LocalDateTime eventAt, String qualityStatus) {}
 }

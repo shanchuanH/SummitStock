@@ -9,6 +9,7 @@ import { PortfolioPage } from "./app/portfolio-page";
 import { PositionDetailPage } from "./app/position-detail-page";
 import { DipPage } from "./app/dip-page";
 import { BacktestPage } from "./app/backtest-page";
+import { PortfolioImportPage } from "./app/portfolio-import/PortfolioImportPage";
 import {
   DashboardPage,
   DataHealthPage,
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
   { path: "/market-data", element: <MarketInspectionPage /> },
   { path: "/market-context", element: <MarketContextPage /> },
   { path: "/portfolio", element: <PortfolioPage /> },
+  { path: "/portfolio-import", element: <PortfolioImportPage /> },
   { path: "/positions/:positionId", element: <PositionDetailPage /> },
   { path: "/dip-buy", element: <DipPage /> },
   { path: "/plan", element: <PlanPage /> },

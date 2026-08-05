@@ -2,11 +2,13 @@
 
 ## Current Phase
 
-Rescue Phase 1 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 2–7 remain pending and must be implemented in order.
+Rescue Phase 2 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 3–7 remain pending and must be implemented in order.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
 Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness calculation, and `GET /api/v1/brief/today`. The contract aggregates persisted portfolio, cash, market, holding-analysis, recommendation, data-quality, job, and event evidence with Decimal String money values. The Dashboard now makes exactly one brief request and renders explicit loading, authentication/error, no-portfolio, partial, stale, blocked, failed, ready-with-actions, and ready-without-actions states. “NO URGENT ACTION” is possible only for `ANALYSIS_READY` with all three action queues empty.
+
+Phase 2 added preview-first Fidelity CSV, pasted-table, and manual-holding intake. Confirmed batches reconcile accounts and positions transactionally, preserve fractional quantities and nullable cost basis, append immutable position snapshots, close holdings absent from a later full account snapshot, keep SPAXX as cash, and store unvested RSUs separately from liquid positions. Confirmation is owner-scoped, versioned, audited, idempotent, and creates one durable analysis run/job. The `/portfolio-import` UI requires every error row to be corrected or explicitly ignored before confirmation and never connects to a brokerage account.
 
 ## Completed Packets
 
@@ -64,7 +66,7 @@ Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness
 
 ## Database
 
-- Flyway head: `V8__backtest_runs_and_metrics.sql`
+- Flyway head: `V9__portfolio_import_and_analysis_runs.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -74,6 +76,7 @@ Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness
 - ETF dip event/tranche, cashflow allocation, and active-sleeve accountability snapshots are evidence-keyed; each event/tranche is unique
 - Job run/attempt, authentication security event, and recommendation acknowledgement records are durable and idempotency constrained
 - Backtest runs and metrics are user scoped, checksum/idempotency keyed, and store explicit bias/OOS boundaries
+- Import batches/rows, position snapshots, compensation holdings, and portfolio analysis runs/steps are owner scoped, versioned, and idempotency constrained
 - Hibernate: schema validation only
 - Pending migrations: none
 
@@ -81,7 +84,7 @@ Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness
 
 - OpenAPI: initialized at `contracts/openapi/portfolio-api.json`
 - Generated client: initialized at `contracts/generated/src/schema.d.ts`
-- Runtime endpoints: unified Today Brief, portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
+- Runtime endpoints: unified Today Brief, portfolio import preview/confirm/query, portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
 - Errors: RFC 9457 Problem Details enabled; request IDs returned as `X-Request-ID`
 
 ## Providers
@@ -90,7 +93,7 @@ Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness
 - Explicit `local-fixture`/`test` filing/facts adapter: deterministic fake SEC/IR implementation
 - Default mode: `disabled`; non-fixture runtimes fail closed when configured with disabled or fake providers
 - Provider calls use bounded retry, rate limiting, durable attempt status, source timestamps, checksums, freshness, normalization versions, and quality status
-- Fidelity remains a future read-only/manual boundary
+- Fidelity intake is file/paste/manual only; there is no brokerage connection, credential storage, order placement, or automated account operation
 
 ## Tests
 
@@ -114,6 +117,8 @@ Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness
 - React portfolio-page tests for summary/positions, classification restraint, stale precision blocking, and authentication-required state
 - Executive Brief contract/readiness tests backed by persisted MySQL evidence, including no-portfolio, queued, missing-market, partial, ready with/without actions, failed, and false-no-action prevention
 - Dashboard tests proving the page requests only Today Brief, caps MUST_ACT at three, and distinguishes partial/error states from a confirmed ready empty queue
+- Fidelity parser and MySQL integration tests for CSV variations, SPAXX, fractional shares, missing cost basis, unvested RSUs, preview immutability, duplicate import, versioned confirmation, owner isolation, durable analysis enqueue, and later-snapshot reconciliation
+- Portfolio import UI tests proving Unknown rows block confirmation until corrected or ignored and that confirmation reports an analysis queue rather than execution
 - Stop, R/MFE/MAE, Quality Discount, earnings class policy, thesis concurrency, duplicate alert, and Position Detail tests
 - ETF market attribution, setup/trigger/cooldown/tranche, emergency-first cashflow, fallback, accountability, and Dip UI tests
 - Durable job idempotency/claim/lease/retry/scanner tests, login throttling/audit tests, acknowledgement-without-execution tests, and ten-page workspace tests
@@ -126,11 +131,11 @@ Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness
 - Local runtime starts with seeded SPY/QQQ instruments but no fetched observations, so data health correctly reports `EMPTY` until ingestion runs.
 - Local runtime has no synthesized regime/drawdown rows; the context API correctly reports `EMPTY` until evidence calculation runs.
 - Production EOD and SEC/IR credentials/adapters are not implemented; non-fixture startup therefore remains intentionally blocked until a production provider is selected.
-- Import batches and first-class analysis runs are introduced in Phase 2; until then, the brief truthfully reports `PORTFOLIO_READY` when positions have no analysis snapshots and leaves `analysisRunId` empty.
+- The Phase 2 analysis job is durably queued but its production provider-backed analysis handler is implemented in later phases; the brief therefore remains in a non-ready state until that work completes.
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `1.0.0-draft` remains unpublished and local credentials remain placeholders.
 
 ## Next Step
 
-Implement Rescue Phase 2: Fidelity CSV upload, parse/preview/confirm, versioned import batches, persisted analysis runs, and idempotent analysis job orchestration.
+Implement Rescue Phase 3: production market/fundamental provider safety, real provider adapters, data-quality semantics, and instrument resolution.

@@ -1,0 +1,120 @@
+package com.example.portfolio.portfolioimport;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+
+import com.example.portfolio.MySqlIntegrationTest;
+import java.io.IOException;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
+    static final String EMAIL = "admin@example.local";
+    static final String PASSWORD = "change-before-use";
+
+    @Autowired
+    protected MockMvc mockMvc;
+
+    @Autowired
+    protected JdbcClient jdbc;
+
+    @Autowired
+    protected ObjectMapper json;
+
+    @BeforeEach
+    @AfterEach
+    void removeImportedPortfolio() {
+        update("DELETE ja FROM job_attempt ja JOIN job_run j ON j.id=ja.job_run_id "
+                + "WHERE j.job_type='PORTFOLIO_ANALYSIS' AND JSON_UNQUOTE(JSON_EXTRACT(j.payload,'$.userEmail'))='"
+                + EMAIL + "'");
+        update("DELETE FROM job_run WHERE job_type='PORTFOLIO_ANALYSIS' "
+                + "AND JSON_UNQUOTE(JSON_EXTRACT(payload,'$.userEmail'))='" + EMAIL + "'");
+        update("DELETE s FROM portfolio_analysis_step s JOIN portfolio_analysis_run r ON r.id=s.run_id "
+                + "JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE r FROM portfolio_analysis_run r JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL
+                + "'");
+        update("DELETE c FROM compensation_holding c JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE s FROM position_snapshot s JOIN position p ON p.id=s.position_id "
+                + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
+                + "WHERE u.email='" + EMAIL + "' AND p.import_source='FIDELITY_CSV'");
+        update("DELETE p FROM position p JOIN investment_account a ON a.id=p.account_id "
+                + "JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
+                + "' AND p.import_source='FIDELITY_CSV'");
+        update("DELETE c FROM cash_bucket c JOIN investment_account a ON a.id=c.account_id "
+                + "JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
+                + "' AND a.import_source='FIDELITY_CSV'");
+        update("DELETE a FROM audit_log a JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
+                + "' AND a.event_type='PORTFOLIO_IMPORT_CONFIRMED'");
+        update("DELETE a FROM investment_account a JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
+                + "' AND a.import_source='FIDELITY_CSV'");
+        update("DELETE b FROM portfolio_import_batch b JOIN app_user u ON u.id=b.user_id WHERE u.email='" + EMAIL
+                + "'");
+        update("DELETE FROM instrument WHERE exchange='FIDELITY' AND NOT EXISTS "
+                + "(SELECT 1 FROM position p WHERE p.instrument_id=instrument.id)");
+    }
+
+    protected JsonNode preview(String fixture) throws Exception {
+        var file = new MockMultipartFile("file", fixture, "text/csv", fixture(fixture));
+        var result = mockMvc.perform(multipart("/api/v1/portfolio-imports/fidelity/preview")
+                        .file(file)
+                        .with(httpBasic(EMAIL, PASSWORD))
+                        .with(csrf()))
+                .andReturn();
+        assertSuccessful(result);
+        return json.readTree(result.getResponse().getContentAsString());
+    }
+
+    protected JsonNode confirm(UUID batchId, long version, String rowOverrides) throws Exception {
+        var body = "{\"expectedVersion\":" + version + ",\"accountMappings\":[],\"rowOverrides\":" + rowOverrides + "}";
+        var result = mockMvc.perform(post("/api/v1/portfolio-imports/{batchId}/confirm", batchId)
+                        .with(httpBasic(EMAIL, PASSWORD))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andReturn();
+        assertSuccessful(result);
+        return json.readTree(result.getResponse().getContentAsString());
+    }
+
+    protected long count(String sql) {
+        return jdbc.sql(sql).query(Long.class).single();
+    }
+
+    protected void update(String sql) {
+        jdbc.sql(sql).update();
+    }
+
+    protected static byte[] fixture(String name) throws IOException {
+        try (var input = PortfolioImportIntegrationSupport.class.getResourceAsStream("/portfolio-import/" + name)) {
+            if (input == null) throw new IOException("Missing test fixture " + name);
+            return input.readAllBytes();
+        }
+    }
+
+    protected static UUID uuid(JsonNode node, String field) {
+        return UUID.fromString(node.get(field).asString());
+    }
+
+    private static void assertSuccessful(MvcResult result) throws Exception {
+        int status = result.getResponse().getStatus();
+        if (status < 200 || status >= 300) {
+            throw new AssertionError(
+                    "HTTP " + status + ": " + result.getResponse().getContentAsString());
+        }
+    }
+}

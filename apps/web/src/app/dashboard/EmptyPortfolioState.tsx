@@ -7,6 +7,9 @@ export function EmptyPortfolioState() {
         No analysis or action conclusion is available until real holdings are
         imported and confirmed.
       </p>
+      <a className="market-link" href="/portfolio-import">
+        Import Fidelity holdings →
+      </a>
     </article>
   );
 }

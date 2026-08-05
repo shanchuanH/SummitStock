@@ -31,6 +31,8 @@ The Dashboard reads one backend-owned contract, `GET /api/v1/brief/today`. The r
 
 The authenticated portfolio workspace is available at `http://localhost:4173/portfolio`. It shows summary, positions, and capped Today Actions. Classification and trade-plan controls remain unavailable until they are backed by selected-position, server-side calculations.
 
+Real holdings can be imported at `http://localhost:4173/portfolio-import` from a Fidelity Positions CSV, a copied Fidelity table, or one manually entered holding. Every submission is preview-only until explicit confirmation. Unknown rows must be corrected or ignored; confirmation reconciles the full imported account snapshot, retains history, and queues analysis. SummitStock never connects to or operates a Fidelity account.
+
 Position links open `http://localhost:4173/positions/{positionId}` for server-owned stop, thesis, valuation, earnings, chart-marker, tax, and journal evidence.
 
 The authenticated ETF Dip and cashflow workspace is at `http://localhost:4173/dip-buy`.

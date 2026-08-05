@@ -100,7 +100,55 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/etf-dip/preview": {
+  "/api/v1/portfolio-imports/{batchId}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["confirm"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/pasted/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewPasted"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/manual/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewManual"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/fidelity/preview": {
     parameters: {
       query?: never;
       header?: never;
@@ -110,6 +158,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["preview_1"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/etf-dip/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["preview_2"];
     delete?: never;
     options?: never;
     head?: never;
@@ -308,6 +372,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/portfolio-imports/{batchId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["find"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/market/regime": {
     parameters: {
       query?: never;
@@ -459,7 +539,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get: operations["find"];
+    get: operations["find_1"];
     put?: never;
     post?: never;
     delete?: never;
@@ -662,6 +742,117 @@ export interface components {
       status?: string;
       /** Format: int64 */
       version?: number;
+    };
+    AccountMappingRequest: {
+      accountNumberMasked?: string;
+      /** Format: uuid */
+      existingAccountId?: string;
+      displayName?: string;
+    };
+    ConfirmationRequest: {
+      /** Format: int64 */
+      expectedVersion?: number;
+      accountMappings?: components["schemas"]["AccountMappingRequest"][];
+      rowOverrides?: components["schemas"]["RowOverrideRequest"][];
+    };
+    RowOverrideRequest: {
+      /** Format: int32 */
+      rowNumber?: number;
+      symbol?: string;
+      assetType?: string;
+      rowType?: string;
+      ignored?: boolean;
+    };
+    ConfirmationResponse: {
+      /** Format: uuid */
+      batchId?: string;
+      status?: string;
+      /** Format: int64 */
+      version?: number;
+      /** Format: uuid */
+      analysisRunId?: string;
+      analysisState?: string;
+      /** Format: int32 */
+      openPositionCount?: number;
+      /** Format: int32 */
+      closedPositionCount?: number;
+      /** Format: int32 */
+      cashRowCount?: number;
+      /** Format: int32 */
+      compensationRowCount?: number;
+      idempotentReplay?: boolean;
+    };
+    PastedTableRequest: {
+      table: string;
+    };
+    CashResponse: {
+      /** Format: int32 */
+      rowNumber?: number;
+      accountName?: string;
+      accountNumberMasked?: string;
+      symbol?: string;
+      description?: string;
+      currentValue?: string;
+      status?: string;
+      warnings?: string[];
+    };
+    HoldingResponse: {
+      /** Format: int32 */
+      rowNumber?: number;
+      accountName?: string;
+      accountNumberMasked?: string;
+      symbol?: string;
+      description?: string;
+      assetType?: string;
+      quantity?: string;
+      lastPrice?: string;
+      currentValue?: string;
+      averageCost?: string;
+      costBasis?: string;
+      rowType?: string;
+      status?: string;
+      warnings?: string[];
+    };
+    ImportAccount: {
+      accountName?: string;
+      accountNumberMasked?: string;
+    };
+    PreviewResponse: {
+      /** Format: uuid */
+      batchId?: string;
+      status?: string;
+      /** Format: int64 */
+      version?: number;
+      accounts?: components["schemas"]["ImportAccount"][];
+      holdings?: components["schemas"]["HoldingResponse"][];
+      cash?: components["schemas"]["CashResponse"][];
+      warnings?: string[];
+      errors?: string[];
+      summary?: components["schemas"]["SummaryResponse"];
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    SummaryResponse: {
+      /** Format: int32 */
+      rowCount?: number;
+      /** Format: int32 */
+      validRowCount?: number;
+      /** Format: int32 */
+      errorRowCount?: number;
+      estimatedInvestedValue: string;
+      estimatedCashValue: string;
+    };
+    ManualHoldingRequest: {
+      accountNumber?: string;
+      accountName: string;
+      symbol: string;
+      description?: string;
+      quantity: string;
+      lastPrice?: string;
+      currentValue: string;
+      averageCost?: string;
+      costBasis?: string;
+      assetType: string;
     };
     DipPreviewRequest: {
       portfolioDrawdown: number;
@@ -1358,7 +1549,108 @@ export interface operations {
       };
     };
   };
+  confirm: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        batchId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmationRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ConfirmationResponse"];
+        };
+      };
+    };
+  };
+  previewPasted: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PastedTableRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  previewManual: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManualHoldingRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
   preview_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  preview_2: {
     parameters: {
       query?: never;
       header?: never;
@@ -1641,6 +1933,28 @@ export interface operations {
       };
     };
   };
+  find: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        batchId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
   regime: {
     parameters: {
       query?: never;
@@ -1837,7 +2151,7 @@ export interface operations {
       };
     };
   };
-  find: {
+  find_1: {
     parameters: {
       query?: never;
       header?: never;

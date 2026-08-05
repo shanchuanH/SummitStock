@@ -235,10 +235,139 @@
         }
       }
     },
+    "/api/v1/portfolio-imports/{batchId}/confirm": {
+      "post": {
+        "tags": ["portfolio-import-controller"],
+        "operationId": "confirm",
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio-imports/pasted/preview": {
+      "post": {
+        "tags": ["portfolio-import-controller"],
+        "operationId": "previewPasted",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PastedTableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio-imports/manual/preview": {
+      "post": {
+        "tags": ["portfolio-import-controller"],
+        "operationId": "previewManual",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualHoldingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio-imports/fidelity/preview": {
+      "post": {
+        "tags": ["portfolio-import-controller"],
+        "operationId": "preview_1",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/etf-dip/preview": {
       "post": {
         "tags": ["dip-cashflow-controller"],
-        "operationId": "preview_1",
+        "operationId": "preview_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -577,6 +706,35 @@
         }
       }
     },
+    "/api/v1/portfolio-imports/{batchId}": {
+      "get": {
+        "tags": ["portfolio-import-controller"],
+        "operationId": "find",
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/market/regime": {
       "get": {
         "tags": ["market-context-controller"],
@@ -835,7 +993,7 @@
     "/api/v1/backtests/{id}": {
       "get": {
         "tags": ["backtest-report-controller"],
-        "operationId": "find",
+        "operationId": "find_1",
         "parameters": [
           {
             "name": "id",
@@ -1315,6 +1473,328 @@
             "format": "int64"
           }
         }
+      },
+      "AccountMappingRequest": {
+        "type": "object",
+        "properties": {
+          "accountNumberMasked": {
+            "type": "string"
+          },
+          "existingAccountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfirmationRequest": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accountMappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountMappingRequest"
+            }
+          },
+          "rowOverrides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RowOverrideRequest"
+            }
+          }
+        }
+      },
+      "RowOverrideRequest": {
+        "type": "object",
+        "properties": {
+          "rowNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "assetType": {
+            "type": "string"
+          },
+          "rowType": {
+            "type": "string"
+          },
+          "ignored": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConfirmationResponse": {
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "analysisRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "analysisState": {
+            "type": "string"
+          },
+          "openPositionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "closedPositionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cashRowCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "compensationRowCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idempotentReplay": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PastedTableRequest": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "type": "string"
+          }
+        },
+        "required": ["table"]
+      },
+      "CashResponse": {
+        "type": "object",
+        "properties": {
+          "rowNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "accountNumberMasked": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "currentValue": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "HoldingResponse": {
+        "type": "object",
+        "properties": {
+          "rowNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "accountNumberMasked": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "assetType": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "lastPrice": {
+            "type": "string"
+          },
+          "currentValue": {
+            "type": "string"
+          },
+          "averageCost": {
+            "type": "string"
+          },
+          "costBasis": {
+            "type": "string"
+          },
+          "rowType": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ImportAccount": {
+        "type": "object",
+        "properties": {
+          "accountName": {
+            "type": "string"
+          },
+          "accountNumberMasked": {
+            "type": "string"
+          }
+        }
+      },
+      "PreviewResponse": {
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportAccount"
+            }
+          },
+          "holdings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HoldingResponse"
+            }
+          },
+          "cash": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CashResponse"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/SummaryResponse"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SummaryResponse": {
+        "type": "object",
+        "properties": {
+          "rowCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "validRowCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errorRowCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "estimatedInvestedValue": {
+            "type": "string"
+          },
+          "estimatedCashValue": {
+            "type": "string"
+          }
+        },
+        "required": ["estimatedCashValue", "estimatedInvestedValue"]
+      },
+      "ManualHoldingRequest": {
+        "type": "object",
+        "properties": {
+          "accountNumber": {
+            "type": "string"
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "lastPrice": {
+            "type": "string"
+          },
+          "currentValue": {
+            "type": "string"
+          },
+          "averageCost": {
+            "type": "string"
+          },
+          "costBasis": {
+            "type": "string"
+          },
+          "assetType": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountName",
+          "assetType",
+          "currentValue",
+          "quantity",
+          "symbol"
+        ]
       },
       "DipPreviewRequest": {
         "type": "object",
