@@ -2,9 +2,11 @@
 
 ## Current Phase
 
-Rescue Phase 0 completed on 2026-08-05 from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`. Phases 1–7 remain pending and must be implemented in order.
+Rescue Phase 1 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phases 2–7 remain pending and must be implemented in order.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
+
+Phase 1 introduced the backend-owned `PortfolioAnalysisState`, ordered readiness calculation, and `GET /api/v1/brief/today`. The contract aggregates persisted portfolio, cash, market, holding-analysis, recommendation, data-quality, job, and event evidence with Decimal String money values. The Dashboard now makes exactly one brief request and renders explicit loading, authentication/error, no-portfolio, partial, stale, blocked, failed, ready-with-actions, and ready-without-actions states. “NO URGENT ACTION” is possible only for `ANALYSIS_READY` with all three action queues empty.
 
 ## Completed Packets
 
@@ -79,7 +81,7 @@ Phase 0 removed the incorrect first-position/free-form classification flow and t
 
 - OpenAPI: initialized at `contracts/openapi/portfolio-api.json`
 - Generated client: initialized at `contracts/generated/src/schema.d.ts`
-- Runtime endpoints: portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
+- Runtime endpoints: unified Today Brief, portfolio/position/market context, ETF Dip/cashflow/accountability, recommendation acknowledgement, auth session/CSRF, worker health, and read-only backtest reports
 - Errors: RFC 9457 Problem Details enabled; request IDs returned as `X-Request-ID`
 
 ## Providers
@@ -110,6 +112,8 @@ Phase 0 removed the incorrect first-position/free-form classification flow and t
 - Pure-Java holding classification and hard-risk policy tests
 - V4 user-isolation, optimistic-concurrency, classification audit, decimal-string, stale-quantity, and Today Actions cap integration tests
 - React portfolio-page tests for summary/positions, classification restraint, stale precision blocking, and authentication-required state
+- Executive Brief contract/readiness tests backed by persisted MySQL evidence, including no-portfolio, queued, missing-market, partial, ready with/without actions, failed, and false-no-action prevention
+- Dashboard tests proving the page requests only Today Brief, caps MUST_ACT at three, and distinguishes partial/error states from a confirmed ready empty queue
 - Stop, R/MFE/MAE, Quality Discount, earnings class policy, thesis concurrency, duplicate alert, and Position Detail tests
 - ETF market attribution, setup/trigger/cooldown/tranche, emergency-first cashflow, fallback, accountability, and Dip UI tests
 - Durable job idempotency/claim/lease/retry/scanner tests, login throttling/audit tests, acknowledgement-without-execution tests, and ten-page workspace tests
@@ -122,10 +126,11 @@ Phase 0 removed the incorrect first-position/free-form classification flow and t
 - Local runtime starts with seeded SPY/QQQ instruments but no fetched observations, so data health correctly reports `EMPTY` until ingestion runs.
 - Local runtime has no synthesized regime/drawdown rows; the context API correctly reports `EMPTY` until evidence calculation runs.
 - Production EOD and SEC/IR credentials/adapters are not implemented; non-fixture startup therefore remains intentionally blocked until a production provider is selected.
+- Import batches and first-class analysis runs are introduced in Phase 2; until then, the brief truthfully reports `PORTFOLIO_READY` when positions have no analysis snapshots and leaves `analysisRunId` empty.
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `1.0.0-draft` remains unpublished and local credentials remain placeholders.
 
 ## Next Step
 
-Implement Rescue Phase 1: the unified `PortfolioAnalysisState`, `GET /api/v1/brief/today`, and a Dashboard that renders only the backend-owned readiness contract.
+Implement Rescue Phase 2: Fidelity CSV upload, parse/preview/confirm, versioned import batches, persisted analysis runs, and idempotent analysis job orchestration.

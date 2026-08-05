@@ -15,15 +15,19 @@ Prerequisites are JDK 25, Node.js 22.22+, pnpm 11+, and Docker Desktop. Copy `.e
 
 ```powershell
 docker compose -f infra/compose.yaml up -d mysql
+$env:SPRING_PROFILES_ACTIVE = "local-fixture"
+$env:PORTFOLIO_PROVIDER_MODE = "fake"
 .\mvnw.cmd -pl apps/backend -am spring-boot:run
 pnpm dev
 ```
 
-The API runs at `http://localhost:8080`; the SPA runs at `http://localhost:4173`. The default development login is documented in `.env.example` and must not be used outside local development.
+The API runs at `http://localhost:8080`; the SPA runs at `http://localhost:4173`. The default development login is documented in `.env.example` and must not be used outside local development. The explicit `local-fixture` profile is required for deterministic local providers; omitting it fails closed.
 
 The read-only market inspection page is available at `http://localhost:4173/market-data`. Deterministic fake EOD and SEC/IR adapters are available only under the explicit `local-fixture` and `test` profiles. The default provider mode is disabled, and a non-fixture runtime refuses to start with disabled or fake providers.
 
 Regime, drawdown source, and data-quality gates are shown at `http://localhost:4173/market-context`. Private portfolio drawdown requires authentication; missing snapshots remain explicit `EMPTY` / `WAIT_FOR_DATA` states.
+
+The Dashboard reads one backend-owned contract, `GET /api/v1/brief/today`. The response contains the unified portfolio analysis state, Decimal String summary values, capped action queues, portfolio health, data readiness, upcoming events, strategy version, and evidence time. The browser does not combine multiple APIs to infer readiness.
 
 The authenticated portfolio workspace is available at `http://localhost:4173/portfolio`. It shows summary, positions, and capped Today Actions. Classification and trade-plan controls remain unavailable until they are backed by selected-position, server-side calculations.
 

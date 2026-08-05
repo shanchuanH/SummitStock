@@ -814,6 +814,24 @@
         }
       }
     },
+    "/api/v1/brief/today": {
+      "get": {
+        "tags": ["executive-brief-controller"],
+        "operationId": "today",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutiveBrief"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/backtests/{id}": {
       "get": {
         "tags": ["backtest-report-controller"],
@@ -2289,6 +2307,240 @@
             "format": "date-time"
           }
         }
+      },
+      "BriefAction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "positionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "reasonsJson": {
+            "type": "string"
+          },
+          "risksJson": {
+            "type": "string"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "action",
+          "confidence",
+          "dataAsOf",
+          "id",
+          "priority",
+          "reasonsJson",
+          "risksJson",
+          "validUntil"
+        ]
+      },
+      "DataReadiness": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "marketCoverage": {
+            "type": "string"
+          },
+          "fundamentalCoverage": {
+            "type": "string"
+          },
+          "stalePositionCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "missingPositionCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failedJobCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "failedJobCount",
+          "fundamentalCoverage",
+          "marketCoverage",
+          "missingPositionCount",
+          "stalePositionCount",
+          "status"
+        ]
+      },
+      "ExecutiveBrief": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "NO_PORTFOLIO",
+              "IMPORT_PENDING_CONFIRMATION",
+              "IMPORTING",
+              "PORTFOLIO_READY",
+              "ANALYSIS_QUEUED",
+              "WAIT_FOR_MARKET_DATA",
+              "WAIT_FOR_FUNDAMENTALS",
+              "PARTIAL_ANALYSIS",
+              "ANALYSIS_READY",
+              "STALE",
+              "BLOCKED",
+              "FAILED"
+            ]
+          },
+          "headline": {
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PortfolioSummary"
+          },
+          "mustAct": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefAction"
+            }
+          },
+          "doNot": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefAction"
+            }
+          },
+          "watch": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefAction"
+            }
+          },
+          "portfolioHealth": {
+            "$ref": "#/components/schemas/PortfolioHealth"
+          },
+          "dataReadiness": {
+            "$ref": "#/components/schemas/DataReadiness"
+          },
+          "nextEvents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NextEvent"
+            }
+          },
+          "analysisRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "strategyVersion": {
+            "type": "string"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "dataReadiness",
+          "doNot",
+          "headline",
+          "mustAct",
+          "nextEvents",
+          "portfolioHealth",
+          "state",
+          "summary",
+          "watch"
+        ]
+      },
+      "NextEvent": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "eventAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "qualityStatus": {
+            "type": "string"
+          }
+        },
+        "required": ["eventAt", "eventType", "qualityStatus", "symbol", "title"]
+      },
+      "PortfolioHealth": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["reasons", "status"]
+      },
+      "PortfolioSummary": {
+        "type": "object",
+        "properties": {
+          "investedValue": {
+            "type": "string"
+          },
+          "trackedCash": {
+            "type": "string"
+          },
+          "emergencyCash": {
+            "type": "string"
+          },
+          "tacticalReserve": {
+            "type": "string"
+          },
+          "openPositions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "portfolioDrawdownFraction": {
+            "type": "string"
+          },
+          "technologyExposureFraction": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emergencyCash",
+          "investedValue",
+          "openPositions",
+          "tacticalReserve",
+          "trackedCash"
+        ]
       },
       "Metric": {
         "type": "object",

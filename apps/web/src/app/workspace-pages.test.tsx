@@ -28,27 +28,45 @@ describe("Packet 07 workspace", () => {
   beforeEach(() => get.mockReset());
 
   it("shows the calm state and never renders more than three urgent actions", async () => {
-    get
-      .mockResolvedValueOnce(
-        await ok({ authenticated: true, username: "owner@example.local" }),
-      )
-      .mockResolvedValueOnce(await ok({ openPositions: 4 }))
-      .mockResolvedValueOnce(
-        await ok({
-          mustAct: [1, 2, 3, 4].map((n) => ({
-            id: String(n),
-            symbol: `S${String(n)}`,
-            action: "REVIEW",
-            confidence: "HIGH",
-          })),
-          doNot: [],
-          watch: [],
-        }),
-      );
+    get.mockResolvedValueOnce(
+      await ok({
+        state: "ANALYSIS_READY",
+        headline: "4 item(s) require action; 0 item(s) require watching.",
+        summary: {
+          investedValue: "10000",
+          trackedCash: "2000",
+          emergencyCash: "1000",
+          tacticalReserve: "1000",
+          openPositions: 4,
+        },
+        mustAct: [1, 2, 3, 4].map((n) => ({
+          id: String(n),
+          symbol: `S${String(n)}`,
+          action: "REVIEW",
+          priority: "MUST_ACT",
+          confidence: "HIGH",
+        })),
+        doNot: [],
+        watch: [],
+        portfolioHealth: { status: "WARNING", reasons: [] },
+        dataReadiness: {
+          status: "HEALTHY",
+          marketCoverage: "1",
+          fundamentalCoverage: "1",
+          stalePositionCount: 0,
+          missingPositionCount: 0,
+          failedJobCount: 0,
+        },
+        nextEvents: [],
+        strategyVersion: "1.0.0-draft",
+      }),
+    );
     renderPage(<DashboardPage />);
     expect(await screen.findByText("S1")).toBeInTheDocument();
     expect(screen.getAllByText("REVIEW")).toHaveLength(3);
     expect(screen.queryByText("S4")).not.toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith("/api/v1/brief/today");
   });
 
   it("states the session-cookie policy and includes the CSRF form token", async () => {

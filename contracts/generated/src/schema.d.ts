@@ -436,6 +436,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/brief/today": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["today"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/backtests/{id}": {
     parameters: {
       query?: never;
@@ -1021,6 +1037,84 @@ export interface components {
       dataAsOf?: string;
       /** Format: date-time */
       validUntil?: string;
+    };
+    BriefAction: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      positionId?: string;
+      symbol?: string;
+      action: string;
+      priority: string;
+      confidence: string;
+      reasonsJson: string;
+      risksJson: string;
+      /** Format: date-time */
+      dataAsOf: string;
+      /** Format: date-time */
+      validUntil: string;
+    };
+    DataReadiness: {
+      status: string;
+      marketCoverage: string;
+      fundamentalCoverage: string;
+      /** Format: int64 */
+      stalePositionCount: number;
+      /** Format: int64 */
+      missingPositionCount: number;
+      /** Format: int64 */
+      failedJobCount: number;
+    };
+    ExecutiveBrief: {
+      /** @enum {string} */
+      state:
+        | "NO_PORTFOLIO"
+        | "IMPORT_PENDING_CONFIRMATION"
+        | "IMPORTING"
+        | "PORTFOLIO_READY"
+        | "ANALYSIS_QUEUED"
+        | "WAIT_FOR_MARKET_DATA"
+        | "WAIT_FOR_FUNDAMENTALS"
+        | "PARTIAL_ANALYSIS"
+        | "ANALYSIS_READY"
+        | "STALE"
+        | "BLOCKED"
+        | "FAILED";
+      headline: string;
+      summary: components["schemas"]["PortfolioSummary"];
+      mustAct: components["schemas"]["BriefAction"][];
+      doNot: components["schemas"]["BriefAction"][];
+      watch: components["schemas"]["BriefAction"][];
+      portfolioHealth: components["schemas"]["PortfolioHealth"];
+      dataReadiness: components["schemas"]["DataReadiness"];
+      nextEvents: components["schemas"]["NextEvent"][];
+      /** Format: uuid */
+      analysisRunId?: string;
+      strategyVersion?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    NextEvent: {
+      symbol: string;
+      eventType: string;
+      title: string;
+      /** Format: date-time */
+      eventAt: string;
+      qualityStatus: string;
+    };
+    PortfolioHealth: {
+      status: string;
+      reasons: string[];
+    };
+    PortfolioSummary: {
+      investedValue: string;
+      trackedCash: string;
+      emergencyCash: string;
+      tacticalReserve: string;
+      /** Format: int64 */
+      openPositions: number;
+      portfolioDrawdownFraction?: string;
+      technologyExposureFraction?: string;
     };
     Metric: {
       name?: string;
@@ -1719,6 +1813,26 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["DipStatusEnvelope"];
+        };
+      };
+    };
+  };
+  today: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ExecutiveBrief"];
         };
       };
     };

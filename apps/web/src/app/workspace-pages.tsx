@@ -1,24 +1,13 @@
 import { api } from "@portfolio/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, BookOpen, Settings } from "lucide-react";
+import { ExecutiveDashboardPage } from "./dashboard/ExecutiveDashboardPage";
 import { WorkspaceNav } from "./workspace-nav";
 
 async function getSession() {
   const { data, response } = await api.GET("/api/v1/auth/session");
   if (!data)
     throw new Error(`Session unavailable (${String(response.status)})`);
-  return data;
-}
-async function getActions() {
-  const { data, response } = await api.GET("/api/v1/actions/today");
-  if (!data)
-    throw new Error(`Actions unavailable (${String(response.status)})`);
-  return data;
-}
-async function getPortfolioSummary() {
-  const { data, response } = await api.GET("/api/v1/portfolio/summary");
-  if (!data)
-    throw new Error(`Portfolio unavailable (${String(response.status)})`);
   return data;
 }
 async function getWorkerHealth() {
@@ -94,82 +83,7 @@ function Frame({
 }
 
 export function DashboardPage() {
-  const session = useQuery({ queryKey: ["session"], queryFn: getSession });
-  const summary = useQuery({
-    queryKey: ["portfolio-summary"],
-    queryFn: getPortfolioSummary,
-    enabled: session.data?.authenticated === true,
-  });
-  const actions = useQuery({
-    queryKey: ["actions-today"],
-    queryFn: getActions,
-    enabled: session.data?.authenticated === true,
-  });
-  const mustAct = actions.data?.mustAct?.slice(0, 3) ?? [];
-  return (
-    <Frame eyebrow="DAILY CONTROL SURFACE" title="Dashboard">
-      <section className="dashboard-grid">
-        <article className="context-card dashboard-actions">
-          <h2>Today</h2>
-          {session.isPending ? (
-            <p className="empty-state">Loading session…</p>
-          ) : session.isError ? (
-            <p className="empty-state" role="alert">
-              Unable to load the session. The analysis status is unknown.
-            </p>
-          ) : !session.data.authenticated ? (
-            <p className="empty-state">
-              Sign in from Settings to view private portfolio decisions.
-            </p>
-          ) : summary.isPending || actions.isPending ? (
-            <p className="empty-state">Loading portfolio analysis…</p>
-          ) : summary.isError || actions.isError ? (
-            <p className="empty-state" role="alert">
-              Unable to load portfolio analysis. No action conclusion is
-              available.
-            </p>
-          ) : summary.data.openPositions === 0 ? (
-            <p className="empty-state">
-              No holdings have been imported. Import a portfolio before
-              requesting analysis.
-            </p>
-          ) : mustAct.length === 0 ? (
-            <p className="empty-state">
-              Analysis readiness has not been confirmed. No action conclusion is
-              available yet.
-            </p>
-          ) : (
-            <ol className="action-list">
-              {mustAct.map((action) => (
-                <li key={action.id}>
-                  <strong>{action.symbol ?? "UNKNOWN"}</strong>
-                  <span>{action.action ?? "REVIEW"}</span>
-                  <small>{action.confidence ?? "UNKNOWN"}</small>
-                </li>
-              ))}
-            </ol>
-          )}
-        </article>
-        <article className="context-card">
-          <h2>Operating posture</h2>
-          <p>
-            Recommendations are explainable, time-bounded, and manually executed
-            outside this system.
-          </p>
-          <a href="/market-context">Inspect regime and drawdown →</a>
-        </article>
-        <article className="context-card">
-          <h2>Workspace</h2>
-          <p>
-            {session.data?.authenticated
-              ? `Signed in as ${session.data.username ?? "owner"}`
-              : "Public market data is available. Portfolio data remains protected."}
-          </p>
-          <a href="/data-health">Review data and worker health →</a>
-        </article>
-      </section>
-    </Frame>
-  );
+  return <ExecutiveDashboardPage />;
 }
 
 export function PlanPage() {
