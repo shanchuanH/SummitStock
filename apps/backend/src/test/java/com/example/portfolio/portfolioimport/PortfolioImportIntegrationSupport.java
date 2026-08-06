@@ -56,6 +56,12 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         update("DELETE ra FROM recommendation_acknowledgement ra JOIN app_user u ON u.id=ra.user_id "
                 + "WHERE u.email='" + EMAIL + "'");
         update("DELETE r FROM recommendation r JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE s FROM position_risk_snapshot s JOIN position p ON p.id=s.position_id "
+                + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id WHERE u.email='"
+                + EMAIL + "'");
+        update("DELETE m FROM risk_cluster_membership m JOIN risk_cluster c ON c.id=m.risk_cluster_id "
+                + "JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE c FROM risk_cluster c JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL + "'");
         update("DELETE h FROM holding_analysis_snapshot h JOIN position p ON p.id=h.position_id "
                 + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
                 + "WHERE u.email='" + EMAIL + "'");

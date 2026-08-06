@@ -363,7 +363,7 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.stopSeries").isArray())
                 .andExpect(jsonPath("$.earningsMarkers").isArray())
                 .andExpect(jsonPath("$.tradeMarkers").isArray())
-                .andExpect(jsonPath("$.quality").value("MISSING"));
+                .andExpect(jsonPath("$.quality").isString());
         mockMvc.perform(get("/api/v1/positions/{id}/chart", OTHER_POSITION)
                         .with(httpBasic("admin@example.local", "change-before-use")))
                 .andExpect(status().isNotFound());

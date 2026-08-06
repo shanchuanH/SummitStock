@@ -24,8 +24,8 @@ class ExecutiveBriefStore {
                                    WHERE b.instrument_id=p.instrument_id AND b.adjusted=TRUE
                                      AND b.quality_status NOT IN ('SUSPECT', 'MISSING')
                                )), 0) missing_market_positions,
-                               COALESCE(SUM(p.classification='QUALITY_STOCK'), 0) required_fundamental_positions,
-                               COALESCE(SUM(p.classification='QUALITY_STOCK' AND NOT EXISTS (
+                               COALESCE(SUM(p.classification IN ('QUALITY_STOCK','QUALITY_GROWTH_HIGH_VOL')), 0) required_fundamental_positions,
+                               COALESCE(SUM(p.classification IN ('QUALITY_STOCK','QUALITY_GROWTH_HIGH_VOL') AND NOT EXISTS (
                                    SELECT 1 FROM fundamental_observation f
                                    WHERE f.instrument_id=p.instrument_id
                                      AND f.quality_status NOT IN ('SUSPECT', 'MISSING')
@@ -36,7 +36,7 @@ class ExecutiveBriefStore {
                                COALESCE(SUM(
                                    (SELECT h.analysis_status FROM holding_analysis_snapshot h
                                     WHERE h.position_id=p.id ORDER BY h.data_as_of DESC LIMIT 1)
-                                       IN ('READY','ANALYSIS_READY')
+                                       IN ('READY','ANALYSIS_READY','PARTIAL')
                                    AND (SELECT h.valid_until FROM holding_analysis_snapshot h
                                         WHERE h.position_id=p.id ORDER BY h.data_as_of DESC LIMIT 1)
                                        > UTC_TIMESTAMP(6)
@@ -142,7 +142,97 @@ class ExecutiveBriefStore {
                 .single();
     }
 
-    BigDecimal technologyExposure(String email) {
+    PortfolioMetrics portfolioMetrics(String email) {
+        var exposure = jdbc.sql(
+                        """
+                        WITH owned AS (
+                            SELECT p.id,p.market_value,p.classification
+                            FROM position p JOIN investment_account a ON a.id=p.account_id
+                            JOIN app_user u ON u.id=a.user_id
+                            WHERE u.email=:email AND p.status='OPEN'
+                        ), latest_risk AS (
+                            SELECT r.position_id,r.open_risk_fraction,r.cluster_risk_fraction,
+                                   ROW_NUMBER() OVER (PARTITION BY r.position_id ORDER BY r.data_as_of DESC,r.created_at DESC) rn
+                            FROM position_risk_snapshot r JOIN owned o ON o.id=r.position_id
+                        ), cluster_totals AS (
+                            SELECT m.risk_cluster_id,SUM(r.open_risk_fraction) cluster_risk
+                            FROM risk_cluster_membership m JOIN latest_risk r ON r.position_id=m.position_id AND r.rn=1
+                            GROUP BY m.risk_cluster_id
+                        )
+                        SELECT COALESCE(SUM(o.market_value),0) investedValue,
+                               COALESCE(SUM(CASE WHEN o.classification IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) coreValue,
+                               COALESCE(SUM(CASE WHEN o.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) tacticalValue,
+                               COALESCE((SELECT SUM(open_risk_fraction) FROM latest_risk WHERE rn=1),0) openPlannedRisk,
+                               COALESCE((SELECT MAX(cluster_risk) FROM cluster_totals),
+                                        (SELECT MAX(cluster_risk_fraction) FROM latest_risk WHERE rn=1),0) clusterRisk
+                        FROM owned o
+                        """)
+                .param("email", email)
+                .query(ExposureMetrics.class)
+                .single();
+        var technology = technologyExposure(email);
+        var compensation = jdbc.sql(
+                        """
+                        SELECT COALESCE(SUM(c.estimated_value),0)
+                        FROM compensation_holding c JOIN app_user u ON u.id=c.user_id
+                        WHERE u.email=:email AND c.vesting_status='UNVESTED'
+                        """)
+                .param("email", email)
+                .query(BigDecimal.class)
+                .single();
+        var employer = jdbc.sql(
+                        """
+                        WITH owner AS (SELECT id FROM app_user WHERE email=:email),
+                        liquid AS (
+                            SELECT COALESCE(SUM(p.market_value),0)+COALESCE((SELECT SUM(c.current_amount)
+                                   FROM cash_bucket c WHERE c.user_id=(SELECT id FROM owner)),0) value
+                            FROM position p JOIN investment_account a ON a.id=p.account_id
+                            WHERE a.user_id=(SELECT id FROM owner) AND p.status='OPEN'
+                        ), compensation AS (
+                            SELECT c.symbol,COALESCE(SUM(c.estimated_value),0) value
+                            FROM compensation_holding c
+                            WHERE c.user_id=(SELECT id FROM owner) AND c.vesting_status='UNVESTED'
+                            GROUP BY c.symbol
+                        ), employer AS (
+                            SELECT c.symbol,c.value + COALESCE(SUM(p.market_value),0) value
+                            FROM compensation c
+                            LEFT JOIN instrument i ON i.symbol=c.symbol
+                            LEFT JOIN position p ON p.instrument_id=i.id AND p.status='OPEN'
+                              AND p.account_id IN (SELECT id FROM investment_account WHERE user_id=(SELECT id FROM owner))
+                            GROUP BY c.symbol,c.value
+                        )
+                        SELECT CASE WHEN (SELECT value FROM liquid)+(SELECT COALESCE(SUM(value),0) FROM compensation)=0
+                            THEN NULL ELSE COALESCE(MAX(value),0)/((SELECT value FROM liquid)+(SELECT COALESCE(SUM(value),0) FROM compensation)) END
+                        FROM employer
+                        """)
+                .param("email", email)
+                .query(BigDecimal.class)
+                .optional()
+                .orElse(null);
+        var drawdown = jdbc.sql(
+                        """
+                        SELECT drawdown_fraction drawdownFraction,source_classification drawdownSource
+                        FROM portfolio_drawdown_snapshot d JOIN app_user u ON u.id=d.user_id
+                        WHERE u.email=:email ORDER BY d.data_as_of DESC,d.created_at DESC LIMIT 1
+                        """)
+                .param("email", email)
+                .query(DrawdownMetrics.class)
+                .optional()
+                .orElse(new DrawdownMetrics(null, null));
+        return new PortfolioMetrics(
+                exposure.investedValue(),
+                exposure.coreValue(),
+                exposure.tacticalValue(),
+                technology,
+                employer,
+                exposure.clusterRisk(),
+                exposure.openPlannedRisk(),
+                compensation,
+                drawdown.drawdownFraction(),
+                drawdown.drawdownSource());
+    }
+
+    private BigDecimal technologyExposure(String email) {
         return jdbc.sql(
                         """
                         SELECT CASE WHEN SUM(p.market_value)=0 THEN NULL ELSE
@@ -161,6 +251,27 @@ class ExecutiveBriefStore {
                 .optional()
                 .orElse(null);
     }
+
+    record ExposureMetrics(
+            BigDecimal investedValue,
+            BigDecimal coreValue,
+            BigDecimal tacticalValue,
+            BigDecimal openPlannedRisk,
+            BigDecimal clusterRisk) {}
+
+    record DrawdownMetrics(BigDecimal drawdownFraction, String drawdownSource) {}
+
+    record PortfolioMetrics(
+            BigDecimal investedValue,
+            BigDecimal coreValue,
+            BigDecimal tacticalValue,
+            BigDecimal technologyExposureFraction,
+            BigDecimal employerExposureFraction,
+            BigDecimal clusterRiskFraction,
+            BigDecimal openPlannedRiskFraction,
+            BigDecimal unvestedCompensationValue,
+            BigDecimal drawdownFraction,
+            String drawdownSource) {}
 
     AnalysisMetadata analysisMetadata(String email) {
         return jdbc.sql(

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Rescue Phase 6 completed on 2026-08-05. Phase 0 was completed from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8`; Phase 7 remains pending and must be implemented next.
+Rescue Phase 7 completed on 2026-08-05. All ordered rescue phases were implemented from audited baseline `ff6396a421940598dd32b81a58b17e9fc90ce4f8` without skipping a phase.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -17,6 +17,8 @@ Phase 4 replaced the placeholder worker path with a typed `JobHandler` registry 
 Phase 5 replaced placeholder holding outputs with an evidence assembler, classification-specific readiness, YAML-backed immutable strategy definitions, deterministic sizing gates, and hard-risk-first recommendation conflict resolution. Analysis and recommendation snapshots retain strategy/config hashes, winning rules, suppressed candidates, reasons, quantities, validity, and evidence checksums. Classification suggestions are owner-scoped by position ID and never infer company quality from a ticker. GOOGL Quality, DRAM Thematic ETF, and DXYZ Speculative integration fixtures prove distinct templates. Formal daily-close stops are separated from intraday catastrophic quote breaches, and debug previews are unavailable outside explicit test/local-fixture profiles.
 
 Phase 6 replaced technical packet navigation with an analyst-first Chinese workspace for Today Brief, Portfolio, Opportunities, Review, and Settings while retaining diagnostics under advanced/admin routes. The Dashboard presents honest action counts and evidence-rich recommendations, and records handled/deferred/ignored decisions with rationale while explicitly never submitting execution. Portfolio List is owner-scoped, priority-sorted, filterable, and supports only position-row classification confirmation. Position Detail follows the required twelve-module order and renders real completed-bar candlesticks, average cost, formal/soft stops, earnings, and trade markers through Lightweight Charts; missing evidence produces explicit empty states. RTL and Playwright cover the complete login/import/analysis/action/position journey.
+
+Phase 7 added the complete target-portfolio acceptance fixture, including thirteen liquid positions, SPAXX cash, and an unvested AMZN compensation holding that remains excluded from liquid assets and has no tradable quantity. Portfolio Brief now derives liquid assets, core/tactical allocation, technology and employer concentration, cluster/open risk, unvested compensation, and user-scoped drawdown from persisted evidence. Position reports expose classification-aware company, ETF, speculative, and portfolio evidence: GOOGL uses the quality-company model, DRAM uses the thematic-ETF model without company earnings semantics, and DXYZ uses lower-confidence speculative caps and stop/event gates without ticker-based promotion. `RealPortfolioVerticalAcceptanceTest` proves the real import-to-analysis-to-recommendation-to-acknowledgement path through production services, with no direct recommendation insertion and no execution submission.
 
 ## Completed Packets
 
@@ -138,6 +140,7 @@ Phase 6 replaced technical packet navigation with an analyst-first Chinese works
 - Handler registry/coordinator, analysis dependency/blocking, retry idempotency, and full import-to-recommendation EOD vertical integration tests
 - Evidence readiness, position sizing, conflict resolution, ETF/classification policy, GOOGL/DRAM/DXYZ analysis, formal recommendation persistence, and position report contract tests
 - Analyst-first RTL tests for the Executive Dashboard, Portfolio Import, Portfolio List, Position Detail, and Classification Modal; Playwright covers login, empty portfolio, CSV upload/preview/confirm, queued/ready analysis, recommendation acknowledgement, and opening a position
+- Complete target-portfolio vertical acceptance covering GOOGL, DRAM, DXYZ, MSFT, QQQM, VGT, NOK, AAOI, VOO, CSIQ, TSLA, SNDK, NVDA, SPAXX cash, and unvested AMZN compensation; the test invokes the durable pipeline and formal acknowledgement APIs without inserting recommendation outcomes
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -154,4 +157,4 @@ Phase 6 replaced technical packet navigation with an analyst-first Chinese works
 
 ## Next Step
 
-Implement Rescue Phase 7: real-portfolio acceptance for GOOGL, DRAM, DXYZ, the complete target holding set, portfolio-level concentration/risk calculations, and the clean-environment vertical acceptance test.
+All playbook rescue phases are complete. For a production run, configure real Alpha Vantage and SEC credentials, publish an approved strategy version, replace local-only credentials, import the user's current Fidelity export, and allow sufficient completed market/fundamental evidence to accumulate; the application must remain partial or blocked until those external prerequisites are genuinely present.

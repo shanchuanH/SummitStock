@@ -36,6 +36,39 @@ type PositionReport = {
     strategyVersion?: string | null;
     configHash?: string | null;
   };
+  assetEvidence?: {
+    company?: {
+      companyModelApplied: boolean;
+      fundamentalsStatus: string;
+      growthProfitabilityCashFlowStatus: string;
+      valuationStatus: string;
+      earningsRiskStatus: string;
+      thesisStatus: string;
+    } | null;
+    etf?: {
+      etfModelApplied: boolean;
+      thematic: boolean;
+      topHoldingsConcentration?: string | null;
+      portfolioOverlapFraction?: string | null;
+      trendStatus: string;
+      liquidityStatus?: string | null;
+      eventStatus: string;
+      companyEarningsModelApplied: boolean;
+    } | null;
+    speculative?: {
+      speculativePolicyApplied: boolean;
+      hardMaxWeight?: string | null;
+      confidenceCeiling: string;
+      stopStatus: string;
+      eventRiskStatus: string;
+      tickerOrPriceCanUpgradeQuality: boolean;
+    } | null;
+    portfolioContext: {
+      currentWeight?: string | null;
+      clusterWeight?: string | null;
+      clusterOpenRisk?: string | null;
+    };
+  };
   dataAsOf?: string | null;
 };
 type JournalEntry = {
@@ -110,6 +143,7 @@ export function PositionDetailPage() {
     );
   const data = report.data;
   const r = data.recommendation;
+  const asset = data.assetEvidence;
   return (
     <main className="shell workspace-shell position-detail-shell">
       <WorkspaceNav />
@@ -175,19 +209,28 @@ export function PositionDetailPage() {
           <span className="module-number">3</span>
           <h2>公司质量</h2>
           <p>
-            {data.position.classification.includes("ETF")
-              ? "该资产按 ETF 证据路径分析，不套用单公司质量模型。"
-              : (r.reasons.find((item) =>
-                  /quality|fundamental|质量|现金流|增长/i.test(item),
-                ) ?? "当前报告没有足够的公司质量明细。")}
+            {asset?.company
+              ? `公司模型已应用；基本面 ${asset.company.fundamentalsStatus}；增长/盈利/现金流 ${asset.company.growthProfitabilityCashFlowStatus}。`
+              : asset?.etf
+                ? "该资产按 ETF 证据路径分析，不套用单公司质量或财报模型。"
+                : asset?.speculative
+                  ? "该资产使用 Speculative 风险政策；Ticker 或价格上涨不能把它升级为 Quality。"
+                  : (r.reasons.find((item) =>
+                      /quality|fundamental|质量|现金流|增长/i.test(item),
+                    ) ?? "当前报告没有足够的公司质量明细。")}
           </p>
         </section>
         <section className="context-card">
           <span className="module-number">4</span>
           <h2>估值</h2>
           <p>
-            {r.reasons.find((item) => /valuation|估值|折价/i.test(item)) ??
-              "当前报告没有足够的估值证据。"}
+            {asset?.company
+              ? `估值证据：${asset.company.valuationStatus}。`
+              : asset?.speculative
+                ? `Speculative 最大权重 ${pct(asset.speculative.hardMaxWeight)}；不以公司质量估值模型放宽上限。`
+                : (r.reasons.find((item) =>
+                    /valuation|估值|折价/i.test(item),
+                  ) ?? "当前报告没有足够的估值证据。")}
           </p>
         </section>
         <section className="context-card chart-module">
@@ -213,6 +256,14 @@ export function PositionDetailPage() {
           ) : (
             <p>暂无完整风险证据。</p>
           )}
+          {asset?.speculative ? (
+            <p>
+              Speculative 风险上限 {pct(asset.speculative.hardMaxWeight)} ·
+              置信度最高 {asset.speculative.confidenceCeiling} · Stop{" "}
+              {asset.speculative.stopStatus} · 事件风险{" "}
+              {asset.speculative.eventRiskStatus}
+            </p>
+          ) : null}
           <p>
             风险线只在完整收盘数据后确认；数据不完整时不会给出精确交易数量。
           </p>
@@ -229,6 +280,12 @@ export function PositionDetailPage() {
         <section className="context-card">
           <span className="module-number">8</span>
           <h2>财报 / 事件</h2>
+          {asset?.company ? (
+            <p>公司财报风险证据：{asset.company.earningsRiskStatus}</p>
+          ) : null}
+          {asset?.etf ? (
+            <p>ETF 事件证据：{asset.etf.eventStatus}；不使用单公司财报模型。</p>
+          ) : null}
           {chart.data?.earningsMarkers.length ? (
             <ul>
               {chart.data.earningsMarkers.map((item) => (
@@ -245,9 +302,18 @@ export function PositionDetailPage() {
           <span className="module-number">9</span>
           <h2>Cluster overlap</h2>
           <p>
-            {r.risks.find((item) => /cluster|overlap|集中|重叠/i.test(item)) ??
-              "当前报告没有单独的重叠风险明细。"}
+            {asset?.etf
+              ? `主题属性：${asset.etf.thematic ? "是" : "否"}；Top holdings 集中度 ${pct(asset.etf.topHoldingsConcentration)}；组合重叠 ${pct(asset.etf.portfolioOverlapFraction)}；流动性 ${asset.etf.liquidityStatus ?? "MISSING"}。`
+              : (r.risks.find((item) =>
+                  /cluster|overlap|集中|重叠/i.test(item),
+                ) ?? "当前报告没有单独的重叠风险明细。")}
           </p>
+          {asset?.portfolioContext ? (
+            <p>
+              Cluster 权重 {pct(asset.portfolioContext.clusterWeight)} ·
+              开放风险 {pct(asset.portfolioContext.clusterOpenRisk)}
+            </p>
+          ) : null}
         </section>
         <section className="context-card">
           <span className="module-number">10</span>

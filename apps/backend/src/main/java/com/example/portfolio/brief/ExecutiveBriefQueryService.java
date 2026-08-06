@@ -30,6 +30,7 @@ public class ExecutiveBriefQueryService {
     public ExecutiveBrief today(String email) {
         var summary = portfolios.summary(email);
         var cash = briefStore.cashSummary(email);
+        var metrics = briefStore.portfolioMetrics(email);
         var evidence = briefStore.evidence(email);
         var metadata = briefStore.analysisMetadata(email);
         var run = briefStore.latestAnalysisRun(email);
@@ -83,8 +84,17 @@ public class ExecutiveBriefQueryService {
                         decimal(cash.emergencyCash()),
                         decimal(cash.tacticalReserve()),
                         summary.openPositions(),
-                        null,
-                        decimal(briefStore.technologyExposure(email))),
+                        decimal(summary.investedValue().add(cash.trackedCash())),
+                        fraction(metrics.coreValue(), summary.investedValue().add(cash.trackedCash())),
+                        fraction(
+                                metrics.tacticalValue(), summary.investedValue().add(cash.trackedCash())),
+                        decimal(metrics.technologyExposureFraction()),
+                        decimal(metrics.employerExposureFraction()),
+                        decimal(metrics.clusterRiskFraction()),
+                        decimal(metrics.openPlannedRiskFraction()),
+                        decimal(metrics.unvestedCompensationValue()),
+                        decimal(metrics.drawdownFraction()),
+                        metrics.drawdownSource()),
                 mustAct,
                 doNot,
                 watch,
@@ -183,6 +193,11 @@ public class ExecutiveBriefQueryService {
         return value == null ? null : value.stripTrailingZeros().toPlainString();
     }
 
+    private static String fraction(BigDecimal value, BigDecimal total) {
+        if (value == null || total == null || total.signum() == 0) return null;
+        return decimal(value.divide(total, 10, RoundingMode.HALF_UP));
+    }
+
     private static Instant instant(LocalDateTime value) {
         return value == null ? null : value.toInstant(ZoneOffset.UTC);
     }
@@ -207,8 +222,16 @@ public class ExecutiveBriefQueryService {
             @NotNull String emergencyCash,
             @NotNull String tacticalReserve,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long openPositions,
+            @NotNull String totalLiquidAssets,
+            String coreExposureFraction,
+            String tacticalExposureFraction,
+            String technologyExposureFraction,
+            String employerExposureFraction,
+            String clusterRiskFraction,
+            String openPlannedRiskFraction,
+            @NotNull String unvestedCompensationValue,
             String portfolioDrawdownFraction,
-            String technologyExposureFraction) {}
+            String drawdownSource) {}
 
     public record BriefAction(
             @NotNull UUID id,

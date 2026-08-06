@@ -1001,12 +1001,41 @@ export interface components {
       validUntil?: string;
       status?: string;
     };
+    AssetEvidence: {
+      company?: components["schemas"]["CompanyEvidence"];
+      etf?: components["schemas"]["EtfEvidence"];
+      speculative?: components["schemas"]["SpeculativeEvidence"];
+      portfolioContext?: components["schemas"]["PortfolioContext"];
+    };
     AuditEvidence: {
       analysisStatus?: string;
       exactQuantityAllowed?: boolean;
       ruleIds?: string[];
       strategyVersion?: string;
       configHash?: string;
+    };
+    CompanyEvidence: {
+      companyModelApplied?: boolean;
+      fundamentalsStatus?: string;
+      growthProfitabilityCashFlowStatus?: string;
+      valuationStatus?: string;
+      earningsRiskStatus?: string;
+      thesisStatus?: string;
+    };
+    EtfEvidence: {
+      etfModelApplied?: boolean;
+      thematic?: boolean;
+      topHoldingsConcentration?: string;
+      portfolioOverlapFraction?: string;
+      trendStatus?: string;
+      liquidityStatus?: string;
+      eventStatus?: string;
+      companyEarningsModelApplied?: boolean;
+    };
+    PortfolioContext: {
+      currentWeight?: string;
+      clusterWeight?: string;
+      clusterOpenRisk?: string;
     };
     Position: {
       /** Format: uuid */
@@ -1020,6 +1049,7 @@ export interface components {
       readiness?: string;
       recommendation?: components["schemas"]["Recommendation"];
       evidence?: components["schemas"]["AuditEvidence"];
+      assetEvidence?: components["schemas"]["AssetEvidence"];
       /** Format: date-time */
       dataAsOf?: string;
     };
@@ -1042,6 +1072,14 @@ export interface components {
       resolutionReason?: string;
       /** Format: date-time */
       validUntil?: string;
+    };
+    SpeculativeEvidence: {
+      speculativePolicyApplied?: boolean;
+      hardMaxWeight?: string;
+      confidenceCeiling?: string;
+      stopStatus?: string;
+      eventRiskStatus?: string;
+      tickerOrPriceCanUpgradeQuality?: boolean;
     };
     SuppressedCandidate: {
       action?: string;
@@ -1485,8 +1523,16 @@ export interface components {
       tacticalReserve: string;
       /** Format: int64 */
       openPositions: number;
-      portfolioDrawdownFraction?: string;
+      totalLiquidAssets: string;
+      coreExposureFraction?: string;
+      tacticalExposureFraction?: string;
       technologyExposureFraction?: string;
+      employerExposureFraction?: string;
+      clusterRiskFraction?: string;
+      openPlannedRiskFraction?: string;
+      unvestedCompensationValue: string;
+      portfolioDrawdownFraction?: string;
+      drawdownSource?: string;
     };
     Metric: {
       name?: string;

@@ -149,7 +149,8 @@ public class PortfolioAnalysisPipelineService {
                                              WHERE x.instrument_id=i.id AND x.adjusted=TRUE AND x.market_date<=:marketDate)
                         JOIN indicator_snapshot atr ON atr.instrument_id=i.id AND atr.indicator_code='ATR_14'
                           AND atr.market_date=b.market_date AND atr.status='READY'
-                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN' AND i.asset_type='EQUITY'
+                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                          AND p.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
                         """)
                 .param("marketDate", marketDate)
                 .param("userId", userId.toString())
@@ -194,7 +195,52 @@ public class PortfolioAnalysisPipelineService {
                     .param("now", clock.instant())
                     .update();
         }
-        return affected;
+        return affected + snapshotPortfolioRisk(userId);
+    }
+
+    private int snapshotPortfolioRisk(UUID userId) {
+        return jdbc.sql(
+                        """
+                        INSERT INTO position_risk_snapshot (
+                            id,position_id,strategy_version,current_weight,open_risk_fraction,
+                            cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at)
+                        WITH totals AS (
+                            SELECT COALESCE(SUM(p.market_value),0)+COALESCE((SELECT SUM(c.current_amount)
+                                     FROM cash_bucket c WHERE c.user_id=UUID_TO_BIN(:userId)),0) equity
+                            FROM position p JOIN investment_account a ON a.id=p.account_id
+                            WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                        ), evidence AS (
+                            SELECT p.id,p.quantity,p.average_cost,p.market_value,i.asset_type,p.classification,
+                                   (SELECT q.last_price FROM quote q WHERE q.instrument_id=p.instrument_id
+                                    ORDER BY q.data_as_of DESC,q.created_at DESC LIMIT 1) last_price,
+                                   (SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
+                                    ORDER BY s.data_as_of DESC,s.created_at DESC LIMIT 1) live_stop
+                            FROM position p JOIN investment_account a ON a.id=p.account_id
+                            JOIN instrument i ON i.id=p.instrument_id
+                            WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                        ), calculated AS (
+                            SELECT e.*,t.equity,
+                                   CASE WHEN e.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
+                                                  AND e.last_price IS NOT NULL AND e.live_stop IS NOT NULL
+                                        THEN GREATEST((COALESCE(e.average_cost,e.last_price)-e.live_stop)*e.quantity,0)
+                                        ELSE 0 END risk_amount
+                            FROM evidence e CROSS JOIN totals t
+                        )
+                        SELECT UUID_TO_BIN(UUID()),c.id,:strategy,
+                               CASE WHEN c.equity=0 THEN 0 ELSE c.market_value/c.equity END,
+                               CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
+                               CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
+                               c.risk_amount,
+                               CASE WHEN c.last_price IS NULL OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
+                                    THEN 'MISSING' ELSE 'HEALTHY' END,
+                               SHA2(CONCAT(BIN_TO_UUID(c.id),':',c.market_value,':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',:now),256),
+                               :now,:now
+                        FROM calculated c WHERE c.equity>0
+                        """)
+                .param("userId", userId.toString())
+                .param("strategy", properties.strategyVersion())
+                .param("now", clock.instant())
+                .update();
     }
 
     public int updateThesesEvents(UUID userId) {

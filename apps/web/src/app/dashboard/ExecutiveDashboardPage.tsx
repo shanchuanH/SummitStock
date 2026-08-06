@@ -20,11 +20,16 @@ async function getExecutiveBrief(): Promise<ExecutiveBrief> {
   return data;
 }
 
-function money(value: string) {
+function money(value?: string | null) {
+  if (value == null) return "—";
   return new Intl.NumberFormat("zh-CN", {
     style: "currency",
     currency: "USD",
   }).format(Number(value));
+}
+
+function percent(value?: string | null) {
+  return value == null ? "—" : `${(Number(value) * 100).toFixed(1)}%`;
 }
 
 function asOf(value?: string | null) {
@@ -41,26 +46,72 @@ function asOf(value?: string | null) {
 }
 
 function SummaryCard({ brief }: { brief: ExecutiveBrief }) {
+  const summary = brief.summary as typeof brief.summary & {
+    totalLiquidAssets?: string | null;
+    coreExposureFraction?: string | null;
+    tacticalExposureFraction?: string | null;
+    technologyExposureFraction?: string | null;
+    employerExposureFraction?: string | null;
+    clusterRiskFraction?: string | null;
+    openPlannedRiskFraction?: string | null;
+    unvestedCompensationValue?: string | null;
+    portfolioDrawdownFraction?: string | null;
+    drawdownSource?: string | null;
+  };
   return (
     <article className="context-card">
       <p className="eyebrow">组合概览</p>
-      <h2>{brief.summary.openPositions} 个持仓</h2>
+      <h2>{summary.openPositions} 个持仓</h2>
       <dl className="health-metrics">
         <div>
-          <dt>已投资资产</dt>
-          <dd>{money(brief.summary.investedValue)}</dd>
+          <dt>流动资产总额</dt>
+          <dd>{money(summary.totalLiquidAssets)}</dd>
         </div>
         <div>
-          <dt>已跟踪现金</dt>
-          <dd>{money(brief.summary.trackedCash)}</dd>
+          <dt>已投资 / 现金</dt>
+          <dd>
+            {money(summary.investedValue)} / {money(summary.trackedCash)}
+          </dd>
         </div>
         <div>
           <dt>应急现金</dt>
-          <dd>{money(brief.summary.emergencyCash)}</dd>
+          <dd>{money(summary.emergencyCash)}</dd>
         </div>
         <div>
           <dt>战术储备</dt>
-          <dd>{money(brief.summary.tacticalReserve)}</dd>
+          <dd>{money(summary.tacticalReserve)}</dd>
+        </div>
+        <div>
+          <dt>Core / Tactical</dt>
+          <dd>
+            {percent(summary.coreExposureFraction)} /{" "}
+            {percent(summary.tacticalExposureFraction)}
+          </dd>
+        </div>
+        <div>
+          <dt>科技 / 雇主集中度</dt>
+          <dd>
+            {percent(summary.technologyExposureFraction)} /{" "}
+            {percent(summary.employerExposureFraction)}
+          </dd>
+        </div>
+        <div>
+          <dt>Cluster / 计划风险</dt>
+          <dd>
+            {percent(summary.clusterRiskFraction)} /{" "}
+            {percent(summary.openPlannedRiskFraction)}
+          </dd>
+        </div>
+        <div>
+          <dt>当前回撤</dt>
+          <dd>
+            {percent(summary.portfolioDrawdownFraction)} ·{" "}
+            {summary.drawdownSource ?? "来源待确认"}
+          </dd>
+        </div>
+        <div>
+          <dt>未归属薪酬（非流动）</dt>
+          <dd>{money(summary.unvestedCompensationValue)}</dd>
         </div>
       </dl>
     </article>
@@ -165,14 +216,8 @@ export function ExecutiveDashboardPage() {
             title="需要处理"
             actions={brief.data.mustAct.slice(0, 3)}
           />
-          <ActionSection
-            title="不要执行"
-            actions={brief.data.doNot}
-          />
-          <ActionSection
-            title="持续观察"
-            actions={brief.data.watch}
-          />
+          <ActionSection title="不要执行" actions={brief.data.doNot} />
+          <ActionSection title="持续观察" actions={brief.data.watch} />
           <section className="dashboard-grid">
             <SummaryCard brief={brief.data} />
             <PortfolioHealthCard health={brief.data.portfolioHealth} />

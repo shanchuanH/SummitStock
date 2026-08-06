@@ -2138,6 +2138,23 @@
           }
         }
       },
+      "AssetEvidence": {
+        "type": "object",
+        "properties": {
+          "company": {
+            "$ref": "#/components/schemas/CompanyEvidence"
+          },
+          "etf": {
+            "$ref": "#/components/schemas/EtfEvidence"
+          },
+          "speculative": {
+            "$ref": "#/components/schemas/SpeculativeEvidence"
+          },
+          "portfolioContext": {
+            "$ref": "#/components/schemas/PortfolioContext"
+          }
+        }
+      },
       "AuditEvidence": {
         "type": "object",
         "properties": {
@@ -2157,6 +2174,72 @@
             "type": "string"
           },
           "configHash": {
+            "type": "string"
+          }
+        }
+      },
+      "CompanyEvidence": {
+        "type": "object",
+        "properties": {
+          "companyModelApplied": {
+            "type": "boolean"
+          },
+          "fundamentalsStatus": {
+            "type": "string"
+          },
+          "growthProfitabilityCashFlowStatus": {
+            "type": "string"
+          },
+          "valuationStatus": {
+            "type": "string"
+          },
+          "earningsRiskStatus": {
+            "type": "string"
+          },
+          "thesisStatus": {
+            "type": "string"
+          }
+        }
+      },
+      "EtfEvidence": {
+        "type": "object",
+        "properties": {
+          "etfModelApplied": {
+            "type": "boolean"
+          },
+          "thematic": {
+            "type": "boolean"
+          },
+          "topHoldingsConcentration": {
+            "type": "string"
+          },
+          "portfolioOverlapFraction": {
+            "type": "string"
+          },
+          "trendStatus": {
+            "type": "string"
+          },
+          "liquidityStatus": {
+            "type": "string"
+          },
+          "eventStatus": {
+            "type": "string"
+          },
+          "companyEarningsModelApplied": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PortfolioContext": {
+        "type": "object",
+        "properties": {
+          "currentWeight": {
+            "type": "string"
+          },
+          "clusterWeight": {
+            "type": "string"
+          },
+          "clusterOpenRisk": {
             "type": "string"
           }
         }
@@ -2193,6 +2276,9 @@
           },
           "evidence": {
             "$ref": "#/components/schemas/AuditEvidence"
+          },
+          "assetEvidence": {
+            "$ref": "#/components/schemas/AssetEvidence"
           },
           "dataAsOf": {
             "type": "string",
@@ -2264,6 +2350,29 @@
           "validUntil": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SpeculativeEvidence": {
+        "type": "object",
+        "properties": {
+          "speculativePolicyApplied": {
+            "type": "boolean"
+          },
+          "hardMaxWeight": {
+            "type": "string"
+          },
+          "confidenceCeiling": {
+            "type": "string"
+          },
+          "stopStatus": {
+            "type": "string"
+          },
+          "eventRiskStatus": {
+            "type": "string"
+          },
+          "tickerOrPriceCanUpgradeQuality": {
+            "type": "boolean"
           }
         }
       },
@@ -3465,10 +3574,34 @@
             "type": "integer",
             "format": "int64"
           },
-          "portfolioDrawdownFraction": {
+          "totalLiquidAssets": {
+            "type": "string"
+          },
+          "coreExposureFraction": {
+            "type": "string"
+          },
+          "tacticalExposureFraction": {
             "type": "string"
           },
           "technologyExposureFraction": {
+            "type": "string"
+          },
+          "employerExposureFraction": {
+            "type": "string"
+          },
+          "clusterRiskFraction": {
+            "type": "string"
+          },
+          "openPlannedRiskFraction": {
+            "type": "string"
+          },
+          "unvestedCompensationValue": {
+            "type": "string"
+          },
+          "portfolioDrawdownFraction": {
+            "type": "string"
+          },
+          "drawdownSource": {
             "type": "string"
           }
         },
@@ -3477,7 +3610,9 @@
           "investedValue",
           "openPositions",
           "tacticalReserve",
-          "trackedCash"
+          "totalLiquidAssets",
+          "trackedCash",
+          "unvestedCompensationValue"
         ]
       },
       "Metric": {
