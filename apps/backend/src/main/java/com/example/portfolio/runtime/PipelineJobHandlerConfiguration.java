@@ -2,6 +2,7 @@ package com.example.portfolio.runtime;
 
 import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService;
 import com.example.portfolio.analysis.application.RecommendationGenerationService;
+import com.example.portfolio.earnings.EarningsIntelligenceApplicationService;
 import com.example.portfolio.estimates.EstimateCollectionService;
 import com.example.portfolio.estimates.EstimateRevisionApplicationService;
 import com.example.portfolio.fundamentals.FinancialFactNormalizationService;
@@ -122,8 +123,37 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
+    JobHandler collectEarningsCalendarJobHandler(EarningsIntelligenceApplicationService earnings, Clock clock) {
+        return handler("COLLECT_EARNINGS_CALENDAR", context -> {
+            var result = earnings.collectCalendar();
+            var warnings = result.observations() == 0 ? List.of("EARNINGS_CALENDAR_UNAVAILABLE") : List.<String>of();
+            return new JobExecutionResult(
+                    warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
+                    "{\"observations\":" + result.observations() + ",\"affected\":" + result.affected() + "}",
+                    warnings,
+                    clock.instant());
+        });
+    }
+
+    @Bean
     JobHandler computeValuationJobHandler(ValuationApplicationService valuation, Clock clock) {
         return handler("COMPUTE_VALUATION", context -> success(valuation.computeAll(), clock.instant()));
+    }
+
+    @Bean
+    JobHandler computeEarningsRiskJobHandler(EarningsIntelligenceApplicationService earnings, Clock clock) {
+        return handler("COMPUTE_EARNINGS_RISK", context -> {
+            var affected = earnings.computeReactions() + earnings.computeRisk();
+            return success(affected, clock.instant());
+        });
+    }
+
+    @Bean
+    JobHandler postEarningsReanalysisJobHandler(
+            PostEarningsReanalysisService reanalysis, ObjectMapper json, Clock clock) {
+        return handler(
+                "POST_EARNINGS_REANALYSIS",
+                context -> success(reanalysis.reanalyze(requiredUser(payload(context, json))), clock.instant()));
     }
 
     @Bean
