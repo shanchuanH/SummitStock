@@ -30,6 +30,10 @@ public record HoldingEvidence(
         PortfolioDrawdownSnapshot drawdown,
         StopEvidence stop,
         AnalysisProfile profile,
+        EvidenceQuality capitalQuality,
+        EvidenceQuality riskQuality,
+        Instant riskDataAsOf,
+        boolean providerHardError,
         EvidenceQuality quality,
         StrategyDefinition strategy,
         Instant dataAsOf) {

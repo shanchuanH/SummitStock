@@ -249,6 +249,10 @@ class AssetDecisionEngineV2Test {
                 drawdown,
                 stop,
                 value.profile(),
+                value.capitalQuality(),
+                value.riskQuality(),
+                value.riskDataAsOf(),
+                value.providerHardError(),
                 value.quality(),
                 value.strategy(),
                 value.dataAsOf());

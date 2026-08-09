@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Transformation Phases T00-T08 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T09 is next; phases will continue in the V2 playbook order.
+Transformation Phases T00-T09 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T10 is next; phases will continue in the V2 playbook order.
 
 Transformation baseline: the first backend run failed only because Docker Desktop was not running (`ENVIRONMENT`, 40 Testcontainers initialization errors). After Docker was started, the unchanged baseline passed 108 backend tests (8 quant, 23 strategy, 6 backtest, 71 backend), 27 frontend tests, frontend lint, and production build. The existing frontend bundle-size warning remains non-blocking.
 
@@ -23,6 +23,8 @@ T06 adds durable eight-state price/trend evidence using SMA20/50/200, RSI, MACD,
 T07 adds a vendor-neutral macro provider contract for VIXCLS, BAMLH0A0HYM2, DGS10, DGS2, and FEDFUNDS. V18.3 persists macro observations and volatility, credit, rate, curve, and stress-resilience factor snapshots. The 40/20/20/20 regime now uses VIX percentile, HY spread percentile, and realized volatility rather than a placeholder; unavailable external macro data remains explicit and falls back conservatively to realized volatility. Drawdown attribution now distinguishes MARKET_DRIVEN, POSITION_SPECIFIC, CLUSTER_SPECIFIC, MIXED, and UNKNOWN using benchmark drawdown, breadth, stress, largest-position contribution, and durable cluster membership. A market-driven 15% drawdown can deploy a qualified ETF tranche when emergency cash is healthy; concentrated position or cluster losses cannot trigger blind dip buying. The full 151-test Maven suite passes (9 quant, 33 strategy, 6 backtest, 103 backend).
 
 T08 replaces the monolithic holding rule list with classification-routed Quality Stock, Core ETF, Thematic ETF, Tactical Stock, and Speculative decision engines plus a portfolio constraint engine. The resolver enforces the playbook's eleven-level ordering from data eligibility through hold/watch, records winning and suppressed rules, and V18.4 adds durable evidence references to analysis and recommendation audit records. Quality ownership, valuation, revision, price, event, cap, and risk gates now resolve independently; Core ETF market-driven dip deployment, Thematic fund-only evidence, and Speculative no-wait-for-recovery semantics are explicit. The complete ten-scenario decision matrix and full 161-test Maven suite pass (9 quant, 33 strategy, 6 backtest, 113 backend).
+
+T09 rebuilds deterministic quantities on investable assets and deployable cash. BUY/ADD sizing takes the minimum of per-trade risk, hard-weight capacity, deployable cash, and remaining cluster-risk amount divided by per-share risk; emergency cash is never exposed and starter sizing applies the configured fraction to every capacity. TRIM, REDUCE_HALF, and EXIT use target/hard-cap excess or current quantity instead of reversing the buy formula. Exact quantities now fail closed for stale prices, required missing stops, partial capital, stale/impaired risk, unconfirmed classification, and open provider hard errors. The full 166-test Maven suite passes (9 quant, 33 strategy, 6 backtest, 118 backend).
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -174,6 +176,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - T06 tests prove StopEngine policy parity, monotonic live stops, exact ATR soft/catastrophic levels, Core ETF exemption, two-signal reversal confirmation, relative strength, and the full target-portfolio stop/risk chain
 - T07 tests prove macro-factor composition, credit-tail stress, regime hard overrides, market-driven 15% ETF deployment, position-specific dip exclusion, and cluster-specific attribution
 - T08 tests prove underweight-only restraint, broken-company exits, valuation blocks, deep-discount starters, confirmed Quality adds, hard-cap and pain-line precedence, market-driven Core ETF dip deployment, Speculative stop precedence, and Thematic ETF exclusion of company earnings
+- T09 tests prove investable-asset risk/weight sizing, emergency-cash exclusion, starter scaling, cluster risk-amount capacity, stale/impaired evidence precision blocking, and action-specific trim quantities
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -187,8 +190,8 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `2.0.0-draft` remains unpublished and local credentials remain placeholders.
-- T09-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T08.
+- T10-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T09.
 
 ## Next Step
 
-Implement Transformation Phase T09 Position Sizing V2 before narration and visual redesign.
+Implement Transformation Phase T10 grounded analyst narration before visual redesign.

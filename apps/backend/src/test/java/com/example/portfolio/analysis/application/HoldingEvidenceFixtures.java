@@ -84,6 +84,10 @@ final class HoldingEvidenceFixtures {
                 new HoldingEvidence.AnalysisProfile(
                         true, assetType.equals("ETF"), new BigDecimal("0.10"), "HEALTHY", new BigDecimal("0.05")),
                 EvidenceQuality.HEALTHY,
+                EvidenceQuality.HEALTHY,
+                now,
+                false,
+                EvidenceQuality.HEALTHY,
                 strategy,
                 now);
     }
@@ -111,6 +115,10 @@ final class HoldingEvidenceFixtures {
                 value.drawdown(),
                 value.stop(),
                 value.profile(),
+                value.capitalQuality(),
+                value.riskQuality(),
+                value.riskDataAsOf(),
+                value.providerHardError(),
                 value.quality(),
                 value.strategy(),
                 value.dataAsOf());
@@ -139,6 +147,10 @@ final class HoldingEvidenceFixtures {
                 value.drawdown(),
                 value.stop(),
                 value.profile(),
+                value.capitalQuality(),
+                value.riskQuality(),
+                value.riskDataAsOf(),
+                value.providerHardError(),
                 value.quality(),
                 value.strategy(),
                 value.dataAsOf());

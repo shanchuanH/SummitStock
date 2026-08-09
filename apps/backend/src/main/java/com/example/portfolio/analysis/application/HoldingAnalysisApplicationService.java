@@ -14,7 +14,6 @@ import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -67,7 +66,7 @@ public final class HoldingAnalysisApplicationService {
         var policy = policy(evidence.position().classification(), evidence.strategy());
         var candidates = candidates(evidence, state, policy);
         var resolution = conflictResolver.resolve(candidates);
-        var sizing = size(evidence, state, policy, resolution.winner().action(), now);
+        var sizing = size(evidence, state, policy, resolution.winner(), now);
         var confidence = confidence(evidence, state);
         var result = new HoldingAnalysisResult(
                 evidence.position().id(),
@@ -113,66 +112,63 @@ public final class HoldingAnalysisApplicationService {
             HoldingEvidence evidence,
             AnalysisReadiness state,
             Policy policy,
-            RecommendationAction action,
+            RecommendationCandidate winner,
             java.time.Instant now) {
-        if ((action != RecommendationAction.ADD && action != RecommendationAction.STARTER_BUY)
-                || policy.targetMin() == null
-                || policy.hardMax() == null) {
+        var action = winner.action();
+        if ((!com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
+                        && !com.example.portfolio.analysis.decision.RecommendationSizingService.requiresSellSizing(
+                                action))
+                || policy.targetMax() == null) {
             return unavailableSizing();
         }
-        var availableCash = evidence.trackedCash()
+        var investableAssets = evidence.portfolioEquity().amount();
+        var deployableCash = evidence.trackedCash()
                 .amount()
                 .subtract(evidence.emergencyCash().amount())
                 .max(BigDecimal.ZERO);
-        var clusterRiskCapacity = evidence.strategy()
-                .clusterOpenRiskMax()
-                .subtract(evidence.clusterOpenRisk())
-                .max(BigDecimal.ZERO);
-        var clusterDollarCapacity = policy.tradeRisk().signum() == 0
-                ? BigDecimal.ZERO
-                : evidence.portfolioEquity()
-                        .amount()
-                        .multiply(clusterRiskCapacity)
-                        .divide(policy.tradeRisk(), MathContext.DECIMAL64);
-        var result = PositionSizing.calculate(new PositionSizing.Input(
-                evidence.portfolioEquity().amount(),
-                evidence.portfolioEquity().amount(),
+        var weightCap = policy.hardMax() == null ? policy.targetMax() : policy.hardMax();
+        var trimTarget = "POSITION.HARD_CAP".equals(winner.ruleId()) ? weightCap : policy.targetMax();
+        return PositionSizing.calculate(new PositionSizing.Input(
+                action,
+                investableAssets,
                 policy.tradeRisk(),
                 evidence.quote().last(),
                 evidence.stop().formalStop(),
                 evidence.quote().last(),
+                evidence.position().quantity(),
                 evidence.position().marketValue(),
                 policy.targetMin(),
-                policy.targetMax(),
-                policy.hardMax(),
-                availableCash,
-                clusterDollarCapacity,
-                evidence.quality(),
+                weightCap,
+                trimTarget,
+                deployableCash,
+                investableAssets.multiply(evidence.clusterOpenRisk()),
+                evidence.strategy().clusterOpenRiskMax(),
+                evidence.strategy().qualityStarterFraction(),
+                stopRequired(evidence.position().classification()),
+                evidence.quote().quality(),
+                evidence.capitalQuality(),
+                evidence.riskQuality(),
                 state != AnalysisReadiness.STALE
-                        && !freshness.stale(evidence.quote().dataAsOf(), now)));
-        return action == RecommendationAction.STARTER_BUY
-                ? starter(result, evidence.strategy().qualityStarterFraction())
-                : result;
+                        && !freshness.stale(evidence.quote().dataAsOf(), now),
+                !freshness.stale(evidence.riskDataAsOf(), now),
+                evidence.position().classificationConfirmed(),
+                evidence.providerHardError()));
     }
 
     private static PositionSizing.Result unavailableSizing() {
         return new PositionSizing.Result(false, null, null, null, null, null, null);
     }
 
-    private static PositionSizing.Result starter(PositionSizing.Result value, BigDecimal fraction) {
-        if (!value.exactQuantityAllowed()) return value;
-        return new PositionSizing.Result(
-                true,
-                scaled(value.quantityMin(), fraction),
-                scaled(value.quantityMax(), fraction),
-                scaled(value.quantityByRisk(), fraction),
-                scaled(value.quantityByWeightCap(), fraction),
-                scaled(value.quantityByAvailableCash(), fraction),
-                scaled(value.quantityByClusterCap(), fraction));
-    }
-
-    private static BigDecimal scaled(BigDecimal value, BigDecimal fraction) {
-        return value == null ? null : value.multiply(fraction).setScale(0, java.math.RoundingMode.FLOOR);
+    private static boolean stopRequired(HoldingClassification classification) {
+        return switch (classification) {
+            case QUALITY_STOCK,
+                    QUALITY_GROWTH_HIGH_VOL,
+                    TACTICAL_STOCK,
+                    CYCLICAL_TACTICAL,
+                    TURNAROUND_TACTICAL,
+                    SPECULATIVE -> true;
+            default -> false;
+        };
     }
 
     private static Policy policy(HoldingClassification classification, StrategyDefinition strategy) {
@@ -259,6 +255,9 @@ public final class HoldingAnalysisApplicationService {
         references.add("strategy:" + evidence.strategy().version() + ":"
                 + evidence.strategy().configHash());
         references.add("position:" + evidence.position().id());
+        references.add("capital-quality:" + evidence.capitalQuality());
+        references.add("risk:" + evidence.riskDataAsOf() + ":" + evidence.riskQuality());
+        references.add("provider-hard-error:" + evidence.providerHardError());
         if (evidence.quote().available())
             references.add("quote:" + evidence.instrument().symbol() + ":"
                     + evidence.quote().dataAsOf());

@@ -43,6 +43,7 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence assemble(PositionRow position) {
         var totals = totals(position.userId());
         var capital = capitalBases.calculate(position.userId());
+        var risk = riskEvidence(position.userId());
         var investable = capital.investableAssets();
         var currentWeight = investable.signum() == 0
                 ? BigDecimal.ZERO
@@ -110,6 +111,10 @@ public final class HoldingEvidenceAssembler {
                         instant(drawdown.dataAsOf())),
                 stop,
                 profile,
+                capital.quality(),
+                risk.quality(),
+                risk.dataAsOf(),
+                providerHardError(position.instrumentId()),
                 quality,
                 strategies.current(),
                 dataAsOf);
@@ -169,6 +174,41 @@ public final class HoldingEvidenceAssembler {
         var weight =
                 liquid.signum() == 0 ? BigDecimal.ZERO : value.clusterValue().divide(liquid, MathContext.DECIMAL64);
         return new ClusterEvidence(weight, value.clusterRisk());
+    }
+
+    private RiskEvidence riskEvidence(UUID userId) {
+        var value = jdbc.sql(
+                        """
+                        SELECT COUNT(latest.id) snapshotCount,
+                               COALESCE(SUM(latest.quality_status<>'HEALTHY'),0) impairedCount,
+                               MAX(latest.data_as_of) dataAsOf
+                        FROM position p
+                        JOIN investment_account a ON a.id=p.account_id
+                        LEFT JOIN position_risk_snapshot latest ON latest.position_id=p.id
+                          AND latest.data_as_of=(SELECT MAX(x.data_as_of) FROM position_risk_snapshot x
+                                                WHERE x.position_id=p.id)
+                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                        """)
+                .param("userId", userId.toString())
+                .query(RiskRow.class)
+                .single();
+        var quality = value.snapshotCount() == 0
+                ? EvidenceQuality.MISSING
+                : value.impairedCount() == 0 ? EvidenceQuality.HEALTHY : EvidenceQuality.PARTIAL;
+        return new RiskEvidence(quality, instant(value.dataAsOf()));
+    }
+
+    private boolean providerHardError(UUID instrumentId) {
+        return jdbc.sql(
+                                """
+                        SELECT COUNT(*) FROM data_quality_event
+                        WHERE instrument_id=UUID_TO_BIN(:instrumentId) AND status='OPEN'
+                          AND severity IN ('ERROR','CRITICAL')
+                        """)
+                        .param("instrumentId", instrumentId.toString())
+                        .query(Long.class)
+                        .single()
+                > 0;
     }
 
     private HoldingEvidence.LatestQuote quote(UUID instrumentId) {
@@ -495,6 +535,10 @@ public final class HoldingEvidenceAssembler {
     record ClusterRow(BigDecimal clusterValue, BigDecimal clusterRisk) {}
 
     record ClusterEvidence(BigDecimal weight, BigDecimal risk) {}
+
+    record RiskRow(long snapshotCount, long impairedCount, LocalDateTime dataAsOf) {}
+
+    record RiskEvidence(EvidenceQuality quality, Instant dataAsOf) {}
 
     record QuoteRow(
             BigDecimal last, LocalDateTime dataAsOf, LocalDate marketDate, String quality, String executionQuality) {}
