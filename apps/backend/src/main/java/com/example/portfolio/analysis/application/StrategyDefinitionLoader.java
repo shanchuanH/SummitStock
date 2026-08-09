@@ -12,49 +12,63 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class StrategyDefinitionLoader {
-    public StrategyDefinition load() {
+    private final ResourceLoader resources;
+
+    public StrategyDefinitionLoader(ResourceLoader resources) {
+        this.resources = resources;
+    }
+
+    public StrategyDefinition load(String configuredPath) {
         try {
-            var bytes = new ClassPathResource("strategy/STRATEGY_CONFIG_V1_DRAFT.yaml")
-                    .getInputStream()
-                    .readAllBytes();
+            var resource = resource(configuredPath);
+            var bytes = resource.getInputStream().readAllBytes();
             var values = flatten(new String(bytes, StandardCharsets.UTF_8));
             return new StrategyDefinition(
                     required(values, "strategyVersion"),
                     sha256(bytes),
-                    decimal(values, "cash.emergencyFloorUsd"),
-                    decimal(values, "drawdownPolicyPct.painLine"),
-                    decimal(values, "riskPct.absoluteSingleTradeMax"),
-                    decimal(values, "riskPct.totalOpenStockRiskMax"),
-                    decimal(values, "riskPct.clusterOpenRiskMax"),
-                    integer(values, "behavior.socialMediaCoolingHours"),
-                    integer(values, "behavior.maxDailyMustAct"),
-                    decimal(values, "allocationTargetsPct.broadUsCore"),
-                    decimal(values, "allocationTargetsPct.techCore"),
+                    required(values, "publishState"),
+                    decimal(values, "capital.emergencyFloorUsd"),
+                    bool(values, "capital.emergencyExcludedFromInvestableAssets"),
+                    decimal(values, "drawdown.painLineAt"),
+                    decimal(values, "risk.absoluteSingleTradeMax"),
+                    decimal(values, "risk.totalOpenStockRiskMax"),
+                    decimal(values, "risk.clusterOpenRiskMax"),
+                    integer(values, "risk.socialMediaCoolingHours"),
+                    integer(values, "decision.maxDailyMustAct"),
+                    bool(values, "decision.underweightAloneCanTriggerAdd"),
+                    decimal(values, "qualityStock.starterFractionOfTarget"),
+                    decimal(values, "allocation.broadUsCore"),
+                    decimal(values, "allocation.techCore"),
                     policy(
                             values,
-                            "positionCapsPct.qualityTarget",
-                            "positionCapsPct.qualityHardMax",
-                            "riskPct.qualityTrade"),
+                            "qualityStock.targetPct",
+                            "qualityStock.normalMaxPct",
+                            "qualityStock.hardMaxPct",
+                            "qualityStock.tradeRiskPct"),
                     policy(
                             values,
-                            "positionCapsPct.thematicEtfTarget",
-                            "positionCapsPct.thematicEtfMax",
-                            "riskPct.themeTacticalTrade"),
+                            "thematicEtf.targetPct",
+                            "thematicEtf.hardMaxPct",
+                            "thematicEtf.hardMaxPct",
+                            "thematicEtf.tradeRiskPct"),
                     policy(
                             values,
-                            "positionCapsPct.tacticalStockTarget",
-                            "positionCapsPct.tacticalStockMax",
-                            "riskPct.themeTacticalTrade"),
+                            "tacticalStock.targetPct",
+                            "tacticalStock.hardMaxPct",
+                            "tacticalStock.hardMaxPct",
+                            "tacticalStock.tradeRiskPct"),
                     policy(
                             values,
-                            "positionCapsPct.speculativeTarget",
-                            "positionCapsPct.speculativeMax",
-                            "riskPct.speculativeTrade"),
+                            "speculative.targetPct",
+                            "speculative.hardMaxPct",
+                            "speculative.hardMaxPct",
+                            "speculative.tradeRiskPct"),
                     new StrategyDefinition.EtfDipPolicy(
                             integer(values, "etfDip.setupScoreMin"),
                             integer(values, "etfDip.requiredReversalSignals"),
@@ -66,12 +80,21 @@ public final class StrategyDefinitionLoader {
         }
     }
 
+    private Resource resource(String configuredPath) {
+        var location = configuredPath.contains(":") ? configuredPath : "classpath:" + configuredPath;
+        return resources.getResource(location);
+    }
+
     private static StrategyDefinition.PositionPolicy policy(
-            Map<String, String> values, String target, String hardMax, String risk) {
+            Map<String, String> values, String target, String normalMax, String hardMax, String risk) {
         var targets = decimals(values, target);
         if (targets.size() != 2) throw new IllegalStateException("Strategy target must contain two values: " + target);
         return new StrategyDefinition.PositionPolicy(
-                targets.get(0), targets.get(1), decimal(values, hardMax), decimal(values, risk));
+                targets.get(0),
+                targets.get(1),
+                decimal(values, normalMax),
+                decimal(values, hardMax),
+                decimal(values, risk));
     }
 
     private static Map<String, String> flatten(String yaml) {

@@ -1,0 +1,85 @@
+strategyVersion: 2.0.0-draft
+publishState: DRAFT
+
+profile:
+  manualExecutionOnly: true
+  broker: Fidelity
+  benchmarks:
+    primaryGrowth: QQQ
+    broadMarket: SPY
+
+capital:
+  emergencyFloorUsd: "20000"
+  emergencyExcludedFromInvestableAssets: true
+  tacticalReserveTargetPct: ["0.10", "0.15"]
+
+drawdown:
+  stopNewSpeculationAt: "0.08"
+  reduceTacticalCapacityAt: "0.10"
+  etfDipSetupAt: "0.12"
+  marketDrivenEtfDeploymentAt: "0.15"
+  painLineAt: "0.20"
+
+decision:
+  maxDailyMustAct: 3
+  exactQuantityRequiresHealthyPrice: true
+  exactQuantityRequiresReadyRisk: true
+  riskPriorityOverTax: true
+  underweightAloneCanTriggerAdd: false
+
+risk:
+  absoluteSingleTradeMax: "0.0050"
+  totalOpenStockRiskMax: "0.0200"
+  clusterOpenRiskMax: "0.0075"
+  socialMediaCoolingHours: 48
+
+allocation:
+  broadUsCore: "0.35"
+  techCore: "0.15"
+
+qualityStock:
+  targetPct: ["0.04", "0.08"]
+  normalMaxPct: "0.12"
+  hardMaxPct: "0.15"
+  tradeRiskPct: "0.004"
+  starterFractionOfTarget: "0.25"
+  deepDiscountStarterEnabled: true
+
+thematicEtf:
+  targetPct: ["0.05", "0.08"]
+  hardMaxPct: "0.10"
+  tradeRiskPct: "0.003"
+
+tacticalStock:
+  targetPct: ["0.02", "0.03"]
+  hardMaxPct: "0.05"
+  tradeRiskPct: "0.003"
+
+speculative:
+  targetPct: ["0.005", "0.01"]
+  hardMaxPct: "0.02"
+  tradeRiskPct: "0.002"
+  averageDownAllowed: false
+
+etfDip:
+  setupScoreMin: 60
+  requiredReversalSignals: 2
+  tranchePctOfReserve: ["0.20", "0.25", "0.30", "0.25"]
+  cooldownTradingDays: 5
+  requiresMarketDrivenDrawdown: true
+
+freshness:
+  eodPriceTradingSessions: 1
+  financialQuarterDays: 140
+  estimatesDays: 14
+  earningsCalendarDays: 7
+  etfProfileDays: 14
+  macroDailyDays: 3
+
+financialHealth:
+  revenueGrowthStrong: "0.15"
+  revenueGrowthHealthy: "0.05"
+  marginDeteriorationWarningPctPoints: "0.03"
+  fcfMarginHealthy: "0.10"
+  dilutionWarning: "0.03"
+  netDebtToFcfWarning: "3.0"

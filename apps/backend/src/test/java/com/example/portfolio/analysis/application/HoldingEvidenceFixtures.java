@@ -17,21 +17,25 @@ final class HoldingEvidenceFixtures {
         var now = Instant.parse("2026-08-05T20:00:00Z");
         var positionId = UUID.nameUUIDFromBytes(symbol.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var strategy = new StrategyDefinition(
-                "1.0.0-draft",
+                "2.0.0-draft",
                 "a".repeat(64),
+                "DRAFT",
                 new BigDecimal("20000"),
+                true,
                 new BigDecimal("0.20"),
                 new BigDecimal("0.005"),
                 new BigDecimal("0.02"),
                 new BigDecimal("0.0075"),
                 48,
                 3,
+                false,
+                new BigDecimal("0.25"),
                 new BigDecimal("0.35"),
                 new BigDecimal("0.15"),
-                policy("0.04", "0.08", "0.15", "0.004"),
-                policy("0.05", "0.08", "0.10", "0.003"),
-                policy("0.02", "0.03", "0.05", "0.003"),
-                policy("0.005", "0.01", "0.02", "0.002"),
+                policy("0.04", "0.08", "0.12", "0.15", "0.004"),
+                policy("0.05", "0.08", "0.10", "0.10", "0.003"),
+                policy("0.02", "0.03", "0.05", "0.05", "0.003"),
+                policy("0.005", "0.01", "0.02", "0.02", "0.002"),
                 new StrategyDefinition.EtfDipPolicy(
                         60,
                         2,
@@ -137,8 +141,13 @@ final class HoldingEvidenceFixtures {
         return new HoldingEvidence.Money(new BigDecimal(value), "USD");
     }
 
-    private static StrategyDefinition.PositionPolicy policy(String min, String max, String hard, String risk) {
+    private static StrategyDefinition.PositionPolicy policy(
+            String min, String max, String normal, String hard, String risk) {
         return new StrategyDefinition.PositionPolicy(
-                new BigDecimal(min), new BigDecimal(max), new BigDecimal(hard), new BigDecimal(risk));
+                new BigDecimal(min),
+                new BigDecimal(max),
+                new BigDecimal(normal),
+                new BigDecimal(hard),
+                new BigDecimal(risk));
     }
 }

@@ -164,6 +164,7 @@ public final class HoldingAnalysisApplicationService {
                     "Correlated positions may lose together."));
         }
         if ((state == AnalysisReadiness.READY || state == AnalysisReadiness.PARTIAL)
+                && evidence.strategy().underweightAloneCanTriggerAdd()
                 && policy.targetMin() != null
                 && evidence.currentWeight().compareTo(policy.targetMin()) < 0) {
             values.add(candidate(
@@ -197,7 +198,7 @@ public final class HoldingAnalysisApplicationService {
         }
         var availableCash = evidence.trackedCash()
                 .amount()
-                .subtract(evidence.strategy().emergencyCashFloor())
+                .subtract(evidence.emergencyCash().amount())
                 .max(BigDecimal.ZERO);
         var clusterRiskCapacity = evidence.strategy()
                 .clusterOpenRiskMax()

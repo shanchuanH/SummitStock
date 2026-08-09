@@ -1,5 +1,7 @@
 package com.example.portfolio.portfolio;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
+import com.example.portfolio.analysis.capital.CapitalBaseService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -16,10 +18,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class PortfolioStore {
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final CapitalBaseService capitalBases;
+    private final PublishedStrategyService strategies;
 
-    public PortfolioStore(JdbcClient jdbc, Clock clock) {
+    public PortfolioStore(
+            JdbcClient jdbc, Clock clock, CapitalBaseService capitalBases, PublishedStrategyService strategies) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.capitalBases = capitalBases;
+        this.strategies = strategies;
     }
 
     public List<AccountView> accounts(String email) {
@@ -102,6 +109,7 @@ public class PortfolioStore {
     }
 
     public List<PortfolioHoldingView> holdings(String email) {
+        var investable = capitalBases.calculate(userId(email)).investableAssets();
         return jdbc.sql(
                         """
                         WITH owned AS (
@@ -113,16 +121,11 @@ public class PortfolioStore {
                             JOIN app_user u ON u.id=a.user_id
                             JOIN instrument i ON i.id=p.instrument_id
                             WHERE u.email=:email AND p.status='OPEN'
-                        ), totals AS (
-                            SELECT COALESCE(SUM(market_value),0)
-                                   + COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
-                                               WHERE c.user_id=(SELECT user_id FROM owned LIMIT 1)),0) liquid
-                            FROM owned
                         )
                         SELECT BIN_TO_UUID(o.id) id, o.version, o.symbol, o.instrument_name name, o.asset_type assetType,
                                o.bucket, o.classification, o.classification_confirmed classificationConfirmed,
                                o.market_value marketValue,
-                               CASE WHEN t.liquid=0 THEN 0 ELSE o.market_value/t.liquid END currentWeight,
+                               CASE WHEN :investable=0 THEN 0 ELSE o.market_value/:investable END currentWeight,
                                h.target_weight_min targetWeightMin, h.target_weight_max targetWeightMax,
                                COALESCE(r.action,h.recommended_action,'WAIT_FOR_DATA') action,
                                COALESCE(r.priority,'WATCH') priority,
@@ -132,7 +135,7 @@ public class PortfolioStore {
                                (SELECT MIN(e.event_at) FROM company_event e
                                 WHERE e.instrument_id=o.instrument_id AND e.event_at>=UTC_TIMESTAMP(6)) nextEvent,
                                COALESCE(h.readiness,o.data_readiness,'WAIT_FOR_DATA') dataStatus
-                        FROM owned o CROSS JOIN totals t
+                        FROM owned o
                         LEFT JOIN holding_analysis_snapshot h ON h.id=(
                             SELECT x.id FROM holding_analysis_snapshot x WHERE x.position_id=o.id
                             ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)
@@ -149,8 +152,17 @@ public class PortfolioStore {
                         ORDER BY FIELD(COALESCE(r.priority,'WATCH'),'MUST_ACT','DO_NOT','WATCH','NORMAL'),o.symbol
                         """)
                 .param("email", email)
+                .param("investable", investable)
                 .query(PortfolioHoldingView.class)
                 .list();
+    }
+
+    private UUID userId(String email) {
+        return jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email=:email")
+                .param("email", email)
+                .query(UUID.class)
+                .optional()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
     @Transactional
@@ -208,7 +220,7 @@ public class PortfolioStore {
                             strategy_version, rule_ids, details, occurred_at
                         )
                         SELECT UUID_TO_BIN(:auditId), u.id, 'POSITION_CLASSIFIED', 'POSITION', :entityId,
-                               '1.0.0-draft', JSON_ARRAY('POSITION.CLASSIFY.001'),
+                               :strategyVersion, JSON_ARRAY('POSITION.CLASSIFY.001'),
                                JSON_OBJECT('classification', :classification, 'source', :source,
                                            'previousVersion', :version), :occurredAt
                         FROM app_user u WHERE u.email = :email
@@ -218,6 +230,7 @@ public class PortfolioStore {
                 .param("classification", classification)
                 .param("source", source)
                 .param("version", expectedVersion)
+                .param("strategyVersion", strategies.current().version())
                 .param("occurredAt", clock.instant())
                 .param("email", email)
                 .update();

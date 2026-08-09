@@ -1,5 +1,6 @@
 package com.example.portfolio.runtime;
 
+import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.MarketContextService;
 import com.example.portfolio.strategy.market.DrawdownEngine;
@@ -22,13 +23,19 @@ public class PortfolioAnalysisPipelineService {
     private final JdbcClient jdbc;
     private final MarketContextService contextService;
     private final PortfolioProperties properties;
+    private final CapitalBaseService capitalBases;
     private final Clock clock;
 
     public PortfolioAnalysisPipelineService(
-            JdbcClient jdbc, MarketContextService contextService, PortfolioProperties properties, Clock clock) {
+            JdbcClient jdbc,
+            MarketContextService contextService,
+            PortfolioProperties properties,
+            CapitalBaseService capitalBases,
+            Clock clock) {
         this.jdbc = jdbc;
         this.contextService = contextService;
         this.properties = properties;
+        this.capitalBases = capitalBases;
         this.clock = clock;
     }
 
@@ -76,7 +83,7 @@ public class PortfolioAnalysisPipelineService {
     }
 
     public int syncPortfolio(UUID userId) {
-        return jdbc.sql(
+        var updated = jdbc.sql(
                         """
                         UPDATE position p
                         JOIN investment_account a ON a.id=p.account_id
@@ -95,6 +102,8 @@ public class PortfolioAnalysisPipelineService {
                 .param("now", clock.instant())
                 .param("userId", userId.toString())
                 .update();
+        capitalBases.capture(userId, clock.instant());
+        return updated;
     }
 
     public int computeDrawdown(UUID userId, LocalDate marketDate) {
@@ -199,17 +208,13 @@ public class PortfolioAnalysisPipelineService {
     }
 
     private int snapshotPortfolioRisk(UUID userId) {
+        var investable = capitalBases.calculate(userId).investableAssets();
         return jdbc.sql(
                         """
                         INSERT INTO position_risk_snapshot (
                             id,position_id,strategy_version,current_weight,open_risk_fraction,
                             cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at)
-                        WITH totals AS (
-                            SELECT COALESCE(SUM(p.market_value),0)+COALESCE((SELECT SUM(c.current_amount)
-                                     FROM cash_bucket c WHERE c.user_id=UUID_TO_BIN(:userId)),0) equity
-                            FROM position p JOIN investment_account a ON a.id=p.account_id
-                            WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
-                        ), evidence AS (
+                        WITH evidence AS (
                             SELECT p.id,p.quantity,p.average_cost,p.market_value,i.asset_type,p.classification,
                                    (SELECT q.last_price FROM quote q WHERE q.instrument_id=p.instrument_id
                                     ORDER BY q.data_as_of DESC,q.created_at DESC LIMIT 1) last_price,
@@ -219,12 +224,12 @@ public class PortfolioAnalysisPipelineService {
                             JOIN instrument i ON i.id=p.instrument_id
                             WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         ), calculated AS (
-                            SELECT e.*,t.equity,
+                            SELECT e.*,:investable equity,
                                    CASE WHEN e.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
                                                   AND e.last_price IS NOT NULL AND e.live_stop IS NOT NULL
                                         THEN GREATEST((COALESCE(e.average_cost,e.last_price)-e.live_stop)*e.quantity,0)
                                         ELSE 0 END risk_amount
-                            FROM evidence e CROSS JOIN totals t
+                            FROM evidence e
                         )
                         SELECT UUID_TO_BIN(UUID()),c.id,:strategy,
                                CASE WHEN c.equity=0 THEN 0 ELSE c.market_value/c.equity END,
@@ -238,6 +243,7 @@ public class PortfolioAnalysisPipelineService {
                         FROM calculated c WHERE c.equity>0
                         """)
                 .param("userId", userId.toString())
+                .param("investable", investable)
                 .param("strategy", properties.strategyVersion())
                 .param("now", clock.instant())
                 .update();

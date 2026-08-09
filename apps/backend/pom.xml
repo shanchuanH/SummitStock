@@ -116,6 +116,7 @@
         <directory>../../config</directory>
         <includes>
           <include>STRATEGY_CONFIG_V1_DRAFT.yaml</include>
+          <include>STRATEGY_CONFIG_V2_DRAFT.yaml</include>
         </includes>
       </resource>
     </resources>

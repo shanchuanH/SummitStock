@@ -1,5 +1,6 @@
 package com.example.portfolio.analysis.application;
 
+import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
@@ -18,10 +19,13 @@ import org.springframework.stereotype.Service;
 public final class HoldingEvidenceAssembler {
     private final JdbcClient jdbc;
     private final PublishedStrategyService strategies;
+    private final CapitalBaseService capitalBases;
 
-    public HoldingEvidenceAssembler(JdbcClient jdbc, PublishedStrategyService strategies) {
+    public HoldingEvidenceAssembler(
+            JdbcClient jdbc, PublishedStrategyService strategies, CapitalBaseService capitalBases) {
         this.jdbc = jdbc;
         this.strategies = strategies;
+        this.capitalBases = capitalBases;
     }
 
     public List<HoldingEvidence> assembleAll(UUID userId) {
@@ -38,10 +42,12 @@ public final class HoldingEvidenceAssembler {
 
     private HoldingEvidence assemble(PositionRow position) {
         var totals = totals(position.userId());
-        var liquid = totals.invested().add(totals.cash());
-        var currentWeight =
-                liquid.signum() == 0 ? BigDecimal.ZERO : position.marketValue().divide(liquid, MathContext.DECIMAL64);
-        var cluster = cluster(position.positionId(), liquid);
+        var capital = capitalBases.calculate(position.userId());
+        var investable = capital.investableAssets();
+        var currentWeight = investable.signum() == 0
+                ? BigDecimal.ZERO
+                : position.marketValue().divide(investable, MathContext.DECIMAL64);
+        var cluster = cluster(position.positionId(), investable);
         var quote = quote(position.instrumentId());
         var bars = bars(position.instrumentId());
         var indicators = indicators(position.instrumentId(), bars);
@@ -77,9 +83,9 @@ public final class HoldingEvidenceAssembler {
                         position.marketValue()),
                 new HoldingEvidence.Instrument(
                         position.instrumentId(), position.symbol(), position.assetType(), position.active()),
-                money(liquid),
-                money(totals.cash()),
-                money(totals.emergency()),
+                money(investable),
+                money(capital.trackedCash()),
+                money(capital.emergencyReserve()),
                 money(totals.tactical()),
                 currentWeight,
                 cluster.weight(),
@@ -129,20 +135,14 @@ public final class HoldingEvidenceAssembler {
     private PortfolioTotals totals(UUID userId) {
         return jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(p.market_value),0) invested,
-                               COALESCE((SELECT SUM(current_amount) FROM cash_bucket
-                                         WHERE user_id=UUID_TO_BIN(:userId)),0) cash,
-                               COALESCE((SELECT SUM(current_amount) FROM cash_bucket
-                                         WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='EMERGENCY'),0) emergency,
-                               COALESCE((SELECT SUM(current_amount) FROM cash_bucket
+                        SELECT COALESCE((SELECT SUM(current_amount) FROM cash_bucket
                                          WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='TACTICAL_RESERVE'),0) tactical,
                                COALESCE((SELECT SUM(r.open_risk_fraction) FROM position_risk_snapshot r
                                          JOIN position x ON x.id=r.position_id JOIN investment_account z ON z.id=x.account_id
                                          WHERE z.user_id=UUID_TO_BIN(:userId)
                                            AND r.data_as_of=(SELECT MAX(q.data_as_of) FROM position_risk_snapshot q
                                                              WHERE q.position_id=r.position_id)),0) openRisk
-                        FROM position p JOIN investment_account a ON a.id=p.account_id
-                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                        FROM app_user u WHERE u.id=UUID_TO_BIN(:userId)
                         """)
                 .param("userId", userId.toString())
                 .query(PortfolioTotals.class)
@@ -408,8 +408,7 @@ public final class HoldingEvidenceAssembler {
             BigDecimal averageCost,
             BigDecimal marketValue) {}
 
-    record PortfolioTotals(
-            BigDecimal invested, BigDecimal cash, BigDecimal emergency, BigDecimal tactical, BigDecimal openRisk) {}
+    record PortfolioTotals(BigDecimal tactical, BigDecimal openRisk) {}
 
     record ClusterRow(BigDecimal clusterValue, BigDecimal clusterRisk) {}
 

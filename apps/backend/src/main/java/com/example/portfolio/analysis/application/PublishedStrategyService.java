@@ -9,7 +9,7 @@ public final class PublishedStrategyService {
     private final StrategyDefinition definition;
 
     public PublishedStrategyService(StrategyDefinitionLoader loader, PortfolioProperties properties) {
-        definition = loader.load();
+        definition = loader.load(properties.strategyConfigPath());
         if (!definition.version().equals(properties.strategyVersion())) {
             throw new IllegalStateException("Runtime strategy version does not match published configuration");
         }

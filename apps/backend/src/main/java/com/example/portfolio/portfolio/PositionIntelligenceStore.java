@@ -1,5 +1,6 @@
 package com.example.portfolio.portfolio;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -17,10 +18,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class PositionIntelligenceStore {
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final PublishedStrategyService strategies;
 
-    public PositionIntelligenceStore(JdbcClient jdbc, Clock clock) {
+    public PositionIntelligenceStore(JdbcClient jdbc, Clock clock, PublishedStrategyService strategies) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.strategies = strategies;
     }
 
     public Optional<StopView> latestStop(String email, UUID positionId) {
@@ -220,13 +223,14 @@ public class PositionIntelligenceStore {
                         INSERT INTO audit_log (id, user_id, event_type, entity_type, entity_id,
                             strategy_version, rule_ids, details, occurred_at)
                         SELECT UUID_TO_BIN(:id), u.id, 'THESIS_CONFIRMED', 'POSITION', :entityId,
-                            '1.0.0-draft', JSON_ARRAY('THESIS.CONFIRM.001'),
+                            :strategyVersion, JSON_ARRAY('THESIS.CONFIRM.001'),
                             JSON_OBJECT('previousVersion', :version), :now
                         FROM app_user u WHERE u.email = :email
                         """)
                 .param("id", UUID.randomUUID().toString())
                 .param("entityId", positionId.toString())
                 .param("version", expectedVersion)
+                .param("strategyVersion", strategies.current().version())
                 .param("now", clock.instant())
                 .param("email", email)
                 .update();
