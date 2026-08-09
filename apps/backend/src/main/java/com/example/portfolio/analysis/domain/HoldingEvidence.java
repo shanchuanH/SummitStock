@@ -50,7 +50,23 @@ public record HoldingEvidence(
 
     public record Money(BigDecimal amount, String currency) {}
 
-    public record LatestQuote(BigDecimal last, Instant dataAsOf, EvidenceQuality quality) {
+    public record LatestQuote(
+            BigDecimal last,
+            Instant dataAsOf,
+            LocalDate marketDate,
+            EvidenceQuality quality,
+            EvidenceQuality executionLiquidityQuality) {
+        public LatestQuote(BigDecimal last, Instant dataAsOf, EvidenceQuality quality) {
+            this(
+                    last,
+                    dataAsOf,
+                    dataAsOf == null
+                            ? null
+                            : dataAsOf.atZone(java.time.ZoneOffset.UTC).toLocalDate(),
+                    quality,
+                    EvidenceQuality.MISSING);
+        }
+
         public boolean available() {
             return last != null && dataAsOf != null;
         }

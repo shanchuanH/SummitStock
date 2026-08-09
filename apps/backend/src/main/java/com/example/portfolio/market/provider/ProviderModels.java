@@ -50,7 +50,56 @@ public final class ProviderModels {
     }
 
     public record QuoteResult(
-            String symbol, BigDecimal bid, BigDecimal ask, BigDecimal last, String currency, Provenance provenance) {}
+            String symbol,
+            BigDecimal bid,
+            BigDecimal ask,
+            BigDecimal last,
+            String currency,
+            DecisionPriceEvidence decisionPrice,
+            ExecutionLiquidityEvidence executionLiquidity,
+            Provenance provenance) {
+        public QuoteResult(
+                String symbol,
+                BigDecimal bid,
+                BigDecimal ask,
+                BigDecimal last,
+                String currency,
+                Provenance provenance) {
+            this(
+                    symbol,
+                    bid,
+                    ask,
+                    last,
+                    currency,
+                    new DecisionPriceEvidence(
+                            last,
+                            provenance
+                                    .sourceTimestamp()
+                                    .atZone(java.time.ZoneOffset.UTC)
+                                    .toLocalDate(),
+                            provenance.qualityStatus()),
+                    ExecutionLiquidityEvidence.from(bid, ask, provenance.qualityStatus()),
+                    provenance);
+        }
+    }
+
+    public record DecisionPriceEvidence(BigDecimal price, LocalDate marketDate, QualityStatus quality) {}
+
+    public record ExecutionLiquidityEvidence(
+            BigDecimal bid, BigDecimal ask, BigDecimal spreadFraction, QualityStatus quality) {
+        static ExecutionLiquidityEvidence from(
+                BigDecimal bid, BigDecimal ask, ProviderModels.QualityStatus sourceQuality) {
+            if (bid == null || ask == null) {
+                return new ExecutionLiquidityEvidence(bid, ask, null, QualityStatus.MISSING);
+            }
+            if (bid.signum() <= 0 || ask.compareTo(bid) < 0) {
+                return new ExecutionLiquidityEvidence(bid, ask, null, QualityStatus.SUSPECT);
+            }
+            var midpoint = bid.add(ask).divide(BigDecimal.TWO, java.math.MathContext.DECIMAL64);
+            var spread = ask.subtract(bid).divide(midpoint, java.math.MathContext.DECIMAL64);
+            return new ExecutionLiquidityEvidence(bid, ask, spread, sourceQuality);
+        }
+    }
 
     public record CorporateAction(
             String type,

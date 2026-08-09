@@ -11,6 +11,11 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
     private final Clock clock = Clock.systemUTC();
 
     @Override
+    public String providerId() {
+        return "fake-sec-ir";
+    }
+
+    @Override
     public ProviderModels.FilingIndexResult fetchFilings(String cik) {
         return new ProviderModels.FilingIndexResult(cik, List.of(), provenance(cik));
     }

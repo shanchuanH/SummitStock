@@ -10,6 +10,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,16 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
     @Override
     public String providerId() {
         return "fake-eod";
+    }
+
+    @Override
+    public Set<ProviderCapability> capabilities() {
+        return Set.of(
+                ProviderCapability.EOD_BARS,
+                ProviderCapability.ADJUSTED_BARS,
+                ProviderCapability.QUOTE_LAST,
+                ProviderCapability.QUOTE_BID_ASK,
+                ProviderCapability.CORPORATE_ACTIONS);
     }
 
     @Override

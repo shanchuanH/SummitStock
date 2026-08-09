@@ -36,6 +36,11 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
     }
 
     @Override
+    public String providerId() {
+        return PROVIDER;
+    }
+
+    @Override
     public ProviderModels.FilingIndexResult fetchFilings(String cik) {
         var normalizedCik = normalizeCik(cik);
         var payload = get("/submissions/CIK" + normalizedCik + ".json");

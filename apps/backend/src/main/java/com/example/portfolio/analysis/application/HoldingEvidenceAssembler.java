@@ -174,7 +174,11 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.LatestQuote quote(UUID instrumentId) {
         return jdbc.sql(
                         """
-                        SELECT last_price last, data_as_of dataAsOf, quality_status quality
+                        SELECT last_price last, data_as_of dataAsOf,
+                               COALESCE(decision_market_date,DATE(source_timestamp)) marketDate,
+                               CASE WHEN decision_quality_status='MISSING' AND quality_status<>'MISSING'
+                                    THEN quality_status ELSE decision_quality_status END quality,
+                               execution_quality_status executionQuality
                         FROM quote WHERE instrument_id=UUID_TO_BIN(:id)
                         ORDER BY data_as_of DESC, created_at DESC LIMIT 1
                         """)
@@ -182,7 +186,11 @@ public final class HoldingEvidenceAssembler {
                 .query(QuoteRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.LatestQuote(
-                        value.last(), instant(value.dataAsOf()), quality(value.quality())))
+                        value.last(),
+                        instant(value.dataAsOf()),
+                        value.marketDate(),
+                        quality(value.quality()),
+                        quality(value.executionQuality())))
                 .orElse(new HoldingEvidence.LatestQuote(null, null, EvidenceQuality.MISSING));
     }
 
@@ -414,7 +422,8 @@ public final class HoldingEvidenceAssembler {
 
     record ClusterEvidence(BigDecimal weight, BigDecimal risk) {}
 
-    record QuoteRow(BigDecimal last, LocalDateTime dataAsOf, String quality) {}
+    record QuoteRow(
+            BigDecimal last, LocalDateTime dataAsOf, LocalDate marketDate, String quality, String executionQuality) {}
 
     record BarRow(LocalDate marketDate, BigDecimal close) {}
 

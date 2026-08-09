@@ -30,6 +30,8 @@ public final class ProductionMarketDataProvider implements MarketDataProvider {
     private final ProviderProperties properties;
     private final Clock clock;
     private final DataQualityPolicy quality = new DataQualityPolicy();
+    private final MarketSessionFreshnessPolicy marketFreshness =
+            new MarketSessionFreshnessPolicy(new UsEquityTradingCalendar());
 
     public ProductionMarketDataProvider(ProviderHttpClient http, ProviderProperties properties, Clock clock) {
         this.http = http;
@@ -103,34 +105,29 @@ public final class ProductionMarketDataProvider implements MarketDataProvider {
         var quote = payload.json().get("Global Quote");
         var warnings = new ArrayList<String>();
         BigDecimal last = null;
+        LocalDate marketDate = null;
         Instant sourceTimestamp = clock.instant();
         if (quote != null && quote.isObject() && !quote.isEmpty()) {
             last = decimal(quote, "05. price");
             var dateNode = quote.get("07. latest trading day");
             if (dateNode != null && !dateNode.asText().isBlank()) {
-                sourceTimestamp = parseDate(dateNode.asText(), "quote trading date")
-                        .atStartOfDay()
-                        .toInstant(ZoneOffset.UTC);
+                marketDate = parseDate(dateNode.asText(), "quote trading date");
+                sourceTimestamp = marketDate.atStartOfDay().toInstant(ZoneOffset.UTC);
             }
             warnings.add("BID_AND_ASK_NOT_SUPPLIED_BY_PROVIDER");
         } else {
             warnings.add("EMPTY_GLOBAL_QUOTE");
         }
-        var status = quality.assess(
-                new DataQualityPolicy.Evidence(
-                        3,
-                        last == null ? 0 : 1,
-                        last != null && last.signum() <= 0,
-                        false,
-                        sourceTimestamp,
-                        DAILY_FRESHNESS),
-                clock.instant());
+        var status = marketFreshness.decisionPriceQuality(marketDate, last, clock.instant());
+        var liquidity = ProviderModels.ExecutionLiquidityEvidence.from(null, null, status);
         return new ProviderModels.QuoteResult(
                 normalizeSymbol(symbol),
                 null,
                 null,
                 last,
                 "USD",
+                new ProviderModels.DecisionPriceEvidence(last, marketDate, status),
+                liquidity,
                 provenance(payload.raw(), sourceTimestamp, status, warnings));
     }
 

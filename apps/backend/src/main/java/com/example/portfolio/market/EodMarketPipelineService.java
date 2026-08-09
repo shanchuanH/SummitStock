@@ -86,11 +86,15 @@ public class EodMarketPipelineService {
             jdbc.sql(
                             """
                             INSERT IGNORE INTO quote (
-                                id, instrument_id, bid_price, ask_price, last_price, currency, provider,
-                                source_timestamp, checksum, quality_status, data_as_of, raw_payload, created_at
+                                id, instrument_id, bid_price, ask_price, last_price, decision_market_date,
+                                currency, provider, source_timestamp, checksum, quality_status,
+                                decision_quality_status, execution_quality_status, spread_fraction,
+                                data_as_of, raw_payload, created_at
                             ) VALUES (
-                                UUID_TO_BIN(:id), UUID_TO_BIN(:instrumentId), :bid, :ask, :last, :currency, :provider,
-                                :sourceTimestamp, :checksum, :quality, :dataAsOf, JSON_OBJECT(), :now
+                                UUID_TO_BIN(:id), UUID_TO_BIN(:instrumentId), :bid, :ask, :last, :marketDate,
+                                :currency, :provider, :sourceTimestamp, :checksum, :quality,
+                                :decisionQuality, :executionQuality, :spread,
+                                :dataAsOf, JSON_OBJECT(), :now
                             )
                             """)
                     .param("id", UUID.randomUUID().toString())
@@ -98,11 +102,17 @@ public class EodMarketPipelineService {
                     .param("bid", value.bid())
                     .param("ask", value.ask())
                     .param("last", value.last())
+                    .param("marketDate", value.decisionPrice().marketDate())
                     .param("currency", value.currency())
                     .param("provider", value.provenance().provider())
                     .param("sourceTimestamp", value.provenance().sourceTimestamp())
                     .param("checksum", value.provenance().checksum())
-                    .param("quality", value.provenance().qualityStatus().name())
+                    .param("quality", value.decisionPrice().quality().name())
+                    .param("decisionQuality", value.decisionPrice().quality().name())
+                    .param(
+                            "executionQuality",
+                            value.executionLiquidity().quality().name())
+                    .param("spread", value.executionLiquidity().spreadFraction())
                     .param("dataAsOf", value.provenance().fetchedAt())
                     .param("now", clock.instant())
                     .update();

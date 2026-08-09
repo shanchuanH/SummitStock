@@ -2,11 +2,13 @@
 
 ## Current Phase
 
-Transformation Phase T00 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T01 is next; phases will continue in the V2 playbook order without pre-T08 visual restructuring.
+Transformation Phases T00-T01 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T02 is next; phases will continue in the V2 playbook order without pre-T08 visual restructuring.
 
 Transformation baseline: the first backend run failed only because Docker Desktop was not running (`ENVIRONMENT`, 40 Testcontainers initialization errors). After Docker was started, the unchanged baseline passed 108 backend tests (8 quant, 23 strategy, 6 backtest, 71 backend), 27 frontend tests, frontend lint, and production build. The existing frontend bundle-size warning remains non-blocking.
 
 T00 introduced immutable Strategy V2 (`2.0.0-draft`) with configurable resource location, publish state, SHA-256 config hash, fail-closed emergency exclusion, and an explicit `underweightAloneCanTriggerAdd=false` guardrail. V14 adds append-only, owner-scoped capital snapshots. `CapitalBaseService` now derives invested tradable assets, tracked/emergency/deployable cash, investable assets, total liquid assets, and unvested compensation from durable records. Position/cluster weights and risk snapshots use investable assets; total liquid assets remain available for reporting. The current holding engine can no longer emit ADD solely because a position is below target. Targeted capital/weight/guardrail tests and the full 112-test backend suite pass.
+
+T01 separates completed-session decision-price evidence from execution-liquidity evidence. A missing bid/ask now leaves a valid EOD decision price `HEALTHY` while execution liquidity is explicitly `MISSING`; stale completed sessions remain blocked. The US-equity trading calendar drives freshness instead of elapsed wall-clock hours. Market and fundamentals providers expose typed capabilities, provider failures retain the exact rate-limit/plan-limit/timeout/auth/malformed/unavailable taxonomy, and plan limits propagate as non-retryable pipeline failures rather than becoming no-action conclusions. V15 persists quote evidence dimensions and provider capability snapshots. The full 117-test Maven suite passes (8 quant, 23 strategy, 6 backtest, 80 backend).
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -80,7 +82,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 
 ## Database
 
-- Flyway head: `V14__capital_base_and_strategy_v2.sql`
+- Flyway head: `V15__provider_capability_and_price_evidence.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -93,6 +95,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Backtest runs and metrics are user scoped, checksum/idempotency keyed, and store explicit bias/OOS boundaries
 - Import batches/rows, position snapshots, compensation holdings, and portfolio analysis runs/steps are owner scoped, versioned, and idempotency constrained
 - Portfolio capital snapshots are append-only and record Strategy V2 version/hash, investable-vs-liquid capital, emergency exclusion, evidence quality, and checksum
+- Quotes persist decision market date/quality independently from execution-liquidity quality and spread; provider capability snapshots are append-only and provider scoped
 - Hibernate: schema validation only
 - Instrument aliases, user-scoped manual mappings, and position data readiness are durable and constraint-backed
 - Pending migrations: none
@@ -147,6 +150,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Analyst-first RTL tests for the Executive Dashboard, Portfolio Import, Portfolio List, Position Detail, and Classification Modal; Playwright covers login, empty portfolio, CSV upload/preview/confirm, queued/ready analysis, recommendation acknowledgement, and opening a position
 - Complete target-portfolio vertical acceptance covering GOOGL, DRAM, DXYZ, MSFT, QQQM, VGT, NOK, AAOI, VOO, CSIQ, TSLA, SNDK, NVDA, SPAXX cash, and unvested AMZN compensation; the test invokes the durable pipeline and formal acknowledgement APIs without inserting recommendation outcomes
 - T00 capital tests prove 80k invested + 20k emergency cash yields 80k investable/100k liquid, an 8k position is 10%, a 20k cluster is 25%, snapshots are idempotent/versioned, and target underweight alone cannot produce ADD
+- T01 tests prove completed-session freshness, stale-session blocking, healthy decision prices without bid/ask, provider capability declarations, and explicit non-retryable plan-limit failure propagation
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -160,8 +164,8 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `2.0.0-draft` remains unpublished and local credentials remain placeholders.
-- T01–T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T00.
+- T02-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T01.
 
 ## Next Step
 
-Implement Transformation Phase T01: split decision-price evidence from execution-liquidity evidence, add market-session freshness, provider capabilities, and explicit provider error taxonomy without changing the Boss UX.
+Implement Transformation Phase T02 in playbook order without beginning the pre-T08 visual redesign.

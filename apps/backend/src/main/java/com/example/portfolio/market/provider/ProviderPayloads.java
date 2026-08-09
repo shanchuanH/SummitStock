@@ -30,9 +30,22 @@ final class ProviderPayloads {
         for (String field : new String[] {"Note", "Information", "Error Message"}) {
             var value = root.get(field);
             if (value != null && !value.asText().isBlank()) {
-                boolean retryable = !field.equals("Error Message");
-                throw new ProviderCallException(
-                        retryable ? "PROVIDER_RATE_LIMIT" : "PROVIDER_REJECTED", value.asText(), 200, retryable);
+                var message = value.asText();
+                var normalized = message.toLowerCase(java.util.Locale.ROOT);
+                var planLimit = normalized.contains("premium")
+                        || normalized.contains("subscription")
+                        || normalized.contains("plan");
+                var auth = normalized.contains("api key")
+                        && (normalized.contains("invalid") || normalized.contains("missing"));
+                var code = planLimit
+                        ? ProviderErrorCode.PROVIDER_PLAN_LIMIT
+                        : auth
+                                ? ProviderErrorCode.PROVIDER_AUTH
+                                : field.equals("Error Message")
+                                        ? ProviderErrorCode.PROVIDER_MALFORMED
+                                        : ProviderErrorCode.PROVIDER_RATE_LIMIT;
+                boolean retryable = code == ProviderErrorCode.PROVIDER_RATE_LIMIT;
+                throw new ProviderCallException(code, message, 200, retryable);
             }
         }
     }

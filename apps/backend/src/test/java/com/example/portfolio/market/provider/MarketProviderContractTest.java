@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 class MarketProviderContractTest {
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-05T16:00:00Z"), ZoneOffset.UTC);
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-05T21:30:00Z"), ZoneOffset.UTC);
 
     @Test
     void normalizesBarsQuoteAndCorporateActionsWithProvenance() throws Exception {
@@ -39,7 +39,9 @@ class MarketProviderContractTest {
 
             var quote = provider.fetchQuote("MSFT");
             assertThat(quote.last()).isEqualByComparingTo("101.25");
-            assertThat(quote.provenance().qualityStatus()).isEqualTo(ProviderModels.QualityStatus.PARTIAL);
+            assertThat(quote.decisionPrice().quality()).isEqualTo(ProviderModels.QualityStatus.HEALTHY);
+            assertThat(quote.executionLiquidity().quality()).isEqualTo(ProviderModels.QualityStatus.MISSING);
+            assertThat(quote.provenance().qualityStatus()).isEqualTo(ProviderModels.QualityStatus.HEALTHY);
 
             var actions = provider.fetchCorporateActions(
                     "MSFT", LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"));
