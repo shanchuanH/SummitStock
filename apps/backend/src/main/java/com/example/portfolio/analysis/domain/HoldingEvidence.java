@@ -80,14 +80,26 @@ public record HoldingEvidence(
             boolean available,
             EvidenceQuality quality,
             Instant dataAsOf,
+            String financialHealth,
             String estimateRevision,
             EvidenceQuality estimateQuality) {
         public FundamentalSnapshot(boolean available, EvidenceQuality quality, Instant dataAsOf) {
-            this(available, quality, dataAsOf, "MISSING", EvidenceQuality.MISSING);
+            this(available, quality, dataAsOf, available ? "HEALTHY" : "MISSING", "MISSING", EvidenceQuality.MISSING);
         }
     }
 
-    public record ValuationSnapshot(boolean available, Instant dataAsOf) {}
+    public record ValuationSnapshot(
+            boolean available,
+            String state,
+            String confidence,
+            int observationCount,
+            int priorStarterCount,
+            boolean independentConfirmation,
+            Instant dataAsOf) {
+        public ValuationSnapshot(boolean available, Instant dataAsOf) {
+            this(available, available ? "FAIR" : "MISSING", available ? "LOW" : "MISSING", 0, 0, false, dataAsOf);
+        }
+    }
 
     public record EarningsEvent(boolean available, Instant eventAt, String riskLevel) {}
 

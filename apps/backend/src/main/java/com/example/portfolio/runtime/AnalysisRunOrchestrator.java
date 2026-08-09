@@ -23,6 +23,7 @@ public class AnalysisRunOrchestrator {
             "COMPUTE_FINANCIAL_HEALTH",
             "COLLECT_ESTIMATES",
             "COMPUTE_REVISIONS",
+            "COMPUTE_VALUATION",
             "COMPUTE_INDICATORS",
             "COLLECT_BREADTH_MACRO",
             "COMPUTE_REGIME",

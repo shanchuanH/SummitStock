@@ -52,7 +52,7 @@ public final class HoldingEvidenceAssembler {
         var bars = bars(position.instrumentId());
         var indicators = indicators(position.instrumentId(), bars);
         var fundamentals = fundamentals(position.instrumentId());
-        var valuation = valuation(position.positionId());
+        var valuation = valuation(position.positionId(), position.instrumentId());
         var event = event(position.positionId(), position.instrumentId());
         var thesis = thesis(position.positionId());
         var regime = regime();
@@ -235,12 +235,12 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.FundamentalSnapshot fundamentals(UUID instrumentId) {
         var financials = jdbc.sql(
                         """
-                        SELECT quality, dataAsOf FROM (
-                            SELECT quality, data_as_of dataAsOf, 0 source_priority
+                        SELECT quality, dataAsOf, health FROM (
+                            SELECT quality, data_as_of dataAsOf, overall_status health, 0 source_priority
                             FROM financial_health_snapshot WHERE instrument_id=UUID_TO_BIN(:id)
                               AND overall_status<>'MISSING'
                             UNION ALL
-                            SELECT quality_status quality, MAX(data_as_of) dataAsOf, 1 source_priority
+                            SELECT quality_status quality, MAX(data_as_of) dataAsOf, 'HEALTHY' health, 1 source_priority
                             FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN(:id)
                             GROUP BY quality_status
                         ) evidence
@@ -250,7 +250,12 @@ public final class HoldingEvidenceAssembler {
                 .query(QualityRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.FundamentalSnapshot(
-                        true, quality(value.quality()), instant(value.dataAsOf())))
+                        true,
+                        quality(value.quality()),
+                        instant(value.dataAsOf()),
+                        value.health(),
+                        "MISSING",
+                        EvidenceQuality.MISSING))
                 .orElse(new HoldingEvidence.FundamentalSnapshot(false, EvidenceQuality.MISSING, null));
         return jdbc.sql(
                         """
@@ -265,19 +270,55 @@ public final class HoldingEvidenceAssembler {
                         financials.available(),
                         financials.quality(),
                         financials.dataAsOf(),
+                        financials.financialHealth(),
                         revision.revision(),
                         quality(revision.quality())))
                 .orElse(financials);
     }
 
-    private HoldingEvidence.ValuationSnapshot valuation(UUID positionId) {
-        return jdbc.sql(
+    private HoldingEvidence.ValuationSnapshot valuation(UUID positionId, UUID instrumentId) {
+        var canonical = jdbc.sql(
+                        """
+                        SELECT valuation_state state, confidence, observation_count observationCount,
+                               data_as_of dataAsOf
+                        FROM valuation_assessment_snapshot WHERE instrument_id=UUID_TO_BIN(:id)
+                        ORDER BY data_as_of DESC LIMIT 1
+                        """)
+                .param("id", instrumentId.toString())
+                .query(ValuationRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.ValuationSnapshot(
+                        true,
+                        value.state(),
+                        value.confidence(),
+                        value.observationCount(),
+                        0,
+                        false,
+                        instant(value.dataAsOf())));
+        var valuation = canonical.orElseGet(() -> jdbc.sql(
                         "SELECT data_as_of FROM valuation_snapshot WHERE position_id=UUID_TO_BIN(:id) ORDER BY data_as_of DESC LIMIT 1")
                 .param("id", positionId.toString())
                 .query(LocalDateTime.class)
                 .optional()
                 .map(value -> new HoldingEvidence.ValuationSnapshot(true, instant(value)))
-                .orElse(new HoldingEvidence.ValuationSnapshot(false, null));
+                .orElse(new HoldingEvidence.ValuationSnapshot(false, null)));
+        return jdbc.sql(
+                        """
+                        SELECT COUNT(*) priorCount, COALESCE(SUM(confirmed_at IS NOT NULL)>0,FALSE) confirmed
+                        FROM quality_starter_event WHERE position_id=UUID_TO_BIN(:id)
+                        """)
+                .param("id", positionId.toString())
+                .query(StarterStatusRow.class)
+                .optional()
+                .map(status -> new HoldingEvidence.ValuationSnapshot(
+                        valuation.available(),
+                        valuation.state(),
+                        valuation.confidence(),
+                        valuation.observationCount(),
+                        status.priorCount(),
+                        status.confirmed(),
+                        valuation.dataAsOf()))
+                .orElse(valuation);
     }
 
     private HoldingEvidence.EarningsEvent event(UUID positionId, UUID instrumentId) {
@@ -452,9 +493,13 @@ public final class HoldingEvidenceAssembler {
 
     record IndicatorRow(String code, Double value) {}
 
-    record QualityRow(String quality, LocalDateTime dataAsOf) {}
+    record QualityRow(String quality, LocalDateTime dataAsOf, String health) {}
 
     record RevisionRow(String revision, String quality, LocalDateTime dataAsOf) {}
+
+    record ValuationRow(String state, String confidence, int observationCount, LocalDateTime dataAsOf) {}
+
+    record StarterStatusRow(int priorCount, boolean confirmed) {}
 
     record EventRow(LocalDateTime eventAt, String riskLevel) {}
 

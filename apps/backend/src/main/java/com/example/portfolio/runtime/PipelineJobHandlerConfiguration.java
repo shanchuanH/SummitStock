@@ -9,6 +9,7 @@ import com.example.portfolio.fundamentals.FinancialHealthApplicationService;
 import com.example.portfolio.fundamentals.FundamentalsCollectionService;
 import com.example.portfolio.market.EodMarketPipelineService;
 import com.example.portfolio.portfolio.IntradayStopAlertService;
+import com.example.portfolio.valuation.ValuationApplicationService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -118,6 +119,11 @@ class PipelineJobHandlerConfiguration {
     @Bean
     JobHandler computeRevisionsJobHandler(EstimateRevisionApplicationService revisions, Clock clock) {
         return handler("COMPUTE_REVISIONS", context -> success(revisions.computeAll(), clock.instant()));
+    }
+
+    @Bean
+    JobHandler computeValuationJobHandler(ValuationApplicationService valuation, Clock clock) {
+        return handler("COMPUTE_VALUATION", context -> success(valuation.computeAll(), clock.instant()));
     }
 
     @Bean

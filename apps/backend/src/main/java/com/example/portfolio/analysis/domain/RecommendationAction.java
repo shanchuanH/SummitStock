@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.domain;
 
 public enum RecommendationAction {
     BUY,
+    STARTER_BUY,
     ADD,
     HOLD,
     DO_NOT_ADD,

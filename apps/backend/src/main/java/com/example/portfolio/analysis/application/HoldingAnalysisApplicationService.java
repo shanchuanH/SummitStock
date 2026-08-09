@@ -12,6 +12,8 @@ import com.example.portfolio.estimates.EstimateRevisionEngine;
 import com.example.portfolio.estimates.EstimateRevisionPolicy;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
+import com.example.portfolio.valuation.QualityValuationDecisionRule;
+import com.example.portfolio.valuation.ValuationEngineV2;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.time.Clock;
@@ -175,18 +177,24 @@ public final class HoldingAnalysisApplicationService {
                     "Forward EPS/revenue revisions are strongly negative.",
                     "Adding while forward expectations are falling compounds fundamental risk."));
         }
+        var valuationDecision = qualityValuationDecision(evidence);
         if ((state == AnalysisReadiness.READY || state == AnalysisReadiness.PARTIAL)
-                && evidence.strategy().underweightAloneCanTriggerAdd()
-                && (!qualityCompany(evidence.position().classification())
-                        || EstimateRevisionPolicy.normalAddAllowed(revision(evidence)))
-                && policy.targetMin() != null
-                && evidence.currentWeight().compareTo(policy.targetMin()) < 0) {
+                && valuationDecision == QualityValuationDecisionRule.Decision.STARTER_BUY) {
+            values.add(candidate(
+                    RecommendationAction.STARTER_BUY,
+                    "NORMAL",
+                    8,
+                    "QUALITY.VALUATION.DEEP_DISCOUNT_STARTER",
+                    "Healthy company evidence and a high-confidence deep discount permit a starter position.",
+                    "A starter is deliberately limited and a later add requires independent confirmation."));
+        } else if ((state == AnalysisReadiness.READY || state == AnalysisReadiness.PARTIAL)
+                && valuationDecision == QualityValuationDecisionRule.Decision.ADD) {
             values.add(candidate(
                     RecommendationAction.ADD,
                     "NORMAL",
                     8,
-                    "POSITION.TARGET_RANGE.ADD",
-                    "Position weight is below its configured target range.",
+                    "QUALITY.VALUATION.NORMAL_ADD",
+                    "Health, valuation, revisions, trend, and portfolio capacity all permit an add.",
                     "Market and thesis conditions can change before execution."));
         }
         values.add(candidate(
@@ -207,7 +215,9 @@ public final class HoldingAnalysisApplicationService {
             Policy policy,
             RecommendationAction action,
             java.time.Instant now) {
-        if (action != RecommendationAction.ADD || policy.targetMin() == null || policy.hardMax() == null) {
+        if ((action != RecommendationAction.ADD && action != RecommendationAction.STARTER_BUY)
+                || policy.targetMin() == null
+                || policy.hardMax() == null) {
             return unavailableSizing();
         }
         var availableCash = evidence.trackedCash()
@@ -224,7 +234,7 @@ public final class HoldingAnalysisApplicationService {
                         .amount()
                         .multiply(clusterRiskCapacity)
                         .divide(policy.tradeRisk(), MathContext.DECIMAL64);
-        return PositionSizing.calculate(new PositionSizing.Input(
+        var result = PositionSizing.calculate(new PositionSizing.Input(
                 evidence.portfolioEquity().amount(),
                 evidence.portfolioEquity().amount(),
                 policy.tradeRisk(),
@@ -240,10 +250,29 @@ public final class HoldingAnalysisApplicationService {
                 evidence.quality(),
                 state != AnalysisReadiness.STALE
                         && !freshness.stale(evidence.quote().dataAsOf(), now)));
+        return action == RecommendationAction.STARTER_BUY
+                ? starter(result, evidence.strategy().qualityStarterFraction())
+                : result;
     }
 
     private static PositionSizing.Result unavailableSizing() {
         return new PositionSizing.Result(false, null, null, null, null, null, null);
+    }
+
+    private static PositionSizing.Result starter(PositionSizing.Result value, BigDecimal fraction) {
+        if (!value.exactQuantityAllowed()) return value;
+        return new PositionSizing.Result(
+                true,
+                scaled(value.quantityMin(), fraction),
+                scaled(value.quantityMax(), fraction),
+                scaled(value.quantityByRisk(), fraction),
+                scaled(value.quantityByWeightCap(), fraction),
+                scaled(value.quantityByAvailableCash(), fraction),
+                scaled(value.quantityByClusterCap(), fraction));
+    }
+
+    private static BigDecimal scaled(BigDecimal value, BigDecimal fraction) {
+        return value == null ? null : value.multiply(fraction).setScale(0, java.math.RoundingMode.FLOOR);
     }
 
     private static Policy policy(HoldingClassification classification, StrategyDefinition strategy) {
@@ -306,6 +335,54 @@ public final class HoldingAnalysisApplicationService {
                     evidence.fundamentals().estimateRevision());
         } catch (IllegalArgumentException | NullPointerException exception) {
             return EstimateRevisionEngine.RevisionState.MISSING;
+        }
+    }
+
+    private static QualityValuationDecisionRule.Decision qualityValuationDecision(HoldingEvidence evidence) {
+        if (!qualityCompany(evidence.position().classification())) return QualityValuationDecisionRule.Decision.HOLD;
+        var normalMax = evidence.strategy().quality().normalMax();
+        return new QualityValuationDecisionRule()
+                .evaluate(new QualityValuationDecisionRule.Input(
+                        true,
+                        health(evidence),
+                        valuation(evidence),
+                        revision(evidence),
+                        evidence.indicators().aboveTrend()
+                                ? QualityValuationDecisionRule.PriceState.UPTREND
+                                : QualityValuationDecisionRule.PriceState.DOWNTREND,
+                        evidence.emergencyCash()
+                                                .amount()
+                                                .compareTo(evidence.strategy().emergencyCashFloor())
+                                        < 0
+                                || evidence.drawdown().noNewRisk()
+                                || evidence.clusterOpenRisk()
+                                                .compareTo(evidence.strategy().clusterOpenRiskMax())
+                                        >= 0
+                                || evidence.totalOpenRisk()
+                                                .compareTo(evidence.strategy().totalOpenRiskMax())
+                                        >= 0,
+                        evidence.thesis().invalidated(),
+                        evidence.stop().catastrophic(),
+                        evidence.currentWeight(),
+                        normalMax,
+                        evidence.valuation().priorStarterCount(),
+                        evidence.valuation().independentConfirmation()));
+    }
+
+    private static ValuationEngineV2.CompanyHealth health(HoldingEvidence evidence) {
+        try {
+            return ValuationEngineV2.CompanyHealth.valueOf(
+                    evidence.fundamentals().financialHealth());
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            return ValuationEngineV2.CompanyHealth.MISSING;
+        }
+    }
+
+    private static ValuationEngineV2.ValuationState valuation(HoldingEvidence evidence) {
+        try {
+            return ValuationEngineV2.ValuationState.valueOf(evidence.valuation().state());
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            return ValuationEngineV2.ValuationState.MISSING;
         }
     }
 
