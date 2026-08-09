@@ -62,6 +62,7 @@ public final class PositionReportController {
                         value.winningRule(),
                         suppressed(value.suppressedCandidates()),
                         value.resolutionReason(),
+                        narrative(value),
                         instant(value.validUntil())),
                 new AuditEvidence(
                         value.analysisStatus(),
@@ -145,6 +146,18 @@ public final class PositionReportController {
         }
     }
 
+    private DecisionNarrative narrative(HoldingAnalysisStore.PositionReportRow value) {
+        if (value.narrativeHeadline() == null) return null;
+        return new DecisionNarrative(
+                value.narrativeSource(),
+                value.narrativeHeadline(),
+                value.narrativeOneSentence(),
+                strings(value.narrativeWhy()),
+                strings(value.narrativeRisks()),
+                strings(value.narrativeWatchNext()),
+                value.narrativeConfidenceExplanation());
+    }
+
     private static String decimal(BigDecimal value) {
         return value == null ? null : value.stripTrailingZeros().toPlainString();
     }
@@ -171,7 +184,17 @@ public final class PositionReportController {
             String winningRule,
             List<SuppressedCandidate> suppressedCandidates,
             String resolutionReason,
+            DecisionNarrative narrative,
             Instant validUntil) {}
+
+    public record DecisionNarrative(
+            String source,
+            String headline,
+            String oneSentence,
+            List<String> why,
+            List<String> risks,
+            List<String> watchNext,
+            String confidenceExplanation) {}
 
     public record AuditEvidence(
             String analysisStatus,

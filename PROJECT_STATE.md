@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Transformation Phases T00-T09 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T10 is next; phases will continue in the V2 playbook order.
+Transformation Phases T00-T10 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T11 is next; phases will continue in the V2 playbook order.
 
 Transformation baseline: the first backend run failed only because Docker Desktop was not running (`ENVIRONMENT`, 40 Testcontainers initialization errors). After Docker was started, the unchanged baseline passed 108 backend tests (8 quant, 23 strategy, 6 backtest, 71 backend), 27 frontend tests, frontend lint, and production build. The existing frontend bundle-size warning remains non-blocking.
 
@@ -25,6 +25,8 @@ T07 adds a vendor-neutral macro provider contract for VIXCLS, BAMLH0A0HYM2, DGS1
 T08 replaces the monolithic holding rule list with classification-routed Quality Stock, Core ETF, Thematic ETF, Tactical Stock, and Speculative decision engines plus a portfolio constraint engine. The resolver enforces the playbook's eleven-level ordering from data eligibility through hold/watch, records winning and suppressed rules, and V18.4 adds durable evidence references to analysis and recommendation audit records. Quality ownership, valuation, revision, price, event, cap, and risk gates now resolve independently; Core ETF market-driven dip deployment, Thematic fund-only evidence, and Speculative no-wait-for-recovery semantics are explicit. The complete ten-scenario decision matrix and full 161-test Maven suite pass (9 quant, 33 strategy, 6 backtest, 113 backend).
 
 T09 rebuilds deterministic quantities on investable assets and deployable cash. BUY/ADD sizing takes the minimum of per-trade risk, hard-weight capacity, deployable cash, and remaining cluster-risk amount divided by per-share risk; emergency cash is never exposed and starter sizing applies the configured fraction to every capacity. TRIM, REDUCE_HALF, and EXIT use target/hard-cap excess or current quantity instead of reversing the buy formula. Exact quantities now fail closed for stale prices, required missing stops, partial capital, stale/impaired risk, unconfirmed classification, and open provider hard errors. The full 166-test Maven suite passes (9 quant, 33 strategy, 6 backtest, 118 backend).
+
+T10 adds a provider-neutral analyst narration boundary whose input contains the already-final action and grounded evidence but no authority to decide an action, calculate quantity, set a stop, or override risk. V19 persists source/model attribution, structured narrative sections, input/output checksums, and validation status per recommendation. The fact validator rejects unsupported percentages, newly invented target prices, and analyst-consensus claims without analyst evidence; unavailable or invalid model output deterministically falls back without blocking recommendation generation. Position reports expose the persisted narrative while retaining deterministic action and audit fields. The full 170-test Maven suite passes (9 quant, 33 strategy, 6 backtest, 122 backend).
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -98,7 +100,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 
 ## Database
 
-- Flyway head: `V18_4__analyst_decision_audit.sql`
+- Flyway head: `V19__decision_narrative.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -177,6 +179,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - T07 tests prove macro-factor composition, credit-tail stress, regime hard overrides, market-driven 15% ETF deployment, position-specific dip exclusion, and cluster-specific attribution
 - T08 tests prove underweight-only restraint, broken-company exits, valuation blocks, deep-discount starters, confirmed Quality adds, hard-cap and pain-line precedence, market-driven Core ETF dip deployment, Speculative stop precedence, and Thematic ETF exclusion of company earnings
 - T09 tests prove investable-asset risk/weight sizing, emergency-cash exclusion, starter scaling, cluster risk-amount capacity, stale/impaired evidence precision blocking, and action-specific trim quantities
+- T10 tests prove deterministic fallback, validator rejection of unsupported percentages/target prices/analyst consensus, durable per-recommendation narrative provenance, and continued operation without model credentials
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -190,8 +193,8 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `2.0.0-draft` remains unpublished and local credentials remain placeholders.
-- T10-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T09.
+- T11-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T10.
 
 ## Next Step
 
-Implement Transformation Phase T10 grounded analyst narration before visual redesign.
+Implement Transformation Phase T11 Boss UX now that the decision engine, sizing, and narration foundations are complete.

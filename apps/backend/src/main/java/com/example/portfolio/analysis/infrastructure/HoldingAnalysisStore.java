@@ -173,7 +173,11 @@ public class HoldingAnalysisStore {
                                h.data_as_of dataAsOf, h.valid_until validUntil,
                                BIN_TO_UUID(r.id) recommendationId, r.action recommendationAction,
                                r.priority recommendationPriority, r.winning_rule winningRule,
-                               r.suppressed_candidates suppressedCandidates, r.resolution_reason resolutionReason
+                               r.suppressed_candidates suppressedCandidates, r.resolution_reason resolutionReason,
+                               n.source narrativeSource, n.headline narrativeHeadline,
+                               n.one_sentence narrativeOneSentence, n.why_items narrativeWhy,
+                               n.risk_items narrativeRisks, n.watch_next narrativeWatchNext,
+                               n.confidence_explanation narrativeConfidenceExplanation
                         FROM position p
                         JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
@@ -183,6 +187,7 @@ public class HoldingAnalysisStore {
                         LEFT JOIN recommendation r ON r.id=(
                             SELECT y.id FROM recommendation y WHERE y.position_id=p.id AND y.user_id=a.user_id
                             ORDER BY (y.status='ACTIVE') DESC, y.data_as_of DESC, y.created_at DESC LIMIT 1)
+                        LEFT JOIN decision_narrative n ON n.recommendation_id=r.id
                         WHERE p.id=UUID_TO_BIN(:positionId) AND a.user_id=UUID_TO_BIN(:userId)
                         """)
                 .param("positionId", positionId.toString())
@@ -241,5 +246,12 @@ public class HoldingAnalysisStore {
             String recommendationPriority,
             String winningRule,
             String suppressedCandidates,
-            String resolutionReason) {}
+            String resolutionReason,
+            String narrativeSource,
+            String narrativeHeadline,
+            String narrativeOneSentence,
+            String narrativeWhy,
+            String narrativeRisks,
+            String narrativeWatchNext,
+            String narrativeConfidenceExplanation) {}
 }

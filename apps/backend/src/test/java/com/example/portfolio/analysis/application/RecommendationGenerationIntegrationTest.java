@@ -21,5 +21,18 @@ class RecommendationGenerationIntegrationTest extends HoldingAnalysisIntegration
                 .query(Integer.class)
                 .single();
         assertThat(evidence).isEqualTo(3);
+        var narratives = jdbc.sql(
+                        """
+                        SELECT COUNT(*) FROM decision_narrative n
+                        JOIN recommendation r ON r.id=n.recommendation_id
+                        WHERE r.user_id=UUID_TO_BIN(:userId)
+                          AND n.source='DETERMINISTIC_FALLBACK'
+                          AND n.headline<>'' AND JSON_VALID(n.why_items)
+                          AND n.input_checksum<>REPEAT('0',64) AND n.output_checksum<>REPEAT('0',64)
+                        """)
+                .param("userId", USER_ID.toString())
+                .query(Integer.class)
+                .single();
+        assertThat(narratives).isEqualTo(3);
     }
 }
