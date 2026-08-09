@@ -233,7 +233,7 @@ public final class HoldingEvidenceAssembler {
     }
 
     private HoldingEvidence.FundamentalSnapshot fundamentals(UUID instrumentId) {
-        return jdbc.sql(
+        var financials = jdbc.sql(
                         """
                         SELECT quality, dataAsOf FROM (
                             SELECT quality, data_as_of dataAsOf, 0 source_priority
@@ -252,6 +252,22 @@ public final class HoldingEvidenceAssembler {
                 .map(value -> new HoldingEvidence.FundamentalSnapshot(
                         true, quality(value.quality()), instant(value.dataAsOf())))
                 .orElse(new HoldingEvidence.FundamentalSnapshot(false, EvidenceQuality.MISSING, null));
+        return jdbc.sql(
+                        """
+                        SELECT overall_revision revision, quality, data_as_of dataAsOf
+                        FROM estimate_revision_snapshot WHERE instrument_id=UUID_TO_BIN(:id)
+                        ORDER BY data_as_of DESC LIMIT 1
+                        """)
+                .param("id", instrumentId.toString())
+                .query(RevisionRow.class)
+                .optional()
+                .map(revision -> new HoldingEvidence.FundamentalSnapshot(
+                        financials.available(),
+                        financials.quality(),
+                        financials.dataAsOf(),
+                        revision.revision(),
+                        quality(revision.quality())))
+                .orElse(financials);
     }
 
     private HoldingEvidence.ValuationSnapshot valuation(UUID positionId) {
@@ -437,6 +453,8 @@ public final class HoldingEvidenceAssembler {
     record IndicatorRow(String code, Double value) {}
 
     record QualityRow(String quality, LocalDateTime dataAsOf) {}
+
+    record RevisionRow(String revision, String quality, LocalDateTime dataAsOf) {}
 
     record EventRow(LocalDateTime eventAt, String riskLevel) {}
 

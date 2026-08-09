@@ -76,7 +76,16 @@ public record HoldingEvidence(
 
     public record IndicatorSet(boolean trendAvailable, boolean aboveTrend, Double rsi, Double atr) {}
 
-    public record FundamentalSnapshot(boolean available, EvidenceQuality quality, Instant dataAsOf) {}
+    public record FundamentalSnapshot(
+            boolean available,
+            EvidenceQuality quality,
+            Instant dataAsOf,
+            String estimateRevision,
+            EvidenceQuality estimateQuality) {
+        public FundamentalSnapshot(boolean available, EvidenceQuality quality, Instant dataAsOf) {
+            this(available, quality, dataAsOf, "MISSING", EvidenceQuality.MISSING);
+        }
+    }
 
     public record ValuationSnapshot(boolean available, Instant dataAsOf) {}
 

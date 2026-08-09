@@ -2,6 +2,8 @@ package com.example.portfolio.runtime;
 
 import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService;
 import com.example.portfolio.analysis.application.RecommendationGenerationService;
+import com.example.portfolio.estimates.EstimateCollectionService;
+import com.example.portfolio.estimates.EstimateRevisionApplicationService;
 import com.example.portfolio.fundamentals.FinancialFactNormalizationService;
 import com.example.portfolio.fundamentals.FinancialHealthApplicationService;
 import com.example.portfolio.fundamentals.FundamentalsCollectionService;
@@ -106,6 +108,16 @@ class PipelineJobHandlerConfiguration {
     @Bean
     JobHandler computeFinancialHealthJobHandler(FinancialHealthApplicationService financialHealth, Clock clock) {
         return handler("COMPUTE_FINANCIAL_HEALTH", context -> success(financialHealth.computeAll(), clock.instant()));
+    }
+
+    @Bean
+    JobHandler collectEstimatesJobHandler(EstimateCollectionService estimates, Clock clock) {
+        return handler("COLLECT_ESTIMATES", context -> count(estimates.collectAll(), clock.instant()));
+    }
+
+    @Bean
+    JobHandler computeRevisionsJobHandler(EstimateRevisionApplicationService revisions, Clock clock) {
+        return handler("COMPUTE_REVISIONS", context -> success(revisions.computeAll(), clock.instant()));
     }
 
     @Bean
@@ -227,6 +239,15 @@ class PipelineJobHandlerConfiguration {
 
     private static JobExecutionResult count(FundamentalsCollectionService.CollectionResult count, Instant at) {
         var warnings = count.observations() == 0 ? List.of("NO_OBSERVATIONS") : List.<String>of();
+        return new JobExecutionResult(
+                warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
+                "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
+                warnings,
+                at);
+    }
+
+    private static JobExecutionResult count(EstimateCollectionService.CollectionResult count, Instant at) {
+        var warnings = count.observations() == 0 ? List.of("ESTIMATES_UNAVAILABLE") : List.<String>of();
         return new JobExecutionResult(
                 warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                 "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",

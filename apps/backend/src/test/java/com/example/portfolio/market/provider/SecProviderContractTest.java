@@ -60,7 +60,10 @@ class SecProviderContractTest {
             });
             assertThat(facts.provenance().qualityStatus()).isEqualTo(ProviderModels.QualityStatus.PARTIAL);
             assertThat(facts.provenance().warnings())
-                    .contains("MISSING_METRIC:GrossProfit", "MISSING_METRIC:CurrentAssets", "MISSING_METRIC:CurrentLiabilities");
+                    .contains(
+                            "MISSING_METRIC:GrossProfit",
+                            "MISSING_METRIC:CurrentAssets",
+                            "MISSING_METRIC:CurrentLiabilities");
             assertThat(userAgent).hasValue("SummitStock test@example.test");
         }
     }

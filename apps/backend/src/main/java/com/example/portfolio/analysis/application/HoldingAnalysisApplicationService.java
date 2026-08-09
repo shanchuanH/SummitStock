@@ -8,6 +8,8 @@ import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
 import com.example.portfolio.analysis.domain.StrategyDefinition;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
+import com.example.portfolio.estimates.EstimateRevisionEngine;
+import com.example.portfolio.estimates.EstimateRevisionPolicy;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
@@ -163,8 +165,20 @@ public final class HoldingAnalysisApplicationService {
                     "Portfolio or cluster open-risk capacity is exhausted.",
                     "Correlated positions may lose together."));
         }
+        if (qualityCompany(evidence.position().classification())
+                && EstimateRevisionPolicy.blocksQualityAdd(revision(evidence))) {
+            values.add(candidate(
+                    RecommendationAction.DO_NOT_ADD,
+                    "DO_NOT",
+                    7,
+                    "QUALITY.REVISION.STRONGLY_NEGATIVE",
+                    "Forward EPS/revenue revisions are strongly negative.",
+                    "Adding while forward expectations are falling compounds fundamental risk."));
+        }
         if ((state == AnalysisReadiness.READY || state == AnalysisReadiness.PARTIAL)
                 && evidence.strategy().underweightAloneCanTriggerAdd()
+                && (!qualityCompany(evidence.position().classification())
+                        || EstimateRevisionPolicy.normalAddAllowed(revision(evidence)))
                 && policy.targetMin() != null
                 && evidence.currentWeight().compareTo(policy.targetMin()) < 0) {
             values.add(candidate(
@@ -254,6 +268,8 @@ public final class HoldingAnalysisApplicationService {
     private static String confidence(HoldingEvidence evidence, AnalysisReadiness state) {
         if (state != AnalysisReadiness.READY && state != AnalysisReadiness.PARTIAL) return "WAIT_FOR_DATA";
         if (evidence.position().classification() == HoldingClassification.SPECULATIVE) return "LOW";
+        if (qualityCompany(evidence.position().classification())
+                && evidence.fundamentals().estimateQuality() != EvidenceQuality.HEALTHY) return "LOW";
         if (state == AnalysisReadiness.PARTIAL || evidence.quality() != EvidenceQuality.HEALTHY) return "LOW";
         return evidence.regime().available() && evidence.drawdown().available() ? "HIGH" : "MEDIUM";
     }
@@ -277,6 +293,20 @@ public final class HoldingAnalysisApplicationService {
                     SPECULATIVE -> true;
             default -> false;
         };
+    }
+
+    private static boolean qualityCompany(HoldingClassification classification) {
+        return classification == HoldingClassification.QUALITY_STOCK
+                || classification == HoldingClassification.QUALITY_GROWTH_HIGH_VOL;
+    }
+
+    private static EstimateRevisionEngine.RevisionState revision(HoldingEvidence evidence) {
+        try {
+            return EstimateRevisionEngine.RevisionState.valueOf(
+                    evidence.fundamentals().estimateRevision());
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            return EstimateRevisionEngine.RevisionState.MISSING;
+        }
     }
 
     private static List<String> changeConditions(

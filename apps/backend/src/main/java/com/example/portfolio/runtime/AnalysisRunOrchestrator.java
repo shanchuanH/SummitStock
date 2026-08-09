@@ -21,6 +21,8 @@ public class AnalysisRunOrchestrator {
             "COLLECT_FUNDAMENTALS",
             "NORMALIZE_FINANCIALS",
             "COMPUTE_FINANCIAL_HEALTH",
+            "COLLECT_ESTIMATES",
+            "COMPUTE_REVISIONS",
             "COMPUTE_INDICATORS",
             "COLLECT_BREADTH_MACRO",
             "COMPUTE_REGIME",
