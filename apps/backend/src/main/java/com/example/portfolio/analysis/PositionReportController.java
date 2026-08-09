@@ -67,6 +67,7 @@ public final class PositionReportController {
                         value.analysisStatus(),
                         value.exactQuantityAllowed(),
                         strings(value.ruleIds()),
+                        strings(value.evidenceRefs()),
                         value.strategyVersion(),
                         value.configHash()),
                 assetEvidence(evidence),
@@ -176,6 +177,7 @@ public final class PositionReportController {
             String analysisStatus,
             boolean exactQuantityAllowed,
             List<String> ruleIds,
+            List<String> evidenceRefs,
             String strategyVersion,
             String configHash) {}
 

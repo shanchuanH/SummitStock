@@ -9,6 +9,8 @@ public enum RecommendationAction {
     TRIM,
     REDUCE_HALF,
     EXIT,
+    DEPLOY_DIP_TRANCHE,
+    PAUSE_NEW_RISK,
     WAIT_FOR_DATA,
     WAIT_FOR_CONFIRMATION,
     WATCH,

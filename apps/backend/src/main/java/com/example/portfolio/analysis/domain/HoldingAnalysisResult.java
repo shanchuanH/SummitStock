@@ -21,6 +21,7 @@ public record HoldingAnalysisResult(
         List<String> risks,
         List<String> changeConditions,
         List<String> ruleIds,
+        List<String> evidenceRefs,
         String strategyVersion,
         String configHash,
         Instant dataAsOf,
@@ -31,5 +32,6 @@ public record HoldingAnalysisResult(
         risks = List.copyOf(risks);
         changeConditions = List.copyOf(changeConditions);
         ruleIds = List.copyOf(ruleIds);
+        evidenceRefs = List.copyOf(evidenceRefs);
     }
 }

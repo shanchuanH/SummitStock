@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.portfolio.analysis.decision.RecommendationConflictResolver;
 import com.example.portfolio.analysis.domain.RecommendationAction;
 import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import java.util.List;

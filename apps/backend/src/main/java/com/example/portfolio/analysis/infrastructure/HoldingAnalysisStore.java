@@ -32,13 +32,13 @@ public class HoldingAnalysisStore {
                             id, position_id, strategy_version, analysis_status, readiness, confidence,
                             current_weight, target_weight_min, target_weight_max, exact_quantity_allowed,
                             recommended_action, recommended_quantity_min, recommended_quantity_max,
-                            reasons, risks, change_conditions, rule_ids, evidence_checksum, config_hash,
+                            reasons, risks, change_conditions, rule_ids, evidence_refs, evidence_checksum, config_hash,
                             data_as_of, valid_until, created_at
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:positionId), :strategyVersion, :analysisStatus,
                             :readiness, :confidence, :currentWeight, :targetMin, :targetMax, :exactQuantity,
                             :action, :quantityMin, :quantityMax, CAST(:reasons AS JSON), CAST(:risks AS JSON),
-                            CAST(:conditions AS JSON), CAST(:rules AS JSON), :checksum, :configHash,
+                            CAST(:conditions AS JSON), CAST(:rules AS JSON), CAST(:evidenceRefs AS JSON), :checksum, :configHash,
                             :dataAsOf, :validUntil, :createdAt
                         )
                         """)
@@ -59,6 +59,7 @@ public class HoldingAnalysisStore {
                 .param("risks", serialize(value.risks()))
                 .param("conditions", serialize(value.changeConditions()))
                 .param("rules", serialize(value.ruleIds()))
+                .param("evidenceRefs", serialize(value.evidenceRefs()))
                 .param("checksum", value.evidenceChecksum())
                 .param("configHash", value.configHash())
                 .param("dataAsOf", value.dataAsOf())
@@ -105,13 +106,13 @@ public class HoldingAnalysisStore {
                             id, user_id, position_id, holding_analysis_id, strategy_version, action, priority,
                             quantity_min, quantity_max, target_weight_min, target_weight_max,
                             risk_before_fraction, risk_after_fraction, confidence, reasons, risks,
-                            change_conditions, rule_ids, evidence_checksum, data_as_of, valid_until, status,
+                            change_conditions, rule_ids, evidence_refs, evidence_checksum, data_as_of, valid_until, status,
                             winning_rule, suppressed_candidates, resolution_reason, config_hash, created_at
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:userId), UUID_TO_BIN(:positionId), UUID_TO_BIN(:analysisId),
                             :strategyVersion, :action, :priority, :quantityMin, :quantityMax, :targetMin, :targetMax,
                             NULL, NULL, :confidence, CAST(:reasons AS JSON), CAST(:risks AS JSON),
-                            CAST(:conditions AS JSON), CAST(:rules AS JSON), :checksum, :dataAsOf, :validUntil,
+                            CAST(:conditions AS JSON), CAST(:rules AS JSON), CAST(:evidenceRefs AS JSON), :checksum, :dataAsOf, :validUntil,
                             'ACTIVE', :winningRule, CAST(:suppressed AS JSON), :resolutionReason, :configHash, :createdAt
                         ) ON DUPLICATE KEY UPDATE
                             status='ACTIVE', valid_until=VALUES(valid_until), holding_analysis_id=VALUES(holding_analysis_id)
@@ -132,6 +133,7 @@ public class HoldingAnalysisStore {
                 .param("risks", serialize(analysis.risks()))
                 .param("conditions", serialize(analysis.changeConditions()))
                 .param("rules", serialize(analysis.ruleIds()))
+                .param("evidenceRefs", serialize(analysis.evidenceRefs()))
                 .param("checksum", recommendationChecksum)
                 .param("dataAsOf", analysis.dataAsOf())
                 .param("validUntil", analysis.validUntil())
@@ -166,6 +168,7 @@ public class HoldingAnalysisStore {
                                h.recommended_quantity_min recommendedQuantityMin,
                                h.recommended_quantity_max recommendedQuantityMax,
                                h.reasons, h.risks, h.change_conditions changeConditions, h.rule_ids ruleIds,
+                               h.evidence_refs evidenceRefs,
                                h.strategy_version strategyVersion, h.config_hash configHash,
                                h.data_as_of dataAsOf, h.valid_until validUntil,
                                BIN_TO_UUID(r.id) recommendationId, r.action recommendationAction,
@@ -228,6 +231,7 @@ public class HoldingAnalysisStore {
             String risks,
             String changeConditions,
             String ruleIds,
+            String evidenceRefs,
             String strategyVersion,
             String configHash,
             LocalDateTime dataAsOf,

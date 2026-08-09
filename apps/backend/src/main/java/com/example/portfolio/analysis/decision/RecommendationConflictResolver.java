@@ -1,4 +1,4 @@
-package com.example.portfolio.analysis.application;
+package com.example.portfolio.analysis.decision;
 
 import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
@@ -9,8 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public final class RecommendationConflictResolver {
     public RecommendationResolution resolve(List<RecommendationCandidate> candidates) {
-        if (candidates.isEmpty())
-            throw new IllegalArgumentException("At least one recommendation candidate is required");
+        if (candidates.isEmpty()) throw new IllegalArgumentException("At least one candidate is required");
         var ordered = candidates.stream()
                 .sorted(Comparator.comparingInt(RecommendationCandidate::riskRank)
                         .thenComparing(RecommendationCandidate::ruleId))

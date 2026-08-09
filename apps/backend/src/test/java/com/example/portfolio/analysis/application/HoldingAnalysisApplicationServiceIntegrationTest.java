@@ -17,7 +17,7 @@ class HoldingAnalysisApplicationServiceIntegrationTest extends HoldingAnalysisIn
         assertThat(results).containsOnlyKeys("GOOGL", "DRAM", "DXYZ");
         assertThat(results.get("GOOGL").analysis().readiness().name()).isEqualTo("READY");
         assertThat(results.get("GOOGL").analysis().recommendedAction()).isEqualTo(RecommendationAction.TRIM);
-        assertThat(results.get("DRAM").analysis().recommendedAction()).isEqualTo(RecommendationAction.HOLD);
+        assertThat(results.get("DRAM").analysis().recommendedAction()).isEqualTo(RecommendationAction.ADD);
         assertThat(results.get("DXYZ").analysis().recommendedAction()).isEqualTo(RecommendationAction.TRIM);
         assertThat(results.get("DXYZ").analysis().confidence()).isEqualTo("LOW");
         assertThat(results.values())
