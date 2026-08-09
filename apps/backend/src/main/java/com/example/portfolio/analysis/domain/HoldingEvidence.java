@@ -74,7 +74,11 @@ public record HoldingEvidence(
 
     public record PriceBar(LocalDate marketDate, BigDecimal close, boolean completed) {}
 
-    public record IndicatorSet(boolean trendAvailable, boolean aboveTrend, Double rsi, Double atr) {}
+    public record IndicatorSet(boolean trendAvailable, boolean aboveTrend, Double rsi, Double atr, String priceState) {
+        public IndicatorSet(boolean trendAvailable, boolean aboveTrend, Double rsi, Double atr) {
+            this(trendAvailable, aboveTrend, rsi, atr, aboveTrend ? "UPTREND" : "DOWNTREND");
+        }
+    }
 
     public record FundamentalSnapshot(
             boolean available,

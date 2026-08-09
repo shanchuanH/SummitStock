@@ -225,11 +225,21 @@ public final class HoldingEvidenceAssembler {
                 .list();
         var sma = indicator(values, "SMA_20");
         var latest = bars.isEmpty() ? null : bars.getFirst().close();
+        var priceState = jdbc.sql(
+                        "SELECT price_state FROM price_state_snapshot WHERE instrument_id=UUID_TO_BIN(:id) ORDER BY market_date DESC LIMIT 1")
+                .param("id", instrumentId.toString())
+                .query(String.class)
+                .optional()
+                .orElse(
+                        sma != null && latest != null && latest.compareTo(BigDecimal.valueOf(sma)) >= 0
+                                ? "UPTREND"
+                                : "DOWNTREND");
         return new HoldingEvidence.IndicatorSet(
                 sma != null,
                 sma != null && latest != null && latest.compareTo(BigDecimal.valueOf(sma)) >= 0,
                 indicator(values, "RSI_14"),
-                indicator(values, "ATR_14"));
+                indicator(values, "ATR_14"),
+                priceState);
     }
 
     private HoldingEvidence.FundamentalSnapshot fundamentals(UUID instrumentId) {

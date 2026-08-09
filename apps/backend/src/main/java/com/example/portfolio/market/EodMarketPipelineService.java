@@ -208,6 +208,8 @@ public class EodMarketPipelineService {
             var now = clock.instant();
             var writes = List.of(
                     snapshot(instrument.id(), date, "SMA_20", "period=20", Indicators.sma(bars, 20), checksum, now),
+                    snapshot(instrument.id(), date, "SMA_50", "period=50", Indicators.sma(bars, 50), checksum, now),
+                    snapshot(instrument.id(), date, "SMA_200", "period=200", Indicators.sma(bars, 200), checksum, now),
                     snapshot(instrument.id(), date, "EMA_20", "period=20", Indicators.ema(bars, 20), checksum, now),
                     snapshot(
                             instrument.id(),
@@ -218,6 +220,7 @@ public class EodMarketPipelineService {
                             checksum,
                             now),
                     snapshot(instrument.id(), date, "RSI_14", "period=14", Indicators.rsi(bars, 14), checksum, now),
+                    macdSnapshot(instrument.id(), date, bars, checksum, now),
                     snapshot(
                             instrument.id(),
                             date,
@@ -289,6 +292,33 @@ public class EodMarketPipelineService {
                 jsonArray(result.warnings()),
                 checksum,
                 "pipeline-v1",
+                now,
+                now);
+    }
+
+    private static IndicatorSnapshotWrite macdSnapshot(
+            UUID id, LocalDate date, List<QuantBar> bars, String checksum, Instant now) {
+        var result = Indicators.macd(bars, 12, 26, 9);
+        var value = result.value().map(Indicators.Macd::histogram).orElse(null);
+        var json = result.value()
+                .map(macd -> "{\"line\":" + macd.line() + ",\"signal\":" + macd.signal() + ",\"histogram\":"
+                        + macd.histogram() + "}")
+                .orElse(null);
+        return new IndicatorSnapshotWrite(
+                UUID.randomUUID(),
+                id,
+                date,
+                "MACD_12_26_9",
+                sha256("fast=12,slow=26,signal=9"),
+                true,
+                result.status().name(),
+                value,
+                json,
+                result.requiredObservations(),
+                result.actualObservations(),
+                jsonArray(result.warnings()),
+                checksum,
+                "pipeline-v2",
                 now,
                 now);
     }

@@ -27,6 +27,7 @@ public class AnalysisRunOrchestrator {
             "COMPUTE_VALUATION",
             "COMPUTE_EARNINGS_RISK",
             "COMPUTE_INDICATORS",
+            "COMPUTE_PRICE_STATE",
             "COLLECT_BREADTH_MACRO",
             "COMPUTE_REGIME",
             "SYNC_PORTFOLIO",

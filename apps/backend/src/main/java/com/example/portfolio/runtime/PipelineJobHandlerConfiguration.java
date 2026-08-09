@@ -9,6 +9,7 @@ import com.example.portfolio.fundamentals.FinancialFactNormalizationService;
 import com.example.portfolio.fundamentals.FinancialHealthApplicationService;
 import com.example.portfolio.fundamentals.FundamentalsCollectionService;
 import com.example.portfolio.market.EodMarketPipelineService;
+import com.example.portfolio.market.PriceStateApplicationService;
 import com.example.portfolio.portfolio.IntradayStopAlertService;
 import com.example.portfolio.valuation.ValuationApplicationService;
 import java.time.Clock;
@@ -161,6 +162,13 @@ class PipelineJobHandlerConfiguration {
         return handler(
                 "COMPUTE_INDICATORS",
                 context -> count(market.computeIndicators(payload(context, json).marketDate()), clock.instant()));
+    }
+
+    @Bean
+    JobHandler computePriceStateJobHandler(PriceStateApplicationService priceState, ObjectMapper json, Clock clock) {
+        return handler(
+                "COMPUTE_PRICE_STATE",
+                context -> success(priceState.computeAll(payload(context, json).marketDate()), clock.instant()));
     }
 
     @Bean

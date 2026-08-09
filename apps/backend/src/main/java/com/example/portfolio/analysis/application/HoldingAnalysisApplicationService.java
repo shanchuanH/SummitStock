@@ -347,9 +347,7 @@ public final class HoldingAnalysisApplicationService {
                         health(evidence),
                         valuation(evidence),
                         revision(evidence),
-                        evidence.indicators().aboveTrend()
-                                ? QualityValuationDecisionRule.PriceState.UPTREND
-                                : QualityValuationDecisionRule.PriceState.DOWNTREND,
+                        valuationPriceState(evidence.indicators().priceState()),
                         evidence.emergencyCash()
                                                 .amount()
                                                 .compareTo(evidence.strategy().emergencyCashFloor())
@@ -367,6 +365,16 @@ public final class HoldingAnalysisApplicationService {
                         normalMax,
                         evidence.valuation().priorStarterCount(),
                         evidence.valuation().independentConfirmation()));
+    }
+
+    private static QualityValuationDecisionRule.PriceState valuationPriceState(String value) {
+        return switch (value) {
+            case "STRONG_UPTREND", "UPTREND" -> QualityValuationDecisionRule.PriceState.UPTREND;
+            case "REVERSAL_CONFIRMED" -> QualityValuationDecisionRule.PriceState.REVERSAL_CONFIRMED;
+            case "NEUTRAL", "WEAK", "DOWNTREND", "REVERSAL_SETUP", "BREAKDOWN" ->
+                QualityValuationDecisionRule.PriceState.DOWNTREND;
+            default -> QualityValuationDecisionRule.PriceState.MISSING;
+        };
     }
 
     private static ValuationEngineV2.CompanyHealth health(HoldingEvidence evidence) {

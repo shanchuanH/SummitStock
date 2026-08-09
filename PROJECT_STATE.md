@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Transformation Phases T00-T05 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T06 is next; phases will continue in the V2 playbook order without pre-T08 visual restructuring.
+Transformation Phases T00-T06 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T07 is next; phases will continue in the V2 playbook order without pre-T08 visual restructuring.
 
 Transformation baseline: the first backend run failed only because Docker Desktop was not running (`ENVIRONMENT`, 40 Testcontainers initialization errors). After Docker was started, the unchanged baseline passed 108 backend tests (8 quant, 23 strategy, 6 backtest, 71 backend), 27 frontend tests, frontend lint, and production build. The existing frontend bundle-size warning remains non-blocking.
 
@@ -17,6 +17,8 @@ T03 adds a vendor-neutral `EstimateDataProvider`, canonical EPS/revenue estimate
 T04 replaces target-gap buying with canonical valuation evidence and quality-gated decisions. V18 stores trailing/forward P/E, EV/Sales, FCF yield, Price/Sales, market cap, separate 3Y/5Y own-history percentiles, growth-adjusted valuation, confidence, and durable starter-event state. `COMPUTE_VALUATION` now follows revisions. High-confidence deep discount requires at least 252 observations, healthy company evidence, and no strongly-negative revision. Quality `STARTER_BUY` and normal `ADD` enforce portfolio, thesis, stop, valuation, revision, trend, and capacity gates; starter sizing is 25% and underweight alone cannot buy. The full 133-test Maven suite passes (8 quant, 23 strategy, 6 backtest, 96 backend).
 
 T05 adds a provider-neutral 90-day earnings calendar, canonical earnings events, per-event post-release reaction snapshots, and recent 8–12 event statistics for absolute moves, gap tails, volume shock, and pre-event runup. V18.1 extends durable earnings risk with LOW/MEDIUM/HIGH/EXTREME states. Quality holdings can retain a core position, Tactical positions below 1R reduce only under high event risk, binary Speculative positions exit, and Thematic ETFs never inherit single-company earnings semantics. The main pipeline now collects the calendar and computes earnings risk; `POST_EARNINGS_REANALYSIS` refreshes fundamentals, estimates, reaction, thesis, valuation, holding analysis, and recommendations without allowing transcript summaries to create actions. The full 138-test Maven suite passes (8 quant, 23 strategy, 6 backtest, 101 backend).
+
+T06 adds durable eight-state price/trend evidence using SMA20/50/200, RSI, MACD, rolling-high drawdown, benchmark-relative strength, and six independent reversal signals; `REVERSAL_CONFIRMED` requires at least two. V18.2 stores the state and confirmation count, and Quality ADD now consumes it. The EOD pipeline no longer owns stop formulas: it supplies completed-bar structure/indicator evidence to strategy-core `StopEngine`, which owns configurable ATR volatility distance, exact structure/soft/catastrophic formulas, Core ETF exemption, and monotonic live stops. Formal EOD risk uses completed-bar close while intraday quotes remain isolated for catastrophic alerts. Speculative time-stop policy remains no-progress based and averaging down remains prohibited. The full 145-test Maven suite passes (9 quant, 29 strategy, 6 backtest, 101 backend), including the target-portfolio vertical acceptance.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -90,7 +92,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 
 ## Database
 
-- Flyway head: `V18_1__earnings_event_intelligence.sql`
+- Flyway head: `V18_2__price_state_v2.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -165,6 +167,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - T03 tests prove multi-window revisions, normalized dispersion, strongly-negative Quality ADD blocking, missing-estimate confidence reduction, and module-boundary integrity
 - T04 tests prove historical valuation percentiles, insufficient-history confidence gates, deep-discount starter rules, broken-company exclusion, and that underweight positions cannot buy when expensive or revision-negative
 - T05 tests prove recent earnings-reaction statistics, Quality core-hold policy, binary Speculative exits, Thematic ETF exclusion, and the ordered post-earnings evidence refresh chain
+- T06 tests prove StopEngine policy parity, monotonic live stops, exact ATR soft/catastrophic levels, Core ETF exemption, two-signal reversal confirmation, relative strength, and the full target-portfolio stop/risk chain
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -178,8 +181,8 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `2.0.0-draft` remains unpublished and local credentials remain placeholders.
-- T06-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T05.
+- T07-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T06.
 
 ## Next Step
 
-Implement Transformation Phase T06 in playbook order without beginning the pre-T08 visual redesign.
+Implement Transformation Phase T07 in playbook order without beginning the pre-T08 visual redesign.

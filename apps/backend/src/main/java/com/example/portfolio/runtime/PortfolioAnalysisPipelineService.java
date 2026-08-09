@@ -3,9 +3,13 @@ package com.example.portfolio.runtime;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.MarketContextService;
+import com.example.portfolio.quant.Indicators;
+import com.example.portfolio.quant.QuantBar;
 import com.example.portfolio.strategy.market.DrawdownEngine;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.market.MarketRegimeEngine;
+import com.example.portfolio.strategy.portfolio.HoldingClassification;
+import com.example.portfolio.strategy.position.StopEngine;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.nio.charset.StandardCharsets;
@@ -148,8 +152,10 @@ public class PortfolioAnalysisPipelineService {
         int affected = 0;
         for (var row : jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(p.id) position_id, COALESCE(p.average_cost,b.close_price) entry_price,
-                               b.close_price, atr.value_double atr
+                        SELECT BIN_TO_UUID(p.id) position_id,BIN_TO_UUID(i.id) instrument_id,p.classification,
+                               COALESCE(p.average_cost,b.close_price) entry_price,b.close_price,
+                               atr.value_double atr,ema.value_double ema20,high63.value_double rolling_high,
+                               (SELECT MAX(s.live_stop) FROM stop_snapshot s WHERE s.position_id=p.id) previous_live_stop
                         FROM position p
                         JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
@@ -158,25 +164,33 @@ public class PortfolioAnalysisPipelineService {
                                              WHERE x.instrument_id=i.id AND x.adjusted=TRUE AND x.market_date<=:marketDate)
                         JOIN indicator_snapshot atr ON atr.instrument_id=i.id AND atr.indicator_code='ATR_14'
                           AND atr.market_date=b.market_date AND atr.status='READY'
+                        JOIN indicator_snapshot ema ON ema.instrument_id=i.id AND ema.indicator_code='EMA_20'
+                          AND ema.market_date=b.market_date AND ema.status='READY'
+                        JOIN indicator_snapshot high63 ON high63.instrument_id=i.id AND high63.indicator_code='ROLLING_HIGH_63'
+                          AND high63.market_date=b.market_date AND high63.status='READY'
                         WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
-                          AND p.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
+                          AND p.classification<>'CASH_EQUIVALENT'
                         """)
                 .param("marketDate", marketDate)
                 .param("userId", userId.toString())
                 .query(StopInput.class)
                 .list()) {
             var atr = BigDecimal.valueOf(row.atr());
-            var structure =
-                    row.closePrice().subtract(atr.multiply(BigDecimal.TWO)).max(new BigDecimal("0.0001"));
-            var initial = structure
-                    .min(row.entryPrice().multiply(new BigDecimal("0.92")))
-                    .max(new BigDecimal("0.0001"));
-            var live = jdbc.sql("SELECT MAX(live_stop) FROM stop_snapshot WHERE position_id=UUID_TO_BIN(:id)")
-                    .param("id", row.positionId().toString())
-                    .query(BigDecimal.class)
-                    .optional()
-                    .orElse(initial)
-                    .max(initial);
+            var swing = confirmedSwingLow(row.instrumentId(), marketDate);
+            if (swing == null) continue;
+            var result = StopEngine.calculate(new StopEngine.Input(
+                    HoldingClassification.valueOf(row.classification()),
+                    row.entryPrice(),
+                    swing,
+                    atr,
+                    row.previousLiveStop(),
+                    null,
+                    BigDecimal.valueOf(row.ema20()),
+                    swing,
+                    row.closePrice(),
+                    BigDecimal.valueOf(row.rollingHigh()),
+                    null));
+            if (!result.ordinaryStopApplicable()) continue;
             var checksum = sha256(row + ":" + marketDate);
             affected += jdbc.sql(
                             """
@@ -186,8 +200,8 @@ public class PortfolioAnalysisPipelineService {
                                 close_confirmed, rule_ids, quality_status, evidence_checksum, data_as_of, created_at
                             ) VALUES (
                                 UUID_TO_BIN(:id), UUID_TO_BIN(:positionId), :strategy, :entry, :atr, :structure,
-                                :structure, :initial, :live, :soft, :catastrophic, FALSE,
-                                JSON_ARRAY('STOP.EOD.001'), 'HEALTHY', :checksum, :now, :now
+                                :volatility, :initial, :live, :soft, :catastrophic, :closeConfirmed,
+                                :rules, 'HEALTHY', :checksum, :now, :now
                             )
                             """)
                     .param("id", UUID.randomUUID().toString())
@@ -195,11 +209,14 @@ public class PortfolioAnalysisPipelineService {
                     .param("strategy", properties.strategyVersion())
                     .param("entry", row.entryPrice())
                     .param("atr", atr)
-                    .param("structure", structure)
-                    .param("initial", initial)
-                    .param("live", live)
-                    .param("soft", live.multiply(new BigDecimal("1.02")))
-                    .param("catastrophic", live.multiply(new BigDecimal("0.90")))
+                    .param("structure", result.structureStop())
+                    .param("volatility", result.volatilityStop())
+                    .param("initial", result.initialStop())
+                    .param("live", result.liveStop())
+                    .param("soft", result.softAlert())
+                    .param("catastrophic", result.catastrophicStop())
+                    .param("closeConfirmed", result.closeConfirmed())
+                    .param("rules", json(result.ruleIds()))
                     .param("checksum", checksum)
                     .param("now", clock.instant())
                     .update();
@@ -216,8 +233,9 @@ public class PortfolioAnalysisPipelineService {
                             cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at)
                         WITH evidence AS (
                             SELECT p.id,p.quantity,p.average_cost,p.market_value,i.asset_type,p.classification,
-                                   (SELECT q.last_price FROM quote q WHERE q.instrument_id=p.instrument_id
-                                    ORDER BY q.data_as_of DESC,q.created_at DESC LIMIT 1) last_price,
+                                   (SELECT b.close_price FROM price_bar b WHERE b.instrument_id=p.instrument_id
+                                    AND b.adjusted=TRUE AND b.quality_status='HEALTHY'
+                                    ORDER BY b.market_date DESC,b.created_at DESC LIMIT 1) last_price,
                                    (SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
                                     ORDER BY s.data_as_of DESC,s.created_at DESC LIMIT 1) live_stop
                             FROM position p JOIN investment_account a ON a.id=p.account_id
@@ -227,7 +245,7 @@ public class PortfolioAnalysisPipelineService {
                             SELECT e.*,:investable equity,
                                    CASE WHEN e.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
                                                   AND e.last_price IS NOT NULL AND e.live_stop IS NOT NULL
-                                        THEN GREATEST((COALESCE(e.average_cost,e.last_price)-e.live_stop)*e.quantity,0)
+                                        THEN GREATEST((e.last_price-e.live_stop)*e.quantity,0)
                                         ELSE 0 END risk_amount
                             FROM evidence e
                         )
@@ -376,6 +394,40 @@ public class PortfolioAnalysisPipelineService {
         return value ? 1 : 0;
     }
 
+    private BigDecimal confirmedSwingLow(UUID instrumentId, LocalDate marketDate) {
+        var bars = jdbc
+                .sql(
+                        """
+                        SELECT market_date date,open_price open,high_price high,low_price low,close_price close,volume
+                        FROM price_bar WHERE instrument_id=UUID_TO_BIN(:id) AND adjusted=TRUE AND market_date<=:date
+                        ORDER BY market_date DESC LIMIT 260
+                        """)
+                .param("id", instrumentId.toString())
+                .param("date", marketDate)
+                .query(StopBar.class)
+                .list()
+                .reversed()
+                .stream()
+                .map(row ->
+                        new QuantBar(row.date(), row.open(), row.high(), row.low(), row.close(), row.volume(), true))
+                .toList();
+        var confirmed = Indicators.confirmedSwingLow(bars, 2, 2)
+                .value()
+                .map(value -> BigDecimal.valueOf(value.price()))
+                .orElse(null);
+        if (confirmed != null || bars.size() < 5) return confirmed;
+        return bars.subList(Math.max(0, bars.size() - 22), bars.size() - 2).stream()
+                .map(QuantBar::low)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+    }
+
+    private static String json(java.util.List<String> values) {
+        return values.stream()
+                .map(value -> "\"" + value.replace("\"", "\\\"") + "\"")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
+    }
+
     private static String sha256(String value) {
         try {
             return HexFormat.of()
@@ -387,7 +439,19 @@ public class PortfolioAnalysisPipelineService {
 
     record PortfolioTotals(BigDecimal invested, BigDecimal cash, BigDecimal largest) {}
 
-    record StopInput(UUID positionId, BigDecimal entryPrice, BigDecimal closePrice, double atr) {}
+    record StopInput(
+            UUID positionId,
+            UUID instrumentId,
+            String classification,
+            BigDecimal entryPrice,
+            BigDecimal closePrice,
+            double atr,
+            double ema20,
+            double rollingHigh,
+            BigDecimal previousLiveStop) {}
+
+    record StopBar(
+            LocalDate date, BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal close, BigDecimal volume) {}
 
     record BenchmarkRow(
             BigDecimal latestClose, BigDecimal average200, Double rsi, Double macd, Double realizedVolatility) {}
