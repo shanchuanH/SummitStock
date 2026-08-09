@@ -2,6 +2,9 @@ package com.example.portfolio.runtime;
 
 import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService;
 import com.example.portfolio.analysis.application.RecommendationGenerationService;
+import com.example.portfolio.fundamentals.FinancialFactNormalizationService;
+import com.example.portfolio.fundamentals.FinancialHealthApplicationService;
+import com.example.portfolio.fundamentals.FundamentalsCollectionService;
 import com.example.portfolio.market.EodMarketPipelineService;
 import com.example.portfolio.portfolio.IntradayStopAlertService;
 import java.time.Clock;
@@ -63,6 +66,46 @@ class PipelineJobHandlerConfiguration {
                 "COLLECT_CORPORATE_ACTIONS",
                 context -> count(
                         market.collectCorporateActions(payload(context, json).marketDate()), clock.instant()));
+    }
+
+    @Bean
+    JobHandler checkFilingsJobHandler(FundamentalsCollectionService fundamentals, DurableJobStore jobs, Clock clock) {
+        return handler("CHECK_FILINGS", context -> {
+            var result = fundamentals.checkFilings();
+            if (context.analysisRunId() == null && result.affected() > 0) {
+                enqueueNext(jobs, context, "COLLECT_FUNDAMENTALS", clock.instant());
+            }
+            return count(result, clock.instant());
+        });
+    }
+
+    @Bean
+    JobHandler collectFundamentalsJobHandler(
+            FundamentalsCollectionService fundamentals, DurableJobStore jobs, Clock clock) {
+        return handler("COLLECT_FUNDAMENTALS", context -> {
+            var result = fundamentals.collectFundamentals();
+            if (context.analysisRunId() == null) {
+                enqueueNext(jobs, context, "NORMALIZE_FINANCIALS", clock.instant());
+            }
+            return count(result, clock.instant());
+        });
+    }
+
+    @Bean
+    JobHandler normalizeFinancialsJobHandler(
+            FinancialFactNormalizationService normalization, DurableJobStore jobs, Clock clock) {
+        return handler("NORMALIZE_FINANCIALS", context -> {
+            var affected = normalization.normalizeAll();
+            if (context.analysisRunId() == null) {
+                enqueueNext(jobs, context, "COMPUTE_FINANCIAL_HEALTH", clock.instant());
+            }
+            return success(affected, clock.instant());
+        });
+    }
+
+    @Bean
+    JobHandler computeFinancialHealthJobHandler(FinancialHealthApplicationService financialHealth, Clock clock) {
+        return handler("COMPUTE_FINANCIAL_HEALTH", context -> success(financialHealth.computeAll(), clock.instant()));
     }
 
     @Bean
@@ -182,8 +225,25 @@ class PipelineJobHandlerConfiguration {
                 at);
     }
 
+    private static JobExecutionResult count(FundamentalsCollectionService.CollectionResult count, Instant at) {
+        var warnings = count.observations() == 0 ? List.of("NO_OBSERVATIONS") : List.<String>of();
+        return new JobExecutionResult(
+                warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
+                "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
+                warnings,
+                at);
+    }
+
     private static JobExecutionResult success(int affected, Instant at) {
         return JobExecutionResult.succeeded("{\"affected\":" + affected + "}", at);
+    }
+
+    private static void enqueueNext(
+            DurableJobStore jobs, JobExecutionContext context, String type, Instant scheduledAt) {
+        var base = context.idempotencyKey().replaceFirst(":(?:COLLECT_FUNDAMENTALS|NORMALIZE_FINANCIALS)$", "");
+        if (!jobs.enqueue(type, base + ":" + type, context.payloadJson(), 30, scheduledAt)) {
+            throw new IllegalStateException("Fundamentals dependency could not be enqueued: " + type);
+        }
     }
 
     private static PipelinePayload payload(JobExecutionContext context, ObjectMapper json) {

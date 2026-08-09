@@ -58,7 +58,9 @@ class SecProviderContractTest {
                 assertThat(fact.accessionNumber()).isEqualTo("0000789019-26-000001");
                 assertThat(fact.sourceUri()).contains("sec.gov/Archives/edgar");
             });
-            assertThat(facts.provenance().qualityStatus()).isEqualTo(ProviderModels.QualityStatus.HEALTHY);
+            assertThat(facts.provenance().qualityStatus()).isEqualTo(ProviderModels.QualityStatus.PARTIAL);
+            assertThat(facts.provenance().warnings())
+                    .contains("MISSING_METRIC:GrossProfit", "MISSING_METRIC:CurrentAssets", "MISSING_METRIC:CurrentLiabilities");
             assertThat(userAgent).hasValue("SummitStock test@example.test");
         }
     }

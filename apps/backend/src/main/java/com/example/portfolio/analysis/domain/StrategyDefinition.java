@@ -23,7 +23,8 @@ public record StrategyDefinition(
         PositionPolicy thematicEtf,
         PositionPolicy tactical,
         PositionPolicy speculative,
-        EtfDipPolicy etfDip) {
+        EtfDipPolicy etfDip,
+        FinancialHealthPolicy financialHealth) {
     public StrategyDefinition {
         if (version == null || version.isBlank()) throw new IllegalArgumentException("Strategy version is required");
         if (configHash == null || !configHash.matches("[a-f0-9]{64}")) {
@@ -54,4 +55,12 @@ public record StrategyDefinition(
             tranches = List.copyOf(tranches);
         }
     }
+
+    public record FinancialHealthPolicy(
+            BigDecimal revenueGrowthStrong,
+            BigDecimal revenueGrowthHealthy,
+            BigDecimal marginDeteriorationWarningPctPoints,
+            BigDecimal fcfMarginHealthy,
+            BigDecimal dilutionWarning,
+            BigDecimal netDebtToFcfWarning) {}
 }

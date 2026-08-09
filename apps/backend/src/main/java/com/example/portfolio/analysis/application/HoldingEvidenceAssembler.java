@@ -235,9 +235,16 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.FundamentalSnapshot fundamentals(UUID instrumentId) {
         return jdbc.sql(
                         """
-                        SELECT quality_status quality, MAX(data_as_of) dataAsOf
-                        FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN(:id)
-                        GROUP BY quality_status ORDER BY dataAsOf DESC LIMIT 1
+                        SELECT quality, dataAsOf FROM (
+                            SELECT quality, data_as_of dataAsOf, 0 source_priority
+                            FROM financial_health_snapshot WHERE instrument_id=UUID_TO_BIN(:id)
+                              AND overall_status<>'MISSING'
+                            UNION ALL
+                            SELECT quality_status quality, MAX(data_as_of) dataAsOf, 1 source_priority
+                            FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN(:id)
+                            GROUP BY quality_status
+                        ) evidence
+                        ORDER BY source_priority, dataAsOf DESC LIMIT 1
                         """)
                 .param("id", instrumentId.toString())
                 .query(QualityRow.class)

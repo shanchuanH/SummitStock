@@ -30,6 +30,12 @@ class ScheduledJobPlanner {
         jobs.enqueue("COLLECT_QUOTES", "quotes:" + slot, "{}", 20, clock.instant());
     }
 
+    @Scheduled(cron = "${portfolio.worker.filing-cron:0 0 21 * * MON-FRI}", zone = "UTC")
+    void filings() {
+        var date = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC);
+        jobs.enqueue("CHECK_FILINGS", "filings:" + date, "{\"marketDate\":\"" + date + "\"}", 30, clock.instant());
+    }
+
     @Scheduled(cron = "${portfolio.worker.eod-cron:0 15 22 * * MON-FRI}", zone = "UTC")
     void endOfDay() {
         orchestrator.scheduleForAllUsers(LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC), properties);

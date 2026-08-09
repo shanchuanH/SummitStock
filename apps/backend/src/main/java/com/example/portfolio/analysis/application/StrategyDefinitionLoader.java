@@ -74,7 +74,14 @@ public final class StrategyDefinitionLoader {
                             integer(values, "etfDip.requiredReversalSignals"),
                             decimals(values, "etfDip.tranchePctOfReserve"),
                             integer(values, "etfDip.cooldownTradingDays"),
-                            bool(values, "etfDip.requiresMarketDrivenDrawdown")));
+                            bool(values, "etfDip.requiresMarketDrivenDrawdown")),
+                    new StrategyDefinition.FinancialHealthPolicy(
+                            decimal(values, "financialHealth.revenueGrowthStrong"),
+                            decimal(values, "financialHealth.revenueGrowthHealthy"),
+                            decimal(values, "financialHealth.marginDeteriorationWarningPctPoints"),
+                            decimal(values, "financialHealth.fcfMarginHealthy"),
+                            decimal(values, "financialHealth.dilutionWarning"),
+                            decimal(values, "financialHealth.netDebtToFcfWarning")));
         } catch (IOException exception) {
             throw new IllegalStateException("Published strategy configuration is unavailable", exception);
         }

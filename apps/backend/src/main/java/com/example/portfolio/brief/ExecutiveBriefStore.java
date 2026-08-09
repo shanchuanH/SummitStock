@@ -26,9 +26,14 @@ class ExecutiveBriefStore {
                                )), 0) missing_market_positions,
                                COALESCE(SUM(p.classification IN ('QUALITY_STOCK','QUALITY_GROWTH_HIGH_VOL')), 0) required_fundamental_positions,
                                COALESCE(SUM(p.classification IN ('QUALITY_STOCK','QUALITY_GROWTH_HIGH_VOL') AND NOT EXISTS (
-                                   SELECT 1 FROM fundamental_observation f
+                                   SELECT 1 FROM financial_health_snapshot f
                                    WHERE f.instrument_id=p.instrument_id
-                                     AND f.quality_status NOT IN ('SUSPECT', 'MISSING')
+                                     AND f.quality NOT IN ('SUSPECT', 'MISSING')
+                                     AND f.overall_status<>'MISSING'
+                               ) AND NOT EXISTS (
+                                   SELECT 1 FROM fundamental_observation legacy
+                                   WHERE legacy.instrument_id=p.instrument_id
+                                     AND legacy.quality_status NOT IN ('SUSPECT', 'MISSING')
                                )), 0) missing_fundamental_positions,
                                COALESCE(SUM(EXISTS (
                                    SELECT 1 FROM holding_analysis_snapshot h WHERE h.position_id=p.id

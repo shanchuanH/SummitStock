@@ -245,10 +245,15 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
         mappings.put(
                 "Revenue",
                 List.of("RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet"));
+        mappings.put("GrossProfit", List.of("GrossProfit"));
         mappings.put("OperatingIncome", List.of("OperatingIncomeLoss"));
         mappings.put("NetIncome", List.of("NetIncomeLoss"));
         mappings.put("CashAndCashEquivalents", List.of("CashAndCashEquivalentsAtCarryingValue"));
-        mappings.put("LongTermDebt", List.of("LongTermDebtNoncurrent", "LongTermDebt"));
+        mappings.put(
+                "LongTermDebt",
+                List.of("LongTermDebtNoncurrent", "LongTermDebt", "LongTermDebtAndFinanceLeaseObligationsCurrent"));
+        mappings.put("CurrentAssets", List.of("AssetsCurrent"));
+        mappings.put("CurrentLiabilities", List.of("LiabilitiesCurrent"));
         mappings.put("ShareholdersEquity", List.of("StockholdersEquity"));
         mappings.put("OperatingCashFlow", List.of("NetCashProvidedByUsedInOperatingActivities"));
         mappings.put("CapitalExpenditures", List.of("PaymentsToAcquirePropertyPlantAndEquipment"));

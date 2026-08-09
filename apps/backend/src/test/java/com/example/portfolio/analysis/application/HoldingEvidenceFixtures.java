@@ -45,7 +45,14 @@ final class HoldingEvidenceFixtures {
                                 new BigDecimal("0.30"),
                                 new BigDecimal("0.25")),
                         5,
-                        true));
+                        true),
+                new StrategyDefinition.FinancialHealthPolicy(
+                        new BigDecimal("0.15"),
+                        new BigDecimal("0.05"),
+                        new BigDecimal("0.03"),
+                        new BigDecimal("0.10"),
+                        new BigDecimal("0.03"),
+                        new BigDecimal("3.0")));
         return new HoldingEvidence(
                 new HoldingEvidence.Position(
                         positionId,
