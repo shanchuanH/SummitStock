@@ -8,6 +8,7 @@ import com.example.portfolio.estimates.EstimateRevisionApplicationService;
 import com.example.portfolio.fundamentals.FinancialFactNormalizationService;
 import com.example.portfolio.fundamentals.FinancialHealthApplicationService;
 import com.example.portfolio.fundamentals.FundamentalsCollectionService;
+import com.example.portfolio.macro.MacroApplicationService;
 import com.example.portfolio.market.EodMarketPipelineService;
 import com.example.portfolio.market.PriceStateApplicationService;
 import com.example.portfolio.portfolio.IntradayStopAlertService;
@@ -172,12 +173,20 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
-    JobHandler collectBreadthMacroJobHandler(
-            PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
-        return handler(
-                "COLLECT_BREADTH_MACRO",
-                context -> success(
-                        portfolio.collectBreadthMacro(payload(context, json).marketDate()), clock.instant()));
+    JobHandler collectMacroJobHandler(
+            PortfolioAnalysisPipelineService portfolio, MacroApplicationService macro, ObjectMapper json, Clock clock) {
+        return handler("COLLECT_MACRO", context -> {
+            var date = payload(context, json).marketDate();
+            var result = macro.collect(date);
+            var breadth = portfolio.collectBreadthMacro(date);
+            var warnings = result.observations() == 0 ? List.of("MACRO_DATA_UNAVAILABLE") : List.<String>of();
+            return new JobExecutionResult(
+                    warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
+                    "{\"observations\":" + result.observations() + ",\"affected\":" + (result.affected() + breadth)
+                            + "}",
+                    warnings,
+                    clock.instant());
+        });
     }
 
     @Bean

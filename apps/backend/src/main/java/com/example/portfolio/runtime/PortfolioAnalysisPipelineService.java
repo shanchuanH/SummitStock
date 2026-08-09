@@ -3,6 +3,7 @@ package com.example.portfolio.runtime;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.MarketContextService;
+import com.example.portfolio.macro.MacroApplicationService;
 import com.example.portfolio.quant.Indicators;
 import com.example.portfolio.quant.QuantBar;
 import com.example.portfolio.strategy.market.DrawdownEngine;
@@ -28,6 +29,7 @@ public class PortfolioAnalysisPipelineService {
     private final MarketContextService contextService;
     private final PortfolioProperties properties;
     private final CapitalBaseService capitalBases;
+    private final MacroApplicationService macro;
     private final Clock clock;
 
     public PortfolioAnalysisPipelineService(
@@ -35,11 +37,13 @@ public class PortfolioAnalysisPipelineService {
             MarketContextService contextService,
             PortfolioProperties properties,
             CapitalBaseService capitalBases,
+            MacroApplicationService macro,
             Clock clock) {
         this.jdbc = jdbc;
         this.contextService = contextService;
         this.properties = properties;
         this.capitalBases = capitalBases;
+        this.macro = macro;
         this.clock = clock;
     }
 
@@ -63,8 +67,15 @@ public class PortfolioAnalysisPipelineService {
         var quality = spy.available() && qqq.available() ? EvidenceQuality.PARTIAL : EvidenceQuality.MISSING;
         double trend = (score(spy.above200()) + score(qqq.above200())) / 2.0;
         double momentum = qqq.rsi() == null ? 0 : Math.clamp(qqq.rsi() / 100.0, 0, 1);
-        double stressResilience =
-                qqq.realizedVolatility() == null ? 0 : 1 - Math.clamp(qqq.realizedVolatility() / 0.50, 0, 1);
+        var realizedStress = qqq.realizedVolatility() == null
+                ? null
+                : BigDecimal.valueOf(Math.clamp(qqq.realizedVolatility() / 0.50, 0, 1));
+        macro.computeFactors(marketDate, realizedStress);
+        var macroFactors = macro.latestFactors(marketDate);
+        double stressResilience = macroFactors.stressResilience() == null
+                ? realizedStress == null ? 0 : 1 - realizedStress.doubleValue()
+                : macroFactors.stressResilience().doubleValue();
+        var vix = macro.latestValue("VIXCLS", marketDate);
         var input = new MarketRegimeEngine.Input(
                 trend,
                 momentum,
@@ -72,7 +83,7 @@ public class PortfolioAnalysisPipelineService {
                 stressResilience,
                 spy.available() && !spy.above200(),
                 qqq.available() && !qqq.above200(),
-                0,
+                vix == null ? 0 : vix.doubleValue(),
                 breadth,
                 qqq.macd() != null && qqq.macd() < 0,
                 qqq.rsi() == null ? 0 : qqq.rsi(),
@@ -139,7 +150,7 @@ public class PortfolioAnalysisPipelineService {
                 breadth(marketDate),
                 stressLevel(marketDate),
                 totals.largest().divide(equity, MathContext.DECIMAL64).doubleValue(),
-                0,
+                largestClusterContribution(userId, equity),
                 EvidenceQuality.PARTIAL);
         return contextService
                         .calculateDrawdown(userId, input, "{}", "{}", clock.instant())
@@ -386,8 +397,26 @@ public class PortfolioAnalysisPipelineService {
     }
 
     private double stressLevel(LocalDate date) {
+        var macroStress = macro.latestFactors(date).stressResilience();
+        if (macroStress != null) return 1 - macroStress.doubleValue();
         var value = benchmark("QQQ", date).realizedVolatility();
         return value == null ? 0 : Math.clamp(value / 0.50, 0, 1);
+    }
+
+    private double largestClusterContribution(UUID userId, BigDecimal equity) {
+        if (equity.signum() <= 0) return 0;
+        var value = jdbc.sql(
+                        """
+                        SELECT COALESCE(MAX(cluster_value),0) FROM (
+                          SELECT SUM(p.market_value) cluster_value FROM risk_cluster_membership m
+                          JOIN risk_cluster c ON c.id=m.risk_cluster_id JOIN position p ON p.id=m.position_id
+                          WHERE c.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN' GROUP BY c.id
+                        ) clusters
+                        """)
+                .param("userId", userId.toString())
+                .query(BigDecimal.class)
+                .single();
+        return value.divide(equity, MathContext.DECIMAL64).doubleValue();
     }
 
     private static double score(boolean value) {
