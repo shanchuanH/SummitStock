@@ -25,7 +25,14 @@ public class EarningsEvidenceStore {
     }
 
     public List<Instrument> eligibleInstruments() {
-        return jdbc.sql("SELECT BIN_TO_UUID(id) id,symbol FROM instrument WHERE active=TRUE AND asset_type='EQUITY'")
+        return jdbc.sql(
+                        """
+                        SELECT DISTINCT BIN_TO_UUID(i.id) id,i.symbol
+                        FROM instrument i JOIN position p ON p.instrument_id=i.id
+                        WHERE i.active=TRUE AND p.status='OPEN'
+                          AND p.classification IN ('QUALITY_STOCK','QUALITY_GROWTH_HIGH_VOL','TACTICAL_STOCK',
+                            'CYCLICAL_TACTICAL','TURNAROUND_TACTICAL','SPECULATIVE')
+                        """)
                 .query(Instrument.class)
                 .list();
     }
@@ -231,7 +238,7 @@ public class EarningsEvidenceStore {
             String classification,
             BigDecimal positionWeight,
             BigDecimal profitCushionR,
-            java.time.Instant nextEventAt,
+            java.time.LocalDateTime nextEventAt,
             boolean binaryEvent) {
         public HoldingClassification holdingClassification() {
             return HoldingClassification.valueOf(classification);

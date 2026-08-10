@@ -39,7 +39,6 @@ public final class HoldingEvidenceReadiness {
                 evidence.fundamentals().available()
                                 && evidence.valuation().available()
                                 && evidence.nextEvent().available()
-                                && evidence.thesis().available()
                         ? qualityReadiness(evidence.quality())
                         : AnalysisReadiness.WAIT_FOR_FUNDAMENTALS;
             case SPECULATIVE ->

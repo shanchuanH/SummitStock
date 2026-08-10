@@ -73,6 +73,12 @@ public class DurableJobCoordinator {
         } catch (PermanentDataException exception) {
             permanent(job, safeCode(exception.code()));
         } catch (RuntimeException exception) {
+            log.error(
+                    "event=job_unexpected_failure jobId={} jobType={} exceptionType={}",
+                    job.id(),
+                    job.jobType(),
+                    exception.getClass().getName(),
+                    exception);
             permanent(job, "UNEXPECTED_JOB_FAILURE");
         }
         return true;

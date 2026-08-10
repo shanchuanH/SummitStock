@@ -50,6 +50,21 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void qualityAtNormalMaximumDoesNotAddBeforeHardCap() {
+        var evidence = qualityEvidence("STRONG", "FAIR", "POSITIVE", "UPTREND", "0.13");
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                new BigDecimal("0.04"),
+                new BigDecimal("0.08"),
+                new BigDecimal("0.12"),
+                new BigDecimal("0.15"));
+
+        assertThat(resolve(evidence, context, quality.evaluate(context)))
+                .isEqualTo(RecommendationAction.DO_NOT_ADD);
+    }
+
+    @Test
     void deepDiscountWithWeakTrendPermitsOnlyStarter() {
         var evidence = qualityEvidence("STRONG", "DEEP_DISCOUNT", "FLAT", "DOWNTREND", "0.01");
 
@@ -63,6 +78,40 @@ class AssetDecisionEngineV2Test {
 
         assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
                 .isEqualTo(RecommendationAction.ADD);
+    }
+
+    @Test
+    void cheapButWeakeningWithStronglyNegativeRevisionsDoesNotAdd() {
+        var evidence = qualityEvidence(
+                "WEAKENING", "DEEP_DISCOUNT", "STRONGLY_NEGATIVE", "REVERSAL_CONFIRMED", "0.01");
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.DO_NOT_ADD);
+    }
+
+    @Test
+    void missingEstimateCannotProduceAnExactNewBuyQuantity() {
+        var base = qualityEvidence("STRONG", "ATTRACTIVE", "MISSING", "REVERSAL_CONFIRMED", "0.01");
+        var evidence = copy(
+                base,
+                base.currentWeight(),
+                base.indicators(),
+                new HoldingEvidence.FundamentalSnapshot(
+                        true,
+                        EvidenceQuality.HEALTHY,
+                        base.dataAsOf(),
+                        "STRONG",
+                        "MISSING",
+                        EvidenceQuality.MISSING),
+                base.valuation(),
+                base.nextEvent(),
+                base.drawdown(),
+                base.stop());
+        var action = resolve(evidence, context(evidence), quality.evaluate(context(evidence)));
+
+        assertThat(action).isEqualTo(RecommendationAction.DO_NOT_ADD);
+        assertThat(PositionSizing.calculate(PositionSizingV2Fixtures.valid(action)).exactQuantityAllowed())
+                .isFalse();
     }
 
     @Test
@@ -94,7 +143,7 @@ class AssetDecisionEngineV2Test {
     @Test
     void marketDrivenFifteenPercentCanDeployCoreEtfDip() {
         var evidence = withDrawdown(
-                HoldingEvidenceFixtures.evidence("VOO", "ETF", HoldingClassification.CORE_BROAD_ETF),
+                HoldingEvidenceFixtures.evidence("QQQM", "ETF", HoldingClassification.CORE_TECH_ETF),
                 new BigDecimal("0.15"),
                 "ETF_DIP_MARKET_DRIVEN",
                 false);

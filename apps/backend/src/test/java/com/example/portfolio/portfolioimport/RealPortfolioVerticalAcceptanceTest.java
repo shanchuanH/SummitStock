@@ -14,11 +14,14 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 
+@TestPropertySource(properties = "portfolio.test.complete-provider-fixtures=true")
 class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupport {
     private static final Map<String, String> CLASSIFICATIONS = Map.ofEntries(
             Map.entry("GOOGL", "QUALITY_STOCK"),
@@ -63,6 +66,8 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
         assertThat(confirmed.path("compensationRowCount").asInt()).isEqualTo(1);
 
         confirmClassifications();
+        clearSharedMarketEvidence();
+        seedCompleteInputEvidence();
         seedTechnologyCluster();
         var coordinator = new DurableJobCoordinator(jobs, handlers, orchestrator, meters, clock);
         for (int iteration = 0; iteration < 50 && !terminal(runId); iteration++) {
@@ -73,7 +78,7 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
         assertThat(runStatus(runId)).isEqualTo("SUCCEEDED");
 
         var brief = getJson("/api/v1/brief/today");
-        assertThat(brief.path("state").asString()).isIn("ANALYSIS_READY", "PARTIAL_ANALYSIS");
+        assertThat(brief.path("state").asString()).isEqualTo("ANALYSIS_READY");
         assertThat(brief.path("mustAct").size()).isLessThanOrEqualTo(3);
         var summary = brief.path("summary");
         assertThat(summary.path("totalLiquidAssets").asString()).isEqualTo("117500");
@@ -110,6 +115,8 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                 .isNotBlank();
         assertThat(googl.at("/assetEvidence/portfolioContext/currentWeight").asString())
                 .isNotBlank();
+        assertThat(googl.at("/auditEvidence/exactQuantityAllowed").asBoolean()).isFalse();
+        assertThat(googl.at("/recommendation/quantityMax").isNull()).isTrue();
 
         var dram = report("DRAM");
         assertThat(dram.at("/assetEvidence/etf/etfModelApplied").asBoolean()).isTrue();
@@ -147,6 +154,22 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                 .isEqualTo(1);
     }
 
+    @AfterEach
+    void removeAcceptanceEvidence() {
+        clearSharedMarketEvidence();
+        update("DELETE p FROM instrument_analysis_profile p JOIN instrument i ON i.id=p.instrument_id "
+                + "WHERE p.source='IMPORTED_MAPPING' AND i.symbol IN ('DRAM','QQQM','VGT','VOO') "
+                + "AND p.evidence_checksum=SHA2(CONCAT('t15-fund-profile-',i.symbol),256)");
+        update("DELETE FROM company_event WHERE source='fixture-calendar'");
+        update("DELETE FROM earnings_event WHERE source='fixture-calendar'");
+        update("DELETE h FROM financial_health_snapshot h JOIN financial_period p ON p.id=h.period_id "
+                + "WHERE p.source LIKE 'https://fixture.sec/%'");
+        update("DELETE m FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id "
+                + "WHERE p.source LIKE 'https://fixture.sec/%'");
+        update("DELETE FROM financial_fact_observation WHERE source LIKE 'https://fixture.sec/%'");
+        update("DELETE FROM financial_period WHERE source LIKE 'https://fixture.sec/%'");
+    }
+
     private void confirmClassifications() throws Exception {
         var positions = getJson("/api/v1/positions");
         assertThat(positions.size()).isEqualTo(CLASSIFICATIONS.size());
@@ -179,6 +202,35 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                 + "FROM position p JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
                 + "JOIN instrument i ON i.id=p.instrument_id WHERE u.email='" + EMAIL
                 + "' AND i.symbol IN ('GOOGL','MSFT','QQQM','VGT','NVDA','TSLA')");
+    }
+
+    private void seedCompleteInputEvidence() {
+        update("UPDATE cash_bucket c JOIN app_user u ON u.id=c.user_id SET c.current_amount=2000 "
+                + "WHERE u.email='" + EMAIL + "' AND c.bucket_type='ALLOCATED_TRADE'");
+        update("INSERT INTO cash_bucket (id,user_id,account_id,bucket_type,target_amount,current_amount,currency,as_of,updated_at,version) "
+                + "SELECT UUID_TO_BIN(UUID()),u.id,a.id,'EMERGENCY',20000,20000,'USD',CURRENT_DATE,UTC_TIMESTAMP(6),0 "
+                + "FROM app_user u JOIN investment_account a ON a.user_id=u.id "
+                + "WHERE u.email='" + EMAIL + "' AND a.import_source='FIDELITY_CSV'");
+        update("INSERT INTO instrument_analysis_profile (id,instrument_id,profile_type,fund_profile_available,thematic,"
+                + "top_holding_concentration,fund_liquidity_status,portfolio_overlap_fraction,source,evidence_checksum,data_as_of,created_at) "
+                + "SELECT UUID_TO_BIN(UUID()),i.id,'FUND',TRUE,i.symbol='DRAM',0.12,'HEALTHY',0.18,'IMPORTED_MAPPING',"
+                + "SHA2(CONCAT('t15-fund-profile-',i.symbol),256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6) FROM instrument i "
+                + "WHERE i.symbol IN ('DRAM','QQQM','VGT','VOO')");
+    }
+
+    private void clearSharedMarketEvidence() {
+        var ownedSymbols = "('GOOGL','DRAM','DXYZ','MSFT','QQQM','VGT','NOK','AAOI','VOO','CSIQ','TSLA','SNDK','NVDA')";
+        update("DELETE s FROM price_state_snapshot s JOIN instrument i ON i.id=s.instrument_id WHERE i.symbol IN "
+                + ownedSymbols);
+        update("DELETE s FROM indicator_snapshot s JOIN instrument i ON i.id=s.instrument_id WHERE i.symbol IN "
+                + ownedSymbols);
+        update("DELETE q FROM quote q JOIN instrument i ON i.id=q.instrument_id WHERE i.symbol IN " + ownedSymbols);
+        update("DELETE b FROM price_bar b JOIN instrument i ON i.id=b.instrument_id WHERE i.symbol IN " + ownedSymbols);
+        update("DELETE a FROM corporate_action a JOIN instrument i ON i.id=a.instrument_id WHERE i.symbol IN "
+                + ownedSymbols);
+        update("DELETE FROM market_regime_snapshot");
+        update("DELETE FROM macro_factor_snapshot");
+        update("DELETE FROM macro_observation");
     }
 
     private JsonNode report(String symbol) throws Exception {

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Transformation Phases T00-T14 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. T15 is next; phases continue in the V2 playbook order.
+Transformation Phases T00-T15 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. The Analyst Intelligence V2 transformation playbook is fully implemented in order.
 
 Transformation baseline: the first backend run failed only because Docker Desktop was not running (`ENVIRONMENT`, 40 Testcontainers initialization errors). After Docker was started, the unchanged baseline passed 108 backend tests (8 quant, 23 strategy, 6 backtest, 71 backend), 27 frontend tests, frontend lint, and production build. The existing frontend bundle-size warning remains non-blocking.
 
@@ -31,6 +31,8 @@ T10 adds a provider-neutral analyst narration boundary whose input contains the 
 T11-T13 deliver the unified Executive Terminal, backend-owned Executive Brief V2 command-center fields, and quota-aware provider collection. The UI exposes honest readiness and missing evidence without inventing precision. V20 records daily provider usage by operation and P0-P4 priority; owned-holding quotes, filings, fundamentals, and estimates survive quota pressure while optional scanning pauses before exhaustion.
 
 T14 adds point-in-time gates for filings (`filed_at`), estimates (`data_as_of`), and earnings results (event availability), plus expanding non-overlapping OOS calibration. Portfolio metrics now include CAGR, maximum drawdown, annualized volatility, turnover, Average R, tail loss, time underwater, exposure, and SPY/QQQ-relative performance. V21 ties a strategy draft to a matching config-hash, successful bias-clear OOS backtest artifact and named human approval before publication. Backtest-core passes 10 tests and the MySQL strategy-governance integration test passes.
+
+T15 replaces permissive vertical acceptance with an exact `ANALYSIS_READY` gate. Its isolated fixture executes Import, Resolve, provider-backed market/filing/fact/event evidence, financial normalization, estimates, valuation, regime, drawdown, analysis, decision, sizing, brief, position report, and acknowledgement without inserting recommendation outcomes. The fixture protects $20,000 emergency cash, supplies explicit fund-profile input evidence, cleans global evidence before and after execution, and exposes no exact new-buy quantity when estimates are missing. It also fixed earnings-event `DATETIME` mapping, classification-routed earnings collection for Speculative positions, and actionable analysis without requiring a pre-existing user thesis. The shared-context Maven suite now passes 180 tests (9 quant, 33 strategy, 10 backtest, 128 backend); frontend passes 13 files/27 tests, lint, typecheck, generated-client build, and production build.
 
 Phase 0 removed the incorrect first-position/free-form classification flow and the hard-coded trade preview, made the Dashboard distinguish session, authentication, loading, empty-portfolio, and API-failure states, and prohibited unconfirmed “NO URGENT ACTION” conclusions. Fake providers are now restricted to the explicit `local-fixture` and `test` profiles; the default provider mode is disabled and unsafe non-fixture startup fails closed.
 
@@ -191,6 +193,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - T12 UI tests (7 focused Vitest cases), generated-client type checks, ESLint, and the Vite production build pass
 - T13 tests prove P0/P1 owned-holding evidence survives quota pressure, P3/P4 optional work pauses at 90% utilization, operations map to explicit P0-P4 priorities, and real provider requests persist daily usage and outcomes
 - T14 tests prove filing/estimate/earnings point-in-time availability, expanding OOS folds, all required portfolio calibration metrics, and mandatory matching backtest artifact plus approval before strategy publication
+- T15 tests prove exact `ANALYSIS_READY`, GOOGL normal-max restraint, deep-discount starter, confirmed reversal add, cheap/deteriorating rejection, QQQM market-drawdown deployment, DXYZ stop exit, missing-estimate quantity blocking, provider-evidence isolation, full report delivery, and acknowledgement without execution
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -204,9 +207,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `2.0.0-draft` remains unpublished and local credentials remain placeholders.
-- The complete shared-context backend suite consistently exposes an existing `openPlannedRiskFraction > 0` fixture-isolation failure in `RealPortfolioVerticalAcceptanceTest`; the same test passes in an isolated fresh MySQL container without code changes. The other 169 backend tests pass. This is unrelated to T11 frontend code and remains visible for a later test-isolation correction.
-- T15 end-to-end readiness hardening remains pending; no claim of full Analyst Intelligence V2 readiness is made after T14.
 
 ## Next Step
 
-Implement Transformation Phase T15 true end-to-end analyst readiness.
+Configure production provider credentials, run the documented deployment smoke checks, and publish a strategy version only after the T14 governance approval flow is satisfied.
