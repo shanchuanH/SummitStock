@@ -2089,6 +2089,18 @@
           "strategyVersion": {
             "type": "string"
           },
+          "strategyConfigHash": {
+            "type": "string"
+          },
+          "strategyPublishState": {
+            "type": "string"
+          },
+          "productionStrategy": {
+            "type": "boolean"
+          },
+          "draftStrategyOverride": {
+            "type": "boolean"
+          },
           "runtimeMode": {
             "type": "string"
           },

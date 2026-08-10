@@ -13,21 +13,25 @@ public class RecommendationGenerationService {
     private final HoldingAnalysisApplicationService analysis;
     private final HoldingAnalysisStore store;
     private final AnalystNarrationService narration;
+    private final PublishedStrategyService strategies;
     private final Clock clock;
 
     public RecommendationGenerationService(
             HoldingAnalysisApplicationService analysis,
             HoldingAnalysisStore store,
             AnalystNarrationService narration,
+            PublishedStrategyService strategies,
             Clock clock) {
         this.analysis = analysis;
         this.store = store;
         this.narration = narration;
+        this.strategies = strategies;
         this.clock = clock;
     }
 
     @Transactional
     public List<GeneratedRecommendation> generateAll(UUID userId) {
+        strategies.requireFormalRecommendationStrategy();
         var now = clock.instant();
         store.expireActive(userId);
         return analysis.analyzeAll(userId).stream()

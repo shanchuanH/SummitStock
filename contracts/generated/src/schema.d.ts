@@ -983,6 +983,10 @@ export interface components {
     VersionResponse: {
       version?: string;
       strategyVersion?: string;
+      strategyConfigHash?: string;
+      strategyPublishState?: string;
+      productionStrategy?: boolean;
+      draftStrategyOverride?: boolean;
       runtimeMode?: string;
       /** Format: date-time */
       dataAsOf?: string;

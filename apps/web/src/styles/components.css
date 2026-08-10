@@ -1,4 +1,7 @@
 .workspace-nav { position: sticky; top: 0; z-index: 20; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(14px); }
+.strategy-status-banner { position: sticky; top: 0; z-index: 40; display: flex; justify-content: center; gap: 14px; padding: 10px 20px; border-bottom: 1px solid var(--red); background: color-mix(in srgb, var(--red) 18%, var(--bg)); color: var(--text); font-size: 12px; letter-spacing: .03em; }
+.strategy-status-banner strong { color: var(--red); letter-spacing: .09em; }
+.strategy-status-banner span { color: var(--muted); }
 .workspace-nav > div { display: flex; align-items: stretch; gap: 4px; }
 .workspace-nav a { color: var(--muted); padding: 22px 14px 18px; border-bottom: 2px solid transparent; font-size: 14px; }
 .workspace-nav a.active { color: var(--text); border-color: var(--green); }

@@ -281,3 +281,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Earnings reaction windows now discard non-session bars and apply event timing against exchange sessions. `AFTER_CLOSE` correctly uses the event-session close as the pre-event anchor and starts the reaction on the next trading session.
 - Tests cover Good Friday, observed holidays, early-close completion boundaries, daylight-saving UTC offsets, shared session arithmetic, calendar versioning, and an after-close earnings event spanning Good Friday.
 - Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 167 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.
+
+## Hardening C1 - 2026-08-10
+
+- Formal recommendation generation now fails closed before expiring or inserting recommendations unless the runtime YAML version exists in `strategy_version`, its byte-level config hash matches, and the database release status is `PUBLISHED`.
+- `PORTFOLIO_ALLOW_DRAFT_STRATEGY` defaults to `false`. The explicit override permits a YAML `DRAFT` runtime only when the matching database row is also `DRAFT` with the same hash, or when the local draft has not yet been registered; test fixtures opt in through the test profile.
+- Runtime strategy state is exposed through the version contract with config hash, database publish state, production eligibility, and draft-override status. The generated TypeScript client was refreshed from that contract.
+- Every application route is wrapped by a shared strategy-status banner. A draft override is visibly labelled `DRAFT STRATEGY / NOT PRODUCTION`; an unverified runtime without an override is labelled blocked and states that formal ACTIVE recommendations are disabled.
+- Tests prove missing, DRAFT, hash-mismatched, and exact PUBLISHED release behavior; the existing recommendation integration test proves the explicit test override remains functional. UI tests prove draft warning visibility and suppression for a verified production strategy.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 170 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
