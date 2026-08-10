@@ -71,6 +71,19 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                        (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'CORE', 'CORE_TECH_ETF', TRUE, 2, 450, 1000, 'OPEN', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
                 """
                         .formatted(OWNER_POSITION, OWNER_ACCOUNT, SPY, OTHER_POSITION, OTHER_ACCOUNT, QQQ));
+        update(
+                """
+                INSERT INTO position_mark_snapshot (id,position_id,instrument_id,quantity,decision_price,
+                  marked_market_value,market_date,source_provider,quality_status,price_data_as_of,
+                  strategy_version,strategy_config_hash,evidence_checksum,data_as_of,created_at) VALUES
+                (UUID_TO_BIN('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1'),UUID_TO_BIN('%s'),UUID_TO_BIN('%s'),
+                  10.125,493.83950617,5000.125,CURRENT_DATE,'TEST_FIXTURE','HEALTHY',UTC_TIMESTAMP(6),
+                  'test',REPEAT('e',64),SHA2('owner-mark',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2'),UUID_TO_BIN('%s'),UUID_TO_BIN('%s'),
+                  2,500,1000,CURRENT_DATE,'TEST_FIXTURE','HEALTHY',UTC_TIMESTAMP(6),
+                  'test',REPEAT('e',64),SHA2('other-mark',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                """
+                        .formatted(OWNER_POSITION, SPY, OTHER_POSITION, QQQ));
         for (int index = 1; index <= 4; index++) {
             recommendation("20000000-0000-0000-0000-00000000000" + index, "MUST_ACT", "REVIEW_" + index, index);
         }
@@ -115,6 +128,8 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 + "'))");
         update("DELETE FROM portfolio_drawdown_snapshot WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('"
                 + OTHER + "'))");
+        update("DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('" + OWNER_POSITION
+                + "'), UUID_TO_BIN('" + OTHER_POSITION + "'))");
         update("DELETE FROM position WHERE account_id IN (UUID_TO_BIN('" + OWNER_ACCOUNT + "'), UUID_TO_BIN('"
                 + OTHER_ACCOUNT + "'))");
         update("DELETE FROM equity_snapshot WHERE account_id IN (UUID_TO_BIN('" + OWNER_ACCOUNT + "'), UUID_TO_BIN('"

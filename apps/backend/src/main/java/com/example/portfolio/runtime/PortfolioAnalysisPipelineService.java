@@ -1,6 +1,7 @@
 package com.example.portfolio.runtime;
 
 import com.example.portfolio.analysis.capital.CapitalBaseService;
+import com.example.portfolio.analysis.mark.PositionMarkService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.MarketContextService;
 import com.example.portfolio.macro.MacroApplicationService;
@@ -29,6 +30,7 @@ public class PortfolioAnalysisPipelineService {
     private final MarketContextService contextService;
     private final PortfolioProperties properties;
     private final CapitalBaseService capitalBases;
+    private final PositionMarkService positionMarks;
     private final MacroApplicationService macro;
     private final Clock clock;
 
@@ -37,12 +39,14 @@ public class PortfolioAnalysisPipelineService {
             MarketContextService contextService,
             PortfolioProperties properties,
             CapitalBaseService capitalBases,
+            PositionMarkService positionMarks,
             MacroApplicationService macro,
             Clock clock) {
         this.jdbc = jdbc;
         this.contextService = contextService;
         this.properties = properties;
         this.capitalBases = capitalBases;
+        this.positionMarks = positionMarks;
         this.macro = macro;
         this.clock = clock;
     }
@@ -117,23 +121,34 @@ public class PortfolioAnalysisPipelineService {
                 .param("now", clock.instant())
                 .param("userId", userId.toString())
                 .update();
-        capitalBases.capture(userId, clock.instant());
         return updated;
+    }
+
+    public PositionMarkService.CaptureResult capturePositionMarks(UUID userId) {
+        var result = positionMarks.captureForUser(userId, clock.instant());
+        capitalBases.capture(userId, clock.instant());
+        return result;
     }
 
     public int computeDrawdown(UUID userId, LocalDate marketDate) {
         var totals = jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(p.market_value),0) invested,
+                        SELECT COALESCE(SUM(m.marked_market_value),0) invested,
                                COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
                                          WHERE c.user_id=UUID_TO_BIN(:userId)),0) cash,
-                               COALESCE(MAX(p.market_value),0) largest
+                               COALESCE(MAX(m.marked_market_value),0) largest,
+                               COUNT(p.id) openPositions,COUNT(m.id) markCount
                         FROM position p JOIN investment_account a ON a.id=p.account_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         """)
                 .param("userId", userId.toString())
                 .query(PortfolioTotals.class)
                 .single();
+        if (totals.markCount() < totals.openPositions()
+                || capitalBases.calculate(userId).quality() != EvidenceQuality.HEALTHY) {
+            return 0;
+        }
         var equity = totals.invested().add(totals.cash());
         if (equity.signum() <= 0) throw new PermanentDataException("NO_PORTFOLIO_EQUITY", "Portfolio has no equity");
         var priorHigh = jdbc.sql(
@@ -243,14 +258,13 @@ public class PortfolioAnalysisPipelineService {
                             id,position_id,strategy_version,current_weight,open_risk_fraction,
                             cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at)
                         WITH evidence AS (
-                            SELECT p.id,p.quantity,p.average_cost,p.market_value,i.asset_type,p.classification,
-                                   (SELECT b.close_price FROM price_bar b WHERE b.instrument_id=p.instrument_id
-                                    AND b.adjusted=TRUE AND b.quality_status='HEALTHY'
-                                    ORDER BY b.market_date DESC,b.created_at DESC LIMIT 1) last_price,
+                            SELECT p.id,p.quantity,p.average_cost,m.marked_market_value market_value,
+                                   i.asset_type,p.classification,m.decision_price last_price,m.quality_status mark_quality,
                                    (SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
                                     ORDER BY s.data_as_of DESC,s.created_at DESC LIMIT 1) live_stop
                             FROM position p JOIN investment_account a ON a.id=p.account_id
                             JOIN instrument i ON i.id=p.instrument_id
+                            LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         ), calculated AS (
                             SELECT e.*,:investable equity,
@@ -261,13 +275,14 @@ public class PortfolioAnalysisPipelineService {
                             FROM evidence e
                         )
                         SELECT UUID_TO_BIN(UUID()),c.id,:strategy,
-                               CASE WHEN c.equity=0 THEN 0 ELSE c.market_value/c.equity END,
+                               CASE WHEN c.equity=0 OR c.market_value IS NULL THEN 0 ELSE c.market_value/c.equity END,
                                CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
                                CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
                                c.risk_amount,
-                               CASE WHEN c.last_price IS NULL OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
+                               CASE WHEN c.last_price IS NULL OR c.mark_quality<>'HEALTHY'
+                                      OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
                                     THEN 'MISSING' ELSE 'HEALTHY' END,
-                               SHA2(CONCAT(BIN_TO_UUID(c.id),':',c.market_value,':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',:now),256),
+                               SHA2(CONCAT(BIN_TO_UUID(c.id),':',COALESCE(c.market_value,''),':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',:now),256),
                                :now,:now
                         FROM calculated c WHERE c.equity>0
                         """)
@@ -408,8 +423,9 @@ public class PortfolioAnalysisPipelineService {
         var value = jdbc.sql(
                         """
                         SELECT COALESCE(MAX(cluster_value),0) FROM (
-                          SELECT SUM(p.market_value) cluster_value FROM risk_cluster_membership m
+                          SELECT SUM(pm.marked_market_value) cluster_value FROM risk_cluster_membership m
                           JOIN risk_cluster c ON c.id=m.risk_cluster_id JOIN position p ON p.id=m.position_id
+                          JOIN current_position_mark pm ON pm.position_id=p.id
                           WHERE c.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN' GROUP BY c.id
                         ) clusters
                         """)
@@ -466,7 +482,8 @@ public class PortfolioAnalysisPipelineService {
         }
     }
 
-    record PortfolioTotals(BigDecimal invested, BigDecimal cash, BigDecimal largest) {}
+    record PortfolioTotals(
+            BigDecimal invested, BigDecimal cash, BigDecimal largest, long openPositions, long markCount) {}
 
     record StopInput(
             UUID positionId,

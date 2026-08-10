@@ -48,10 +48,11 @@ public class PortfolioStore {
         return jdbc.sql(
                         """
                         SELECT
-                            COALESCE((SELECT SUM(p.market_value)
+                            COALESCE((SELECT SUM(m.marked_market_value)
                                       FROM position p
                                       JOIN investment_account a ON a.id = p.account_id
                                       JOIN app_user u ON u.id = a.user_id
+                                      JOIN current_position_mark m ON m.position_id=p.id
                                       WHERE u.email = :email AND p.status = 'OPEN'), 0) invested_value,
                             COALESCE((SELECT SUM(c.current_amount)
                                       FROM cash_bucket c JOIN app_user u ON u.id = c.user_id
@@ -61,9 +62,10 @@ public class PortfolioStore {
                                       JOIN investment_account a ON a.id = p.account_id
                                       JOIN app_user u ON u.id = a.user_id
                                       WHERE u.email = :email AND p.status = 'OPEN'), 0) open_positions,
-                            (SELECT MAX(e.data_as_of)
-                             FROM equity_snapshot e
-                             JOIN investment_account a ON a.id = e.account_id
+                            (SELECT MAX(m.data_as_of)
+                             FROM current_position_mark m
+                             JOIN position p ON p.id=m.position_id
+                             JOIN investment_account a ON a.id = p.account_id
                              JOIN app_user u ON u.id = a.user_id
                              WHERE u.email = :email) data_as_of
                         """)
@@ -77,11 +79,13 @@ public class PortfolioStore {
                         """
                         SELECT BIN_TO_UUID(p.id) id, BIN_TO_UUID(p.account_id) account_id,
                                i.symbol, p.bucket, p.classification, p.classification_confirmed,
-                               p.quantity, p.average_cost, p.market_value, p.status, p.version
+                               p.quantity, p.average_cost, COALESCE(m.marked_market_value,0) market_value,
+                               p.status, p.version
                         FROM position p
                         JOIN investment_account a ON a.id = p.account_id
                         JOIN app_user u ON u.id = a.user_id
                         JOIN instrument i ON i.id = p.instrument_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE u.email = :email
                         ORDER BY p.status, i.symbol, p.bucket
                         """)
@@ -95,11 +99,13 @@ public class PortfolioStore {
                         """
                         SELECT BIN_TO_UUID(p.id) id, BIN_TO_UUID(p.account_id) account_id,
                                i.symbol, p.bucket, p.classification, p.classification_confirmed,
-                               p.quantity, p.average_cost, p.market_value, p.status, p.version
+                               p.quantity, p.average_cost, COALESCE(m.marked_market_value,0) market_value,
+                               p.status, p.version
                         FROM position p
                         JOIN investment_account a ON a.id = p.account_id
                         JOIN app_user u ON u.id = a.user_id
                         JOIN instrument i ON i.id = p.instrument_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE u.email = :email AND p.id = UUID_TO_BIN(:id)
                         """)
                 .param("email", email)
@@ -113,19 +119,21 @@ public class PortfolioStore {
         return jdbc.sql(
                         """
                         WITH owned AS (
-                            SELECT p.*, i.symbol, i.asset_type,
+                            SELECT p.*, COALESCE(m.marked_market_value,0) canonical_market_value,
+                                   i.symbol, i.asset_type,
                                    COALESCE(JSON_UNQUOTE(JSON_EXTRACT(i.metadata,'$.name')),i.symbol) instrument_name,
                                    a.user_id
                             FROM position p
                             JOIN investment_account a ON a.id=p.account_id
                             JOIN app_user u ON u.id=a.user_id
                             JOIN instrument i ON i.id=p.instrument_id
+                            LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE u.email=:email AND p.status='OPEN'
                         )
                         SELECT BIN_TO_UUID(o.id) id, o.version, o.symbol, o.instrument_name name, o.asset_type assetType,
                                o.bucket, o.classification, o.classification_confirmed classificationConfirmed,
-                               o.market_value marketValue,
-                               CASE WHEN :investable=0 THEN 0 ELSE o.market_value/:investable END currentWeight,
+                               o.canonical_market_value marketValue,
+                               CASE WHEN :investable=0 THEN 0 ELSE o.canonical_market_value/:investable END currentWeight,
                                h.target_weight_min targetWeightMin, h.target_weight_max targetWeightMax,
                                COALESCE(r.action,h.recommended_action,'WAIT_FOR_DATA') action,
                                COALESCE(r.priority,'WATCH') priority,
@@ -262,7 +270,7 @@ public class PortfolioStore {
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(r.id) id, BIN_TO_UUID(r.position_id) position_id,
-                               i.symbol, p.classification, p.market_value,
+                               i.symbol, p.classification,COALESCE(m.marked_market_value,0) market_value,
                                h.current_weight, r.action, r.priority, r.quantity_min, r.quantity_max,
                                r.target_weight_min, r.target_weight_max, r.risk_before_fraction,
                                r.risk_after_fraction, r.confidence, r.reasons, r.risks,
@@ -274,6 +282,7 @@ public class PortfolioStore {
                         JOIN app_user u ON u.id = r.user_id
                         LEFT JOIN position p ON p.id = r.position_id
                         LEFT JOIN instrument i ON i.id = p.instrument_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
                         LEFT JOIN quote q ON q.id=(SELECT x.id FROM quote x WHERE x.instrument_id=p.instrument_id
                             ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)

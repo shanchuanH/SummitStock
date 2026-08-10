@@ -205,6 +205,23 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
+    JobHandler capturePositionMarksJobHandler(
+            PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
+        return handler("CAPTURE_POSITION_MARKS", context -> {
+            var result = portfolio.capturePositionMarks(requiredUser(payload(context, json)));
+            var warnings = new java.util.ArrayList<String>();
+            if (result.missing() > 0) warnings.add("POSITION_MARK_MISSING");
+            if (result.stale() > 0) warnings.add("POSITION_MARK_STALE");
+            return new JobExecutionResult(
+                    result.healthy() ? "SUCCEEDED" : "PARTIAL",
+                    "{\"marked\":" + result.marked() + ",\"missing\":" + result.missing() + ",\"stale\":"
+                            + result.stale() + "}",
+                    warnings,
+                    clock.instant());
+        });
+    }
+
+    @Bean
     JobHandler computeDrawdownJobHandler(PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler("COMPUTE_DRAWDOWN_SOURCE", context -> {
             var payload = payload(context, json);

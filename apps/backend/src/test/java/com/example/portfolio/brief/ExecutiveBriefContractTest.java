@@ -6,6 +6,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.portfolio.MySqlIntegrationTest;
+import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.market.provider.TradingCalendar;
+import java.time.Clock;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +33,15 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @Autowired
+    private PositionMarkService positionMarks;
+
+    @Autowired
+    private TradingCalendar tradingCalendar;
+
+    @Autowired
+    private Clock clock;
 
     @BeforeEach
     void createContractUser() {
@@ -75,14 +88,14 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("ANALYSIS_READY"))
                 .andExpect(jsonPath("$.headline").value("1 item(s) require action; 0 item(s) require watching."))
-                .andExpect(jsonPath("$.summary.investedValue").value("102937"))
+                .andExpect(jsonPath("$.summary.investedValue").value("10100"))
                 .andExpect(jsonPath("$.summary.trackedCash").value("14000"))
                 .andExpect(jsonPath("$.summary.emergencyCash").value("10000"))
                 .andExpect(jsonPath("$.summary.tacticalReserve").value("4000"))
-                .andExpect(jsonPath("$.capital.totalLiquidAssets").value("116937"))
+                .andExpect(jsonPath("$.capital.totalLiquidAssets").value("24100"))
                 .andExpect(jsonPath("$.capital.emergencyReserve").value("10000"))
                 .andExpect(jsonPath("$.capital.deployableCash").value("4000"))
-                .andExpect(jsonPath("$.capital.investableAssets").value("106937"))
+                .andExpect(jsonPath("$.capital.investableAssets").value("14100"))
                 .andExpect(jsonPath("$.mustAct.length()").value(1))
                 .andExpect(jsonPath("$.mustAct[0].symbol").value("BRFT"))
                 .andExpect(jsonPath("$.dataReadiness.status").value("HEALTHY"))
@@ -121,6 +134,11 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
                 VALUES (UUID_TO_BIN('71000000-0000-0000-0000-000000000012'), UUID_TO_BIN('%s'), '1D', UTC_TIMESTAMP(6), CURRENT_DATE, 100, 102, 99, 101, 1000, TRUE, 'BRIEF_TEST', UTC_TIMESTAMP(6), REPEAT('7',64), 'v1', 'HEALTHY', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
                 """
                         .formatted(INSTRUMENT_ID));
+        jdbc.sql(
+                        "UPDATE price_bar SET market_date=:marketDate WHERE id=UUID_TO_BIN('71000000-0000-0000-0000-000000000012')")
+                .param("marketDate", tradingCalendar.latestCompletedSession(clock.instant()))
+                .update();
+        positionMarks.captureForUser(UUID.fromString(USER_ID), clock.instant());
         update(
                 """
                 INSERT INTO holding_analysis_snapshot (id, position_id, strategy_version, analysis_status, confidence, current_weight, exact_quantity_allowed, reasons, risks, change_conditions, rule_ids, evidence_checksum, data_as_of, valid_until, created_at)
@@ -138,6 +156,7 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
     private void cleanContractData() {
         update("DELETE FROM recommendation WHERE user_id=UUID_TO_BIN('" + USER_ID + "')");
         update("DELETE FROM holding_analysis_snapshot WHERE position_id=UUID_TO_BIN('" + POSITION_ID + "')");
+        update("DELETE FROM position_mark_snapshot WHERE position_id=UUID_TO_BIN('" + POSITION_ID + "')");
         update("DELETE FROM price_bar WHERE instrument_id=UUID_TO_BIN('" + INSTRUMENT_ID + "')");
         update("DELETE FROM position WHERE id=UUID_TO_BIN('" + POSITION_ID + "')");
         update("DELETE FROM cash_bucket WHERE user_id=UUID_TO_BIN('" + USER_ID + "')");

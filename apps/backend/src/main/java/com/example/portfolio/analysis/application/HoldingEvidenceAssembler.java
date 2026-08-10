@@ -126,9 +126,11 @@ public final class HoldingEvidenceAssembler {
                         SELECT BIN_TO_UUID(p.id) positionId, BIN_TO_UUID(a.user_id) userId,
                                BIN_TO_UUID(i.id) instrumentId, i.symbol, i.asset_type assetType, i.active,
                                p.classification, p.classification_confirmed classificationConfirmed,
-                               p.quantity, p.average_cost averageCost, p.market_value marketValue
+                               p.quantity, p.average_cost averageCost,
+                               COALESCE(m.marked_market_value,0) marketValue
                         FROM position p JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         ORDER BY i.symbol, p.id
                         """)
@@ -157,12 +159,13 @@ public final class HoldingEvidenceAssembler {
     private ClusterEvidence cluster(UUID positionId, BigDecimal liquid) {
         var value = jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(other.market_value*m.contribution_weight),0) clusterValue,
+                        SELECT COALESCE(SUM(marked.marked_market_value*m.contribution_weight),0) clusterValue,
                                COALESCE(MAX(r.cluster_risk_fraction),0) clusterRisk
                         FROM risk_cluster_membership own
                         JOIN risk_cluster c ON c.id=own.risk_cluster_id
                         JOIN risk_cluster_membership m ON m.risk_cluster_id=c.id
                         JOIN position other ON other.id=m.position_id AND other.status='OPEN'
+                        LEFT JOIN current_position_mark marked ON marked.position_id=other.id
                         LEFT JOIN position_risk_snapshot r ON r.position_id=other.id
                           AND r.data_as_of=(SELECT MAX(x.data_as_of) FROM position_risk_snapshot x
                                             WHERE x.position_id=other.id)

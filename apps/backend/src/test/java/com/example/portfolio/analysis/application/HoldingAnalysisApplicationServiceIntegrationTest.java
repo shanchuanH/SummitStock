@@ -26,8 +26,19 @@ class HoldingAnalysisApplicationServiceIntegrationTest extends HoldingAnalysisIn
 
     @Test
     void underweightAloneNeverTriggersAdd() {
-        jdbc.sql("UPDATE position SET market_value=100 WHERE id=UUID_TO_BIN('94000000-0000-0000-0000-000000000003')")
+        jdbc.sql(
+                        """
+                        INSERT INTO price_bar (id,instrument_id,timeframe,bar_start,market_date,open_price,high_price,
+                          low_price,close_price,volume,adjusted,provider,source_timestamp,checksum,
+                          normalization_version,quality_status,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN('97000000-0000-0000-0000-000000000004'),
+                          UUID_TO_BIN('93000000-0000-0000-0000-000000000003'),'1D',:asOf,:marketDate,2,2,2,2,
+                          1000,TRUE,'TEST_REVALUE',:asOf,SHA2('underweight',256),'v1','HEALTHY',:asOf,:asOf)
+                        """)
+                .param("asOf", clock.instant().plusSeconds(1))
+                .param("marketDate", tradingCalendar.latestCompletedSession(clock.instant()))
                 .update();
+        positionMarks.captureForUser(USER_ID, clock.instant().plusSeconds(1));
 
         var result = analysis.analyze(USER_ID, DXYZ_POSITION);
 

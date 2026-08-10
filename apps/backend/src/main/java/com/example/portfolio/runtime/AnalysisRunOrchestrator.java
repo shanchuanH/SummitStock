@@ -31,6 +31,7 @@ public class AnalysisRunOrchestrator {
             "COLLECT_MACRO",
             "COMPUTE_REGIME",
             "SYNC_PORTFOLIO",
+            "CAPTURE_POSITION_MARKS",
             "COMPUTE_DRAWDOWN_SOURCE",
             "RECALCULATE_STOPS",
             "UPDATE_THESES_EVENTS",

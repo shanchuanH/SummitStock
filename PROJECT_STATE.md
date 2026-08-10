@@ -2,6 +2,10 @@
 
 ## Current Phase
 
+Hardening Gate 0 completed on 2026-08-10 in commit `449977b`: the reproducible merge gates now include current pinned GitHub Actions, executable Maven wrapper metadata, Spotless UNIX line endings, dependency review, Gitleaks, pnpm audit, Docker build, frontend type/lint/unit/build/API/E2E gates, and a documented branch-protection contract. Local verification passed; remote GitHub branch-protection enforcement remains explicitly unverified because no authenticated GitHub session or CLI credential is available in this environment.
+
+Hardening A1 implements canonical mark-to-market as an append-only `position_mark_snapshot` plus deterministic latest-mark view. Completed adjusted daily closes now drive capital, weights, cluster contribution, drawdown/equity, holding evidence, earnings weights, portfolio APIs, and executive brief metrics; imported broker `market_value` remains provenance evidence only. Missing/stale marks propagate non-healthy capital quality and block exact sizing or drawdown rather than silently falling back. The analysis pipeline captures marks before portfolio-dependent computation. Regression coverage proves price revaluation without re-import, preservation of broker evidence, missing-mark fail-closed behavior, current-weight movement across a hard-cap boundary, and marked portfolio equity.
+
 Transformation Phases T00-T15 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. The Analyst Intelligence V2 transformation playbook is fully implemented in order.
 
 Transformation baseline: the first backend run failed only because Docker Desktop was not running (`ENVIRONMENT`, 40 Testcontainers initialization errors). After Docker was started, the unchanged baseline passed 108 backend tests (8 quant, 23 strategy, 6 backtest, 71 backend), 27 frontend tests, frontend lint, and production build. The existing frontend bundle-size warning remains non-blocking.

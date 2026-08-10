@@ -1,6 +1,9 @@
 package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.MySqlIntegrationTest;
+import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.market.provider.TradingCalendar;
+import java.time.Clock;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +29,15 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
 
     @Autowired
     protected RecommendationGenerationService recommendations;
+
+    @Autowired
+    protected PositionMarkService positionMarks;
+
+    @Autowired
+    protected TradingCalendar tradingCalendar;
+
+    @Autowired
+    protected Clock clock;
 
     @BeforeEach
     void seedHoldingEvidence() {
@@ -82,6 +94,13 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
                     """
                             .formatted(instrument, instrument, instrument, instrument));
         }
+        jdbc.sql("UPDATE price_bar SET market_date=:marketDate WHERE instrument_id IN "
+                        + "(UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),"
+                        + "UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),"
+                        + "UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))")
+                .param("marketDate", tradingCalendar.latestCompletedSession(clock.instant()))
+                .update();
+        positionMarks.captureForUser(USER_ID, clock.instant());
         update(
                 """
                 INSERT INTO fundamental_observation (id,instrument_id,metric_code,period_type,period_end,value_decimal,unit,currency,provider,source_timestamp,checksum,quality_status,data_as_of,created_at)
@@ -131,6 +150,8 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
                 "DELETE FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM indicator_snapshot WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
+        update(
+                "DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'))");
         update(
                 "DELETE FROM price_bar WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
         update(

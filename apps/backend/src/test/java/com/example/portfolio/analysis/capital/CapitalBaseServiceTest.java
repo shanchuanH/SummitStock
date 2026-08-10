@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.portfolio.MySqlIntegrationTest;
 import com.example.portfolio.analysis.application.HoldingEvidenceAssembler;
+import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.market.provider.TradingCalendar;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +29,15 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
 
     @Autowired
     HoldingEvidenceAssembler evidenceAssembler;
+
+    @Autowired
+    PositionMarkService positionMarks;
+
+    @Autowired
+    TradingCalendar calendar;
+
+    @Autowired
+    Clock clock;
 
     @BeforeEach
     void seed() {
@@ -59,6 +71,20 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
                 INSERT INTO cash_bucket (id,user_id,bucket_type,target_amount,current_amount,currency,as_of,updated_at)
                 VALUES (UUID_TO_BIN('a5000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a1000000-0000-0000-0000-000000000001'),'EMERGENCY',20000,20000,'USD',CURRENT_DATE,UTC_TIMESTAMP(6))
                 """);
+        var completedSession = calendar.latestCompletedSession(clock.instant());
+        jdbc.sql(
+                        """
+                        INSERT INTO price_bar (id,instrument_id,timeframe,bar_start,market_date,open_price,high_price,
+                          low_price,close_price,volume,adjusted,provider,source_timestamp,checksum,
+                          normalization_version,quality_status,data_as_of,created_at) VALUES
+                        (UUID_TO_BIN('a8000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000001'),'1D',:now,:date,100,100,100,100,1000,TRUE,'TEST',:now,SHA2('cap1',256),'v1','HEALTHY',:now,:now),
+                        (UUID_TO_BIN('a8000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000002'),'1D',:now,:date,100,100,100,100,1000,TRUE,'TEST',:now,SHA2('cap2',256),'v1','HEALTHY',:now,:now),
+                        (UUID_TO_BIN('a8000000-0000-0000-0000-000000000003'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000003'),'1D',:now,:date,100,100,100,100,1000,TRUE,'TEST',:now,SHA2('cap3',256),'v1','HEALTHY',:now,:now)
+                        """)
+                .param("now", clock.instant())
+                .param("date", completedSession)
+                .update();
+        positionMarks.captureForUser(USER, clock.instant());
     }
 
     @AfterEach
@@ -66,10 +92,14 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
         update(
                 "DELETE FROM portfolio_capital_snapshot WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
         update(
+                "DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000003'))");
+        update(
                 "DELETE FROM risk_cluster_membership WHERE position_id IN (UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'))");
         update("DELETE FROM risk_cluster WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
         update("DELETE FROM position WHERE account_id=UUID_TO_BIN('a2000000-0000-0000-0000-000000000001')");
         update("DELETE FROM cash_bucket WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM price_bar WHERE instrument_id IN (UUID_TO_BIN('a3000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000003'))");
         update(
                 "DELETE FROM instrument WHERE id IN (UUID_TO_BIN('a3000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000003'))");
         update("DELETE FROM investment_account WHERE id=UUID_TO_BIN('a2000000-0000-0000-0000-000000000001')");

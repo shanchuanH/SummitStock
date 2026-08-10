@@ -5,6 +5,7 @@ import com.example.portfolio.market.persistence.MarketDataStore.IndicatorSnapsho
 import com.example.portfolio.market.persistence.MarketDataStore.PriceBarWrite;
 import com.example.portfolio.market.provider.MarketDataProvider;
 import com.example.portfolio.market.provider.ProviderCallException;
+import com.example.portfolio.market.provider.TradingCalendar;
 import com.example.portfolio.quant.IndicatorResult;
 import com.example.portfolio.quant.Indicators;
 import com.example.portfolio.quant.QuantBar;
@@ -29,27 +30,38 @@ public class EodMarketPipelineService {
     private final JdbcClient jdbc;
     private final MarketDataStore store;
     private final MarketDataProvider provider;
+    private final TradingCalendar calendar;
     private final Clock clock;
 
-    public EodMarketPipelineService(JdbcClient jdbc, MarketDataStore store, MarketDataProvider provider, Clock clock) {
+    public EodMarketPipelineService(
+            JdbcClient jdbc,
+            MarketDataStore store,
+            MarketDataProvider provider,
+            TradingCalendar calendar,
+            Clock clock) {
         this.jdbc = jdbc;
         this.store = store;
         this.provider = provider;
+        this.calendar = calendar;
         this.clock = clock;
     }
 
     public StageCount collectBars(LocalDate marketDate) {
+        var completedSession = marketDate.isBefore(calendar.latestCompletedSession(clock.instant()))
+                ? marketDate
+                : calendar.latestCompletedSession(clock.instant());
         int observations = 0;
         int affected = 0;
         for (var instrument : trackedInstruments()) {
-            var latest = jdbc.sql(
-                            "SELECT MAX(market_date) FROM price_bar WHERE instrument_id=UUID_TO_BIN(:id) AND adjusted=TRUE")
+            var latest = jdbc.sql("SELECT MAX(market_date) FROM price_bar WHERE instrument_id=UUID_TO_BIN(:id) "
+                            + "AND adjusted=TRUE AND market_date<=:completedSession")
                     .param("id", instrument.id().toString())
+                    .param("completedSession", completedSession)
                     .query(LocalDate.class)
                     .optional()
-                    .orElse(marketDate.minusDays(370));
-            var from = latest.isBefore(marketDate) ? latest.plusDays(1) : marketDate;
-            var result = providerCall(() -> provider.fetchDailyBars(instrument.symbol(), from, marketDate));
+                    .orElse(completedSession.minusDays(370));
+            var from = latest.isBefore(completedSession) ? latest.plusDays(1) : completedSession;
+            var result = providerCall(() -> provider.fetchDailyBars(instrument.symbol(), from, completedSession));
             var now = clock.instant();
             var writes = result.bars().stream()
                     .map(bar -> new PriceBarWrite(
