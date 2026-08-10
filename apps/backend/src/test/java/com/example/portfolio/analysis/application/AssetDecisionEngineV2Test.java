@@ -60,8 +60,7 @@ class AssetDecisionEngineV2Test {
                 new BigDecimal("0.12"),
                 new BigDecimal("0.15"));
 
-        assertThat(resolve(evidence, context, quality.evaluate(context)))
-                .isEqualTo(RecommendationAction.DO_NOT_ADD);
+        assertThat(resolve(evidence, context, quality.evaluate(context))).isEqualTo(RecommendationAction.DO_NOT_ADD);
     }
 
     @Test
@@ -82,8 +81,7 @@ class AssetDecisionEngineV2Test {
 
     @Test
     void cheapButWeakeningWithStronglyNegativeRevisionsDoesNotAdd() {
-        var evidence = qualityEvidence(
-                "WEAKENING", "DEEP_DISCOUNT", "STRONGLY_NEGATIVE", "REVERSAL_CONFIRMED", "0.01");
+        var evidence = qualityEvidence("WEAKENING", "DEEP_DISCOUNT", "STRONGLY_NEGATIVE", "REVERSAL_CONFIRMED", "0.01");
 
         assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
                 .isEqualTo(RecommendationAction.DO_NOT_ADD);
@@ -97,12 +95,7 @@ class AssetDecisionEngineV2Test {
                 base.currentWeight(),
                 base.indicators(),
                 new HoldingEvidence.FundamentalSnapshot(
-                        true,
-                        EvidenceQuality.HEALTHY,
-                        base.dataAsOf(),
-                        "STRONG",
-                        "MISSING",
-                        EvidenceQuality.MISSING),
+                        true, EvidenceQuality.HEALTHY, base.dataAsOf(), "STRONG", "MISSING", EvidenceQuality.MISSING),
                 base.valuation(),
                 base.nextEvent(),
                 base.drawdown(),
@@ -110,7 +103,8 @@ class AssetDecisionEngineV2Test {
         var action = resolve(evidence, context(evidence), quality.evaluate(context(evidence)));
 
         assertThat(action).isEqualTo(RecommendationAction.DO_NOT_ADD);
-        assertThat(PositionSizing.calculate(PositionSizingV2Fixtures.valid(action)).exactQuantityAllowed())
+        assertThat(PositionSizing.calculate(PositionSizingV2Fixtures.valid(action))
+                        .exactQuantityAllowed())
                 .isFalse();
     }
 

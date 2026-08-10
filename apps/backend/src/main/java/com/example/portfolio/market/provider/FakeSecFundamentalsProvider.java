@@ -1,8 +1,8 @@
 package com.example.portfolio.market.provider;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,9 +36,7 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
         if (!completeFixtures) return new ProviderModels.FilingIndexResult(cik, List.of(), provenance(cik));
         var latest = latestPeriodEnd();
         return new ProviderModels.FilingIndexResult(
-                cik,
-                List.of(filing(cik, latest.minusYears(1)), filing(cik, latest)),
-                provenance(cik + "-filings"));
+                cik, List.of(filing(cik, latest.minusYears(1)), filing(cik, latest)), provenance(cik + "-filings"));
     }
 
     @Override

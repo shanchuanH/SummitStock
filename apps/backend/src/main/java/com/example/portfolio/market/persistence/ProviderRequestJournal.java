@@ -71,7 +71,8 @@ public class ProviderRequestJournal {
                 .param("metadata", responseMetadataJson)
                 .param("requestKey", requestKey)
                 .update();
-        jdbc.sql("""
+        jdbc.sql(
+                        """
                         UPDATE provider_usage_daily u JOIN provider_request p
                           ON p.provider=u.provider_id AND DATE(p.requested_at)=u.usage_date AND p.operation=u.operation
                         SET u.success_count=u.success_count+1,u.last_success_at=:now,u.last_error_code=NULL
@@ -98,7 +99,8 @@ public class ProviderRequestJournal {
                 .param("detail", detail)
                 .param("requestKey", requestKey)
                 .update();
-        jdbc.sql("""
+        jdbc.sql(
+                        """
                         UPDATE provider_usage_daily u JOIN provider_request p
                           ON p.provider=u.provider_id AND DATE(p.requested_at)=u.usage_date AND p.operation=u.operation
                         SET u.failure_count=u.failure_count+1,u.last_error_code=:errorCode

@@ -7,10 +7,17 @@ import org.junit.jupiter.api.Test;
 class ProviderCostControlTest {
     @Test
     void keepsCriticalOwnedHoldingEvidenceWhenOptionalWorkIsPaused() {
-        assertThat(ProviderCostControl.decide(90, 100, ProviderCostControl.Priority.P0).allowed()).isTrue();
-        assertThat(ProviderCostControl.decide(100, 100, ProviderCostControl.Priority.P1).allowed()).isTrue();
-        assertThat(ProviderCostControl.decide(90, 100, ProviderCostControl.Priority.P3).allowed()).isFalse();
-        assertThat(ProviderCostControl.decide(90, 100, ProviderCostControl.Priority.P4).reason())
+        assertThat(ProviderCostControl.decide(90, 100, ProviderCostControl.Priority.P0)
+                        .allowed())
+                .isTrue();
+        assertThat(ProviderCostControl.decide(100, 100, ProviderCostControl.Priority.P1)
+                        .allowed())
+                .isTrue();
+        assertThat(ProviderCostControl.decide(90, 100, ProviderCostControl.Priority.P3)
+                        .allowed())
+                .isFalse();
+        assertThat(ProviderCostControl.decide(90, 100, ProviderCostControl.Priority.P4)
+                        .reason())
                 .isEqualTo("OPTIONAL_WORK_PAUSED");
     }
 

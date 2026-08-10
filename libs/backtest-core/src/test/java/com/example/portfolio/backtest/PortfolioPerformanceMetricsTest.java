@@ -11,11 +11,12 @@ class PortfolioPerformanceMetricsTest {
     @Test
     void calculatesGovernanceMetricsFromChronologicalOutOfSampleCurve() {
         var start = LocalDate.parse("2026-01-02");
-        var report = new PortfolioPerformanceMetrics().aggregate(List.of(
-                new PortfolioPerformanceMetrics.Observation(start, 100, 0, 0, .5, 0),
-                new PortfolioPerformanceMetrics.Observation(start.plusDays(1), 110, .1, 1, .8, .02),
-                new PortfolioPerformanceMetrics.Observation(start.plusDays(2), 99, .2, -1, .6, -.01),
-                new PortfolioPerformanceMetrics.Observation(start.plusDays(3), 120, .1, 2, .7, .01)));
+        var report = new PortfolioPerformanceMetrics()
+                .aggregate(List.of(
+                        new PortfolioPerformanceMetrics.Observation(start, 100, 0, 0, .5, 0),
+                        new PortfolioPerformanceMetrics.Observation(start.plusDays(1), 110, .1, 1, .8, .02),
+                        new PortfolioPerformanceMetrics.Observation(start.plusDays(2), 99, .2, -1, .6, -.01),
+                        new PortfolioPerformanceMetrics.Observation(start.plusDays(3), 120, .1, 2, .7, .01)));
         assertThat(report.maxDrawdown()).isCloseTo(.1, within(1e-12));
         assertThat(report.turnover()).isCloseTo(.1, within(1e-12));
         assertThat(report.averageR()).isEqualTo(.5);

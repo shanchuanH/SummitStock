@@ -211,3 +211,17 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 ## Next Step
 
 Configure production provider credentials, run the documented deployment smoke checks, and publish a strategy version only after the T14 governance approval flow is satisfied.
+
+## Hardening Gate 0 — 2026-08-10
+
+- Git records `mvnw` as executable so Linux CI can invoke the wrapper directly.
+- GitHub Actions now use the current supported Node 24 action generations: checkout v7, setup-java v5, setup-node v6, pnpm setup v6, dependency review v5, and gitleaks action v3.
+- Spotless explicitly enforces UNIX line endings, making format checks reproducible across Windows workstations and Linux CI.
+- Existing Spotless violations in backtest/core and backend sources were mechanically normalized; no investment behavior or thresholds changed.
+- Main branch protection requirements and an operator verification procedure are documented in `docs/runbooks/branch-protection.md`.
+- Backend verification baseline: 9 quant, 33 strategy, 10 backtest, and 128 backend tests pass.
+- Frontend lint, typecheck, 27 Vitest tests, and production build pass. API generation completed; the first combined gate timed out while Git inspected pre-staged line-ending metadata and is rerun after this Gate 0 commit.
+- The workspace overrides transitive `js-yaml` to patched version 4.3.1; `pnpm audit --audit-level high` reports no known vulnerabilities.
+- Playwright's two browser journeys pass after bringing the stale Executive Brief fixture and acknowledgement interaction in line with the current generated API/UI contract.
+- Compose validation, the backend Docker image build, and a Gitleaks v8.30.1 scan of 25 commits pass with no leaks found.
+- GitHub `main` branch protection remains external-state NOT VERIFIED: this workstation has no `gh` CLI and the available browser session is not authenticated to repository settings. The required settings and verification drill are documented for application once authenticated administration is available.
