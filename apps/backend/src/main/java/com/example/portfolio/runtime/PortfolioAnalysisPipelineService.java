@@ -1,5 +1,6 @@
 package com.example.portfolio.runtime;
 
+import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
 import com.example.portfolio.configuration.PortfolioProperties;
@@ -31,6 +32,7 @@ public class PortfolioAnalysisPipelineService {
     private final PortfolioProperties properties;
     private final CapitalBaseService capitalBases;
     private final PositionMarkService positionMarks;
+    private final PortfolioAllocationService allocations;
     private final MacroApplicationService macro;
     private final Clock clock;
 
@@ -40,6 +42,7 @@ public class PortfolioAnalysisPipelineService {
             PortfolioProperties properties,
             CapitalBaseService capitalBases,
             PositionMarkService positionMarks,
+            PortfolioAllocationService allocations,
             MacroApplicationService macro,
             Clock clock) {
         this.jdbc = jdbc;
@@ -47,6 +50,7 @@ public class PortfolioAnalysisPipelineService {
         this.properties = properties;
         this.capitalBases = capitalBases;
         this.positionMarks = positionMarks;
+        this.allocations = allocations;
         this.macro = macro;
         this.clock = clock;
     }
@@ -127,6 +131,7 @@ public class PortfolioAnalysisPipelineService {
     public PositionMarkService.CaptureResult capturePositionMarks(UUID userId) {
         var result = positionMarks.captureForUser(userId, clock.instant());
         capitalBases.capture(userId, clock.instant());
+        allocations.capture(userId, clock.instant());
         return result;
     }
 

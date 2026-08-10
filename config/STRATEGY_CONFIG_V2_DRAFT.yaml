@@ -36,6 +36,8 @@ risk:
 allocation:
   broadUsCore: "0.35"
   techCore: "0.15"
+  broadUsCorePrimary: "VOO"
+  techCorePrimary: "QQQM"
 
 qualityStock:
   targetPct: ["0.04", "0.08"]

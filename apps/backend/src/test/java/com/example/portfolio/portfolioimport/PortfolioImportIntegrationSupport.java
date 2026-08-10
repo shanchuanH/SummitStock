@@ -73,6 +73,8 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
                 + "WHERE u.email='" + EMAIL + "'");
         update("DELETE d FROM portfolio_drawdown_snapshot d JOIN app_user u ON u.id=d.user_id WHERE u.email='" + EMAIL
                 + "'");
+        update("DELETE s FROM portfolio_allocation_snapshot s JOIN app_user u ON u.id=s.user_id WHERE u.email='" + EMAIL
+                + "'");
         update("DELETE c FROM compensation_holding c JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL + "'");
         update("DELETE s FROM position_snapshot s JOIN position p ON p.id=s.position_id "
                 + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "

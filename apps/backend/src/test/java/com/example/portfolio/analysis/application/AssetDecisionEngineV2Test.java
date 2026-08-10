@@ -2,6 +2,8 @@ package com.example.portfolio.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.portfolio.analysis.allocation.PortfolioSleeve;
+import com.example.portfolio.analysis.allocation.SleeveAllocation;
 import com.example.portfolio.analysis.decision.CoreEtfDecisionEngine;
 import com.example.portfolio.analysis.decision.DecisionContext;
 import com.example.portfolio.analysis.decision.PortfolioConstraintEngine;
@@ -148,10 +150,43 @@ class AssetDecisionEngineV2Test {
                 evidence.strategy().broadCoreTarget(),
                 evidence.strategy().broadCoreTarget(),
                 evidence.strategy().broadCoreTarget(),
-                null);
+                null,
+                new SleeveAllocation(
+                        PortfolioSleeve.TECH_CORE,
+                        BigDecimal.ZERO,
+                        new BigDecimal("0.10"),
+                        new BigDecimal("0.15"),
+                        new BigDecimal("0.05"),
+                        "QQQM",
+                        true,
+                        EvidenceQuality.HEALTHY));
 
         assertThat(resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context)))
                 .isEqualTo(RecommendationAction.DEPLOY_DIP_TRANCHE);
+    }
+
+    @Test
+    void satisfiedTechSleeveDoesNotBuyEitherConstituent() {
+        assertThat(coreEtfAction("QQQM", HoldingClassification.CORE_TECH_ETF, "0.15", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(coreEtfAction("VGT", HoldingClassification.CORE_TECH_ETF, "0.15", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void techSleeveGapIsAssignedOnlyToConfiguredPrimary() {
+        assertThat(coreEtfAction("QQQM", HoldingClassification.CORE_TECH_ETF, "0.10", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.BUY);
+        assertThat(coreEtfAction("VGT", HoldingClassification.CORE_TECH_ETF, "0.10", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void aggregateBroadSleeveAtTargetDoesNotBuy() {
+        assertThat(coreEtfAction("VOO", HoldingClassification.CORE_BROAD_ETF, "0.35", "0.35", "VOO"))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(coreEtfAction("SPY", HoldingClassification.CORE_BROAD_ETF, "0.35", "0.35", "VOO"))
+                .isEqualTo(RecommendationAction.HOLD);
     }
 
     @Test
@@ -250,6 +285,31 @@ class AssetDecisionEngineV2Test {
         var candidates = new ArrayList<>(constraints.evaluate(context));
         candidates.addAll(assetCandidates);
         return resolver.resolve(candidates).winner().action();
+    }
+
+    private RecommendationAction coreEtfAction(
+            String symbol, HoldingClassification classification, String sleeveWeight, String target, String primary) {
+        var evidence = HoldingEvidenceFixtures.evidence(symbol, "ETF", classification);
+        var sleeve = new SleeveAllocation(
+                classification == HoldingClassification.CORE_TECH_ETF
+                        ? PortfolioSleeve.TECH_CORE
+                        : PortfolioSleeve.BROAD_CORE,
+                BigDecimal.ZERO,
+                new BigDecimal(sleeveWeight),
+                new BigDecimal(target),
+                new BigDecimal(target).subtract(new BigDecimal(sleeveWeight)).max(BigDecimal.ZERO),
+                primary,
+                symbol.equals(primary),
+                EvidenceQuality.HEALTHY);
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                new BigDecimal(target),
+                new BigDecimal(target),
+                new BigDecimal(target),
+                null,
+                sleeve);
+        return resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context));
     }
 
     private static DecisionContext context(HoldingEvidence evidence) {

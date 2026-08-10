@@ -45,6 +45,8 @@ public final class StrategyDefinitionLoader {
                     decimal(values, "qualityStock.starterFractionOfTarget"),
                     decimal(values, "allocation.broadUsCore"),
                     decimal(values, "allocation.techCore"),
+                    required(values, "allocation.broadUsCorePrimary"),
+                    required(values, "allocation.techCorePrimary"),
                     policy(
                             values,
                             "qualityStock.targetPct",

@@ -3,6 +3,8 @@ package com.example.portfolio.analysis.capital;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.portfolio.MySqlIntegrationTest;
+import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
+import com.example.portfolio.analysis.allocation.PortfolioSleeve;
 import com.example.portfolio.analysis.application.HoldingEvidenceAssembler;
 import com.example.portfolio.analysis.mark.PositionMarkService;
 import com.example.portfolio.market.provider.TradingCalendar;
@@ -34,6 +36,9 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
     PositionMarkService positionMarks;
 
     @Autowired
+    PortfolioAllocationService allocations;
+
+    @Autowired
     TradingCalendar calendar;
 
     @Autowired
@@ -62,8 +67,8 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
         update(
                 """
                 INSERT INTO position (id,account_id,instrument_id,bucket,classification,classification_confirmed,classification_source,quantity,average_cost,market_value,status,opened_at,created_at,updated_at,data_readiness) VALUES
-                (UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a2000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000001'),'CORE','QUALITY_STOCK',TRUE,'USER_CONFIRMED',80,100,8000,'OPEN',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'RESOLVED'),
-                (UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a2000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000002'),'CORE','QUALITY_STOCK',TRUE,'USER_CONFIRMED',120,100,12000,'OPEN',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'RESOLVED'),
+                (UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a2000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000001'),'CORE','CORE_TECH_ETF',TRUE,'USER_CONFIRMED',80,100,8000,'OPEN',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'RESOLVED'),
+                (UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a2000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000002'),'CORE','CORE_TECH_ETF',TRUE,'USER_CONFIRMED',120,100,12000,'OPEN',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'RESOLVED'),
                 (UUID_TO_BIN('a4000000-0000-0000-0000-000000000003'),UUID_TO_BIN('a2000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a3000000-0000-0000-0000-000000000003'),'CORE','CORE_BROAD_ETF',TRUE,'USER_CONFIRMED',600,100,60000,'OPEN',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'RESOLVED')
                 """);
         update(
@@ -91,6 +96,8 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
     void cleanup() {
         update(
                 "DELETE FROM portfolio_capital_snapshot WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM portfolio_allocation_snapshot WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000003'))");
         update(
@@ -130,6 +137,17 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
     @Test
     void positionWeightUsesInvestableAssets() {
         assertThat(evidenceAssembler.assemble(USER, POSITION).currentWeight()).isEqualByComparingTo("0.1");
+    }
+
+    @Test
+    void allocationAggregatesMultiplePositionsIntoOneSleeve() {
+        var values = allocations.calculate(USER);
+
+        assertThat(values.get(PortfolioSleeve.TECH_CORE).markedMarketValue()).isEqualByComparingTo("20000");
+        assertThat(values.get(PortfolioSleeve.TECH_CORE).currentWeight()).isEqualByComparingTo("0.25");
+        assertThat(values.get(PortfolioSleeve.TECH_CORE).gapWeight()).isZero();
+        assertThat(values.get(PortfolioSleeve.BROAD_CORE).markedMarketValue()).isEqualByComparingTo("60000");
+        assertThat(allocations.capture(USER, clock.instant())).isEqualTo(PortfolioSleeve.values().length);
     }
 
     @Test

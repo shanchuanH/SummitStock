@@ -1,5 +1,6 @@
 package com.example.portfolio.analysis.application;
 
+import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.decision.AssetDecisionRouter;
 import com.example.portfolio.analysis.decision.DecisionContext;
 import com.example.portfolio.analysis.decision.PortfolioConstraintEngine;
@@ -31,6 +32,7 @@ public final class HoldingAnalysisApplicationService {
     private final PortfolioConstraintEngine portfolioConstraints;
     private final AssetDecisionRouter assetDecisions;
     private final HoldingAnalysisStore store;
+    private final PortfolioAllocationService allocations;
     private final Clock clock;
 
     public HoldingAnalysisApplicationService(
@@ -40,6 +42,7 @@ public final class HoldingAnalysisApplicationService {
             PortfolioConstraintEngine portfolioConstraints,
             AssetDecisionRouter assetDecisions,
             HoldingAnalysisStore store,
+            PortfolioAllocationService allocations,
             Clock clock) {
         this.evidenceAssembler = evidenceAssembler;
         this.freshness = freshness;
@@ -47,6 +50,7 @@ public final class HoldingAnalysisApplicationService {
         this.portfolioConstraints = portfolioConstraints;
         this.assetDecisions = assetDecisions;
         this.store = store;
+        this.allocations = allocations;
         this.clock = clock;
     }
 
@@ -102,7 +106,16 @@ public final class HoldingAnalysisApplicationService {
 
     private List<RecommendationCandidate> candidates(HoldingEvidence evidence, AnalysisReadiness state, Policy policy) {
         var context = new DecisionContext(
-                evidence, state, policy.targetMin(), policy.targetMax(), policy.normalMax(), policy.hardMax());
+                evidence,
+                state,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax(),
+                allocations.forPosition(
+                        evidence.position().userId(),
+                        evidence.position().classification(),
+                        evidence.instrument().symbol()));
         var values = new ArrayList<>(portfolioConstraints.evaluate(context));
         values.addAll(assetDecisions.evaluate(context));
         return List.copyOf(values);

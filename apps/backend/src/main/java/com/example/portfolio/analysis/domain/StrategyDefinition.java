@@ -19,6 +19,8 @@ public record StrategyDefinition(
         BigDecimal qualityStarterFraction,
         BigDecimal broadCoreTarget,
         BigDecimal techCoreTarget,
+        String broadCorePrimaryInstrument,
+        String techCorePrimaryInstrument,
         PositionPolicy quality,
         PositionPolicy thematicEtf,
         PositionPolicy tactical,
@@ -32,6 +34,12 @@ public record StrategyDefinition(
         }
         if (publishState == null || publishState.isBlank()) {
             throw new IllegalArgumentException("Strategy publish state is required");
+        }
+        if (broadCorePrimaryInstrument == null || broadCorePrimaryInstrument.isBlank()) {
+            throw new IllegalArgumentException("Broad-core primary instrument is required");
+        }
+        if (techCorePrimaryInstrument == null || techCorePrimaryInstrument.isBlank()) {
+            throw new IllegalArgumentException("Tech-core primary instrument is required");
         }
         if (!emergencyExcludedFromInvestableAssets) {
             throw new IllegalArgumentException("Emergency reserve must be excluded from investable assets");

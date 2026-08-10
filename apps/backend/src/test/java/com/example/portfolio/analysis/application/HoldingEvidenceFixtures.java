@@ -32,6 +32,8 @@ final class HoldingEvidenceFixtures {
                 new BigDecimal("0.25"),
                 new BigDecimal("0.35"),
                 new BigDecimal("0.15"),
+                "VOO",
+                "QQQM",
                 policy("0.04", "0.08", "0.12", "0.15", "0.004"),
                 policy("0.05", "0.08", "0.10", "0.10", "0.003"),
                 policy("0.02", "0.03", "0.05", "0.05", "0.003"),
