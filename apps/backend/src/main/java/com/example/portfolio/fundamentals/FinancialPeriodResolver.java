@@ -39,12 +39,12 @@ public final class FinancialPeriodResolver {
                 .filter(java.util.Objects::nonNull)
                 .min(LocalDate::compareTo)
                 .orElse(null);
-        var quarter =
-                key.periodType() == PeriodType.ANNUAL ? null : ((key.endDate().getMonthValue() - 1) / 3) + 1;
+        var fiscalYear = latest.fiscalYear() == null ? key.endDate().getYear() : latest.fiscalYear();
+        var quarter = key.periodType() == PeriodType.ANNUAL ? null : fiscalQuarter(latest.fiscalPeriod());
         var quality =
                 observations.size() >= 5 ? ProviderModels.QualityStatus.HEALTHY : ProviderModels.QualityStatus.PARTIAL;
         return new ResolvedPeriod(
-                key.endDate().getYear(),
+                fiscalYear,
                 quarter,
                 key.periodType(),
                 start,
@@ -55,6 +55,17 @@ public final class FinancialPeriodResolver {
                 latest.sourceUri(),
                 quality,
                 Map.copyOf(observations));
+    }
+
+    private static Integer fiscalQuarter(String value) {
+        if (value == null) return null;
+        return switch (value.strip().toUpperCase(java.util.Locale.ROOT)) {
+            case "Q1" -> 1;
+            case "Q2" -> 2;
+            case "Q3" -> 3;
+            case "Q4" -> 4;
+            default -> null;
+        };
     }
 
     private static ProviderModels.CompanyFact latestRestatement(
@@ -90,7 +101,11 @@ public final class FinancialPeriodResolver {
             String formType,
             String source,
             ProviderModels.QualityStatus quality,
-            Map<FinancialMetric, ProviderModels.CompanyFact> facts) {}
+            Map<FinancialMetric, ProviderModels.CompanyFact> facts) {
+        public String canonicalFiscalPeriod() {
+            return periodType == PeriodType.ANNUAL ? "FY" : fiscalQuarter == null ? null : "Q" + fiscalQuarter;
+        }
+    }
 
     private record PeriodKey(PeriodType periodType, LocalDate endDate) {}
 

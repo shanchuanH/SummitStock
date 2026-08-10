@@ -140,7 +140,37 @@ public final class ProviderModels {
             LocalDate filingDate,
             String accessionNumber,
             String form,
-            String sourceUri) {}
+            String sourceUri,
+            Integer fiscalYear,
+            String fiscalPeriod) {
+        public CompanyFact(
+                String businessMetric,
+                String taxonomy,
+                String concept,
+                String unit,
+                BigDecimal value,
+                LocalDate periodStart,
+                LocalDate periodEnd,
+                LocalDate filingDate,
+                String accessionNumber,
+                String form,
+                String sourceUri) {
+            this(
+                    businessMetric,
+                    taxonomy,
+                    concept,
+                    unit,
+                    value,
+                    periodStart,
+                    periodEnd,
+                    filingDate,
+                    accessionNumber,
+                    form,
+                    sourceUri,
+                    null,
+                    null);
+        }
+    }
 
     public record CompanyFactsResult(String cik, List<CompanyFact> facts, Provenance provenance) {
         public CompanyFactsResult {

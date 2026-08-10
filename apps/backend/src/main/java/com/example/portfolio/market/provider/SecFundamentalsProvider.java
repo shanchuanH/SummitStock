@@ -157,7 +157,9 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
                 filed,
                 accession,
                 form,
-                filingIndexSource(cik, accession));
+                filingIndexSource(cik, accession),
+                integer(node, "fy"),
+                text(node, "fp"));
     }
 
     private ProviderHttpClient.Payload get(String path) {
@@ -209,6 +211,11 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
     private static String text(JsonNode node, String field) {
         var value = node.get(field);
         return value == null || value.isNull() || value.asText().isBlank() ? null : value.asText();
+    }
+
+    private static Integer integer(JsonNode node, String field) {
+        var value = node.get(field);
+        return value == null || value.isNull() || !value.canConvertToInt() ? null : value.asInt();
     }
 
     private static LocalDate parseDate(String value, String label, boolean required) {

@@ -42,6 +42,40 @@ class FinancialMetricEngineTest {
         assertThat(result.values().get(FinancialMetric.SHARE_DILUTION_YOY)).isEqualByComparingTo("0.02");
     }
 
+    @Test
+    void comparesSameFiscalPeriodAcrossFiftyThreeWeekYear() {
+        var current = quarterly("2026-05-02", 2026, "120");
+        var prior = quarterly("2025-05-03", 2025, "100");
+
+        var result = new FinancialMetricEngine().compute(current, List.of(prior, current));
+
+        assertThat(result.values().get(FinancialMetric.REVENUE_YOY)).isEqualByComparingTo("0.2");
+    }
+
+    private static FinancialPeriodResolver.ResolvedPeriod quarterly(String end, int fiscalYear, String revenue) {
+        var fact = FinancialTestFixtures.factWithFiscal(
+                FinancialMetric.REVENUE,
+                revenue,
+                end,
+                java.time.LocalDate.parse(end).plusMonths(1).toString(),
+                "q1-" + fiscalYear,
+                "10-Q",
+                fiscalYear,
+                "Q1");
+        return new FinancialPeriodResolver.ResolvedPeriod(
+                fiscalYear,
+                1,
+                FinancialPeriodResolver.PeriodType.QUARTERLY,
+                fact.periodStart(),
+                fact.periodEnd(),
+                fact.filingDate(),
+                fact.accessionNumber(),
+                fact.form(),
+                fact.sourceUri(),
+                com.example.portfolio.market.provider.ProviderModels.QualityStatus.HEALTHY,
+                Map.of(FinancialMetric.REVENUE, fact));
+    }
+
     private static BigDecimal bd(String value) {
         return new BigDecimal(value);
     }

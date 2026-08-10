@@ -112,10 +112,12 @@ public class FinancialEvidenceStore {
                             INSERT IGNORE INTO financial_fact_observation (
                                 id, instrument_id, canonical_metric, taxonomy, concept, unit, value_decimal,
                                 period_start, period_end, filed_at, accession_number, form_type, source,
+                                provider_fiscal_year, provider_fiscal_period,
                                 provider, quality, checksum, data_as_of, created_at
                             ) VALUES (
                                 UUID_TO_BIN(:id), UUID_TO_BIN(:instrumentId), :metric, :taxonomy, :concept, :unit, :value,
                                 :periodStart, :periodEnd, :filedAt, :accession, :form, :source,
+                                :fiscalYear, :fiscalPeriod,
                                 :provider, :quality, :checksum, :dataAsOf, :now
                             )
                             """)
@@ -132,6 +134,8 @@ public class FinancialEvidenceStore {
                     .param("accession", fact.accessionNumber())
                     .param("form", fact.form())
                     .param("source", fact.sourceUri())
+                    .param("fiscalYear", fact.fiscalYear())
+                    .param("fiscalPeriod", fact.fiscalPeriod())
                     .param("provider", result.provenance().provider())
                     .param("quality", result.provenance().qualityStatus().name())
                     .param("checksum", checksum)
@@ -147,7 +151,8 @@ public class FinancialEvidenceStore {
                         """
                         SELECT canonical_metric businessMetric, taxonomy, concept, unit, value_decimal value,
                                period_start periodStart, period_end periodEnd, filed_at filingDate,
-                               accession_number accessionNumber, form_type form, source sourceUri
+                               accession_number accessionNumber, form_type form, source sourceUri,
+                               provider_fiscal_year fiscalYear, provider_fiscal_period fiscalPeriod
                         FROM financial_fact_observation
                         WHERE instrument_id=UUID_TO_BIN(:instrumentId)
                         ORDER BY period_end, filed_at

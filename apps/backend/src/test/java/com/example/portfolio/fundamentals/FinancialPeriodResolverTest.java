@@ -21,4 +21,45 @@ class FinancialPeriodResolverTest {
         assertThat(periods.getLast().facts().get(FinancialMetric.REVENUE).accessionNumber())
                 .isEqualTo("quarter-1");
     }
+
+    @Test
+    void usesProviderFiscalMetadataInsteadOfCalendarMonth() {
+        var retailerQ1 = FinancialTestFixtures.factWithFiscal(
+                FinancialMetric.REVENUE, "30", "2026-05-02", "2026-06-01", "retailer-q1", "10-Q", 2026, "Q1");
+
+        var period = new FinancialPeriodResolver()
+                .resolve(List.of(retailerQ1), FinancialTestFixtures.mapping())
+                .getFirst();
+
+        assertThat(period.fiscalYear()).isEqualTo(2026);
+        assertThat(period.fiscalQuarter()).isEqualTo(1);
+        assertThat(period.canonicalFiscalPeriod()).isEqualTo("Q1");
+    }
+
+    @Test
+    void missingProviderQuarterDoesNotFallBackToCalendarQuarter() {
+        var fact = FinancialTestFixtures.fact(
+                FinancialMetric.REVENUE, "30", "2026-05-02", "2026-06-01", "unknown-quarter", "10-Q");
+        fact = new com.example.portfolio.market.provider.ProviderModels.CompanyFact(
+                fact.businessMetric(),
+                fact.taxonomy(),
+                fact.concept(),
+                fact.unit(),
+                fact.value(),
+                fact.periodStart(),
+                fact.periodEnd(),
+                fact.filingDate(),
+                fact.accessionNumber(),
+                fact.form(),
+                fact.sourceUri(),
+                2026,
+                null);
+
+        var period = new FinancialPeriodResolver()
+                .resolve(List.of(fact), FinancialTestFixtures.mapping())
+                .getFirst();
+
+        assertThat(period.fiscalQuarter()).isNull();
+        assertThat(period.canonicalFiscalPeriod()).isNull();
+    }
 }

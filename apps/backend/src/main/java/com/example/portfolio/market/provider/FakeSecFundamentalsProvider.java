@@ -88,7 +88,9 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
                     end.plusMonths(2),
                     accession,
                     "10-K",
-                    "https://fixture.sec/" + accession));
+                    "https://fixture.sec/" + accession,
+                    end.getYear(),
+                    "FY"));
         }
     }
 

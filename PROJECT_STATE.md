@@ -252,3 +252,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - A fresh quote can no longer conceal a stale fundamental snapshot. The regression case uses a five-minute-old quote and 250-day-old fundamentals against the configured 140-day limit and returns `STALE`, preventing precise new-capital sizing.
 - Integration fixtures were completed with actual revision, risk, regime, and thesis evidence so existing vertical scenarios satisfy the same production rules rather than bypassing them.
 - Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 157 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.
+
+## Hardening B4 - 2026-08-10
+
+- SEC company-fact ingestion now preserves provider fiscal year (`fy`) and fiscal period (`fp`) through the provider model, raw financial fact storage, and normalization resolver.
+- Migration V27 adds provider fiscal metadata to `financial_fact_observation` and a comparable-period index to `financial_period`.
+- Canonical periods are explicit `FY`, `Q1`, `Q2`, `Q3`, or `Q4`. Quarterly periods without provider `fp` fail closed instead of inferring a fiscal quarter from the calendar month.
+- YoY and three-year comparisons select the same canonical fiscal period from the required prior fiscal year, not an exact `endDate.minusYears(...)`, so 52/53-week issuers remain comparable.
+- Tests cover a retailer Q1 ending in May, missing fiscal-period metadata, a one-day-shifted 53-week comparison, and official SEC `fy/fp` parsing.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 160 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.

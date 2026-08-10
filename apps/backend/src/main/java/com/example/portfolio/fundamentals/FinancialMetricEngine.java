@@ -67,7 +67,11 @@ public final class FinancialMetricEngine {
             int years) {
         return history.stream()
                 .filter(value -> value.periodType() == current.periodType())
-                .filter(value -> value.endDate().equals(current.endDate().minusYears(years)))
+                .filter(value -> value.fiscalYear() == current.fiscalYear() - years)
+                .filter(value ->
+                        java.util.Objects.equals(value.canonicalFiscalPeriod(), current.canonicalFiscalPeriod()))
+                .sorted(java.util.Comparator.comparing(FinancialPeriodResolver.ResolvedPeriod::filedAt)
+                        .reversed())
                 .findFirst()
                 .map(value -> {
                     var result = new EnumMap<FinancialMetric, BigDecimal>(FinancialMetric.class);
