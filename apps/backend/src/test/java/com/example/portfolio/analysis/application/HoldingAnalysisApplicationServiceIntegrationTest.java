@@ -49,4 +49,26 @@ class HoldingAnalysisApplicationServiceIntegrationTest extends HoldingAnalysisIn
                 .doesNotContain(RecommendationAction.ADD);
         assertThat(result.analysis().recommendedAction()).isNotEqualTo(RecommendationAction.ADD);
     }
+
+    @Test
+    void canonicalEarningsEvidenceKeepsEventRiskSeparateFromPolicyAction() {
+        jdbc.sql(
+                        """
+                        INSERT INTO earnings_risk_snapshot
+                          (id,position_id,strategy_version,event_count,event_risk,next_event_at,action,rule_ids,
+                           evidence_checksum,data_as_of,valid_until,created_at)
+                        VALUES (UUID_TO_BIN('99600000-0000-0000-0000-000000000001'),
+                          UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),'test',4,'EXTREME',
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 2 DAY),'REDUCE_HALF',JSON_ARRAY('EARNINGS.TEST'),
+                          SHA2('earnings-risk-separation',256),UTC_TIMESTAMP(6),
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY),UTC_TIMESTAMP(6))
+                        """)
+                .update();
+
+        var event = evidenceAssembler.assemble(USER_ID, GOOGL_POSITION).nextEvent();
+
+        assertThat(event.available()).isTrue();
+        assertThat(event.eventRisk()).isEqualTo("EXTREME");
+        assertThat(event.policyAction()).isEqualTo("REDUCE_HALF");
+    }
 }

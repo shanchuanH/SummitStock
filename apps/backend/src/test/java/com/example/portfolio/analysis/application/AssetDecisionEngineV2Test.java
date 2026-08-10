@@ -151,6 +151,48 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void extremeEventRiskAndReducePolicyProduceTacticalReduction() {
+        var evidence = withEventRisk(
+                HoldingEvidenceFixtures.evidence("NOK", "EQUITY", HoldingClassification.TACTICAL_STOCK),
+                "EXTREME",
+                "REDUCE_HALF");
+        var context = context(evidence);
+
+        assertThat(resolve(evidence, context, new TacticalStockDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.REDUCE_HALF);
+    }
+
+    @Test
+    void extremeEventRiskAndReducePolicyProduceSpeculativeReduction() {
+        var evidence = withEventRisk(
+                HoldingEvidenceFixtures.evidence("DXYZ", "EQUITY", HoldingClassification.SPECULATIVE),
+                "EXTREME",
+                "REDUCE_HALF");
+        var policy = evidence.strategy().speculative();
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+
+        assertThat(resolve(evidence, context, new SpeculativeDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.REDUCE_HALF);
+    }
+
+    @Test
+    void extremeEventRiskProducesQualityOversizedTrimCandidate() {
+        var evidence = withEventRisk(
+                qualityEvidence("STRONG", "FAIR", "POSITIVE", "UPTREND", "0.15"), "EXTREME", "REDUCE_HALF");
+        var context = context(evidence);
+
+        assertThat(quality.evaluate(context))
+                .anyMatch(candidate -> candidate.action() == RecommendationAction.TRIM
+                        && candidate.ruleId().equals("QUALITY.EVENT.OVERSIZED"));
+    }
+
+    @Test
     void marketDrivenFifteenPercentCanDeployCoreEtfDip() {
         var evidence = withDrawdown(
                 HoldingEvidenceFixtures.evidence("QQQM", "ETF", HoldingClassification.CORE_TECH_ETF),
@@ -417,13 +459,17 @@ class AssetDecisionEngineV2Test {
     }
 
     private static HoldingEvidence withEventRisk(HoldingEvidence value, String risk) {
+        return withEventRisk(value, risk, null);
+    }
+
+    private static HoldingEvidence withEventRisk(HoldingEvidence value, String risk, String policyAction) {
         return copy(
                 value,
                 value.currentWeight(),
                 value.indicators(),
                 value.fundamentals(),
                 value.valuation(),
-                new HoldingEvidence.EarningsEvent(true, value.nextEvent().eventAt(), risk),
+                new HoldingEvidence.EarningsEvent(true, value.nextEvent().eventAt(), risk, policyAction),
                 value.drawdown(),
                 value.stop());
     }

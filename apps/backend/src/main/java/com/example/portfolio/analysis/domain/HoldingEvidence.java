@@ -109,7 +109,11 @@ public record HoldingEvidence(
         }
     }
 
-    public record EarningsEvent(boolean available, Instant eventAt, String riskLevel) {}
+    public record EarningsEvent(boolean available, Instant eventAt, String eventRisk, String policyAction) {
+        public EarningsEvent(boolean available, Instant eventAt, String eventRisk) {
+            this(available, eventAt, eventRisk, null);
+        }
+    }
 
     public record Thesis(boolean available, boolean invalidated, Instant expiresAt) {}
 

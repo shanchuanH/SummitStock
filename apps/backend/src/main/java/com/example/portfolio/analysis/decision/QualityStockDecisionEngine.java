@@ -44,7 +44,7 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
                     "A confirmed stop aligns with structural deterioration.",
                     "Delay can exceed the planned risk budget."));
         }
-        if ("EXTREME".equals(e.nextEvent().riskLevel())
+        if ("EXTREME".equals(e.nextEvent().eventRisk())
                 && context.hardMax() != null
                 && e.currentWeight().compareTo(context.hardMax()) >= 0) {
             values.add(of(

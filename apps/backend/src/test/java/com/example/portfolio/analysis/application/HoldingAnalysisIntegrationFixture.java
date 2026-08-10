@@ -28,6 +28,9 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
     protected HoldingAnalysisApplicationService analysis;
 
     @Autowired
+    protected HoldingEvidenceAssembler evidenceAssembler;
+
+    @Autowired
     protected RecommendationGenerationService recommendations;
 
     @Autowired
@@ -137,6 +140,8 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
     @AfterEach
     void cleanupHoldingEvidence() {
         update("DELETE FROM recommendation WHERE user_id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM earnings_risk_snapshot WHERE position_id IN (UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'))");
         update(
                 "DELETE FROM holding_analysis_snapshot WHERE position_id IN (UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'))");
         update(

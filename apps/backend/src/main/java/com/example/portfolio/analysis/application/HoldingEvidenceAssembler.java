@@ -380,7 +380,7 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.EarningsEvent event(UUID positionId, UUID instrumentId) {
         var risk = jdbc.sql(
                         """
-                        SELECT next_event_at eventAt, action riskLevel FROM earnings_risk_snapshot
+                        SELECT next_event_at eventAt,event_risk eventRisk,action policyAction FROM earnings_risk_snapshot
                         WHERE position_id=UUID_TO_BIN(:id) AND valid_until>=UTC_TIMESTAMP(6)
                         ORDER BY data_as_of DESC LIMIT 1
                         """)
@@ -390,19 +390,20 @@ public final class HoldingEvidenceAssembler {
         if (risk.isPresent()) {
             var value = risk.orElseThrow();
             return new HoldingEvidence.EarningsEvent(
-                    value.eventAt() != null, instant(value.eventAt()), value.riskLevel());
+                    value.eventAt() != null, instant(value.eventAt()), value.eventRisk(), value.policyAction());
         }
         return jdbc.sql(
                         """
-                        SELECT event_at eventAt, event_type riskLevel FROM company_event
+                        SELECT event_at eventAt,NULL eventRisk,NULL policyAction FROM company_event
                         WHERE instrument_id=UUID_TO_BIN(:id) AND event_at>=UTC_TIMESTAMP(6)
                         ORDER BY event_at LIMIT 1
                         """)
                 .param("id", instrumentId.toString())
                 .query(EventRow.class)
                 .optional()
-                .map(value -> new HoldingEvidence.EarningsEvent(true, instant(value.eventAt()), value.riskLevel()))
-                .orElse(new HoldingEvidence.EarningsEvent(false, null, null));
+                .map(value -> new HoldingEvidence.EarningsEvent(
+                        true, instant(value.eventAt()), value.eventRisk(), value.policyAction()))
+                .orElse(new HoldingEvidence.EarningsEvent(false, null, null, null));
     }
 
     private HoldingEvidence.Thesis thesis(UUID positionId) {
@@ -561,7 +562,7 @@ public final class HoldingEvidenceAssembler {
 
     record StarterStatusRow(int priorCount, boolean confirmed) {}
 
-    record EventRow(LocalDateTime eventAt, String riskLevel) {}
+    record EventRow(LocalDateTime eventAt, String eventRisk, String policyAction) {}
 
     record ThesisRow(String status, LocalDateTime expiresAt) {}
 
