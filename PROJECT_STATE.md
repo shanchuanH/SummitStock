@@ -243,3 +243,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Playwright's two browser journeys pass after bringing the stale Executive Brief fixture and acknowledgement interaction in line with the current generated API/UI contract.
 - Compose validation, the backend Docker image build, and a Gitleaks v8.30.1 scan of 25 commits pass with no leaks found.
 - GitHub `main` branch protection remains external-state NOT VERIFIED: this workstation has no `gh` CLI and the available browser session is not authenticated to repository settings. The required settings and verification drill are documented for application once authenticated administration is available.
+
+## Hardening B3 - 2026-08-10
+
+- Removed the decision layer's fixed 36-hour freshness constant. All six thresholds now load from the versioned strategy definition: EOD price sessions, financial-quarter days, estimates days, earnings-calendar days, ETF-profile days, and macro-daily days.
+- Price freshness is evaluated in completed US-equity trading sessions; financials, valuation, estimates, earnings calendars, ETF profiles, stops, market regime, and portfolio risk retain and evaluate their own `data_as_of` values.
+- Readiness now follows classification-specific evidence contracts: Quality requires price/financial health/valuation/revisions/next earnings/portfolio risk; Tactical requires price/stop/thesis/next event/portfolio risk; ETF requires price/fund profile/liquidity/overlap/regime/risk.
+- A fresh quote can no longer conceal a stale fundamental snapshot. The regression case uses a five-minute-old quote and 250-day-old fundamentals against the configured 140-day limit and returns `STALE`, preventing precise new-capital sizing.
+- Integration fixtures were completed with actual revision, risk, regime, and thesis evidence so existing vertical scenarios satisfy the same production rules rather than bypassing them.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 157 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.

@@ -328,7 +328,8 @@ public final class HoldingEvidenceAssembler {
                         financials.dataAsOf(),
                         financials.financialHealth(),
                         revision.revision(),
-                        quality(revision.quality())))
+                        quality(revision.quality()),
+                        instant(revision.dataAsOf())))
                 .orElse(financials);
     }
 
@@ -380,7 +381,7 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.EarningsEvent event(UUID positionId, UUID instrumentId) {
         var risk = jdbc.sql(
                         """
-                        SELECT next_event_at eventAt,event_risk eventRisk,action policyAction FROM earnings_risk_snapshot
+                        SELECT next_event_at eventAt,event_risk eventRisk,action policyAction,data_as_of dataAsOf FROM earnings_risk_snapshot
                         WHERE position_id=UUID_TO_BIN(:id) AND valid_until>=UTC_TIMESTAMP(6)
                         ORDER BY data_as_of DESC LIMIT 1
                         """)
@@ -390,11 +391,15 @@ public final class HoldingEvidenceAssembler {
         if (risk.isPresent()) {
             var value = risk.orElseThrow();
             return new HoldingEvidence.EarningsEvent(
-                    value.eventAt() != null, instant(value.eventAt()), value.eventRisk(), value.policyAction());
+                    value.eventAt() != null,
+                    instant(value.eventAt()),
+                    value.eventRisk(),
+                    value.policyAction(),
+                    instant(value.dataAsOf()));
         }
         return jdbc.sql(
                         """
-                        SELECT event_at eventAt,NULL eventRisk,NULL policyAction FROM company_event
+                        SELECT event_at eventAt,NULL eventRisk,NULL policyAction,data_as_of dataAsOf FROM company_event
                         WHERE instrument_id=UUID_TO_BIN(:id) AND event_at>=UTC_TIMESTAMP(6)
                         ORDER BY event_at LIMIT 1
                         """)
@@ -402,7 +407,11 @@ public final class HoldingEvidenceAssembler {
                 .query(EventRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.EarningsEvent(
-                        true, instant(value.eventAt()), value.eventRisk(), value.policyAction()))
+                        true,
+                        instant(value.eventAt()),
+                        value.eventRisk(),
+                        value.policyAction(),
+                        instant(value.dataAsOf())))
                 .orElse(new HoldingEvidence.EarningsEvent(false, null, null, null));
     }
 
@@ -445,7 +454,7 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.StopEvidence stop(UUID positionId) {
         return jdbc.sql(
                         """
-                        SELECT initial_stop formalStop, live_stop liveStop, close_confirmed closeConfirmed,
+                        SELECT initial_stop formalStop, live_stop liveStop, close_confirmed closeConfirmed,data_as_of dataAsOf,
                                EXISTS(SELECT 1 FROM stop_alert a WHERE a.stop_snapshot_id=s.id
                                       AND a.event_type='CATASTROPHIC') catastrophic
                         FROM stop_snapshot s WHERE position_id=UUID_TO_BIN(:id)
@@ -455,7 +464,11 @@ public final class HoldingEvidenceAssembler {
                 .query(StopRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.StopEvidence(
-                        value.formalStop(), value.liveStop(), value.closeConfirmed(), value.catastrophic()))
+                        value.formalStop(),
+                        value.liveStop(),
+                        value.closeConfirmed(),
+                        value.catastrophic(),
+                        instant(value.dataAsOf())))
                 .orElse(new HoldingEvidence.StopEvidence(null, null, false, false));
     }
 
@@ -465,7 +478,7 @@ public final class HoldingEvidenceAssembler {
                         SELECT fund_profile_available fundProfileAvailable, thematic,
                                top_holding_concentration topHoldingConcentration,
                                fund_liquidity_status liquidityStatus,
-                               portfolio_overlap_fraction portfolioOverlap
+                               portfolio_overlap_fraction portfolioOverlap,data_as_of dataAsOf
                         FROM instrument_analysis_profile WHERE instrument_id=UUID_TO_BIN(:id)
                         ORDER BY data_as_of DESC LIMIT 1
                         """)
@@ -477,7 +490,8 @@ public final class HoldingEvidenceAssembler {
                         value.thematic(),
                         value.topHoldingConcentration(),
                         value.liquidityStatus(),
-                        value.portfolioOverlap()))
+                        value.portfolioOverlap(),
+                        instant(value.dataAsOf())))
                 .orElse(new HoldingEvidence.AnalysisProfile(false, false, null, null, null));
     }
 
@@ -562,7 +576,7 @@ public final class HoldingEvidenceAssembler {
 
     record StarterStatusRow(int priorCount, boolean confirmed) {}
 
-    record EventRow(LocalDateTime eventAt, String eventRisk, String policyAction) {}
+    record EventRow(LocalDateTime eventAt, String eventRisk, String policyAction, LocalDateTime dataAsOf) {}
 
     record ThesisRow(String status, LocalDateTime expiresAt) {}
 
@@ -570,12 +584,18 @@ public final class HoldingEvidenceAssembler {
 
     record DrawdownRow(boolean available, BigDecimal fraction, String state, LocalDateTime dataAsOf) {}
 
-    record StopRow(BigDecimal formalStop, BigDecimal liveStop, boolean closeConfirmed, boolean catastrophic) {}
+    record StopRow(
+            BigDecimal formalStop,
+            BigDecimal liveStop,
+            boolean closeConfirmed,
+            boolean catastrophic,
+            LocalDateTime dataAsOf) {}
 
     record ProfileRow(
             boolean fundProfileAvailable,
             boolean thematic,
             BigDecimal topHoldingConcentration,
             String liquidityStatus,
-            BigDecimal portfolioOverlap) {}
+            BigDecimal portfolioOverlap,
+            LocalDateTime dataAsOf) {}
 }

@@ -77,6 +77,13 @@ public final class StrategyDefinitionLoader {
                             decimals(values, "etfDip.tranchePctOfReserve"),
                             integer(values, "etfDip.cooldownTradingDays"),
                             bool(values, "etfDip.requiresMarketDrivenDrawdown")),
+                    new StrategyDefinition.FreshnessPolicy(
+                            integer(values, "freshness.eodPriceTradingSessions"),
+                            integer(values, "freshness.financialQuarterDays"),
+                            integer(values, "freshness.estimatesDays"),
+                            integer(values, "freshness.earningsCalendarDays"),
+                            integer(values, "freshness.etfProfileDays"),
+                            integer(values, "freshness.macroDailyDays")),
                     new StrategyDefinition.FinancialHealthPolicy(
                             decimal(values, "financialHealth.revenueGrowthStrong"),
                             decimal(values, "financialHealth.revenueGrowthHealthy"),

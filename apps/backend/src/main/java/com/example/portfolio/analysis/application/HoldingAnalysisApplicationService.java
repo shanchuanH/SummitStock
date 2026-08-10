@@ -173,8 +173,14 @@ public final class HoldingAnalysisApplicationService {
                 evidence.capitalQuality(),
                 evidence.riskQuality(),
                 state != AnalysisReadiness.STALE
-                        && !freshness.stale(evidence.quote().dataAsOf(), now),
-                !freshness.stale(evidence.riskDataAsOf(), now),
+                        && !freshness.stalePrice(
+                                evidence.quote().marketDate(),
+                                now,
+                                evidence.strategy().freshness()),
+                !freshness.staleDays(
+                        evidence.riskDataAsOf(),
+                        now,
+                        evidence.strategy().freshness().macroDailyDays()),
                 evidence.position().classificationConfirmed(),
                 evidence.providerHardError()));
     }
@@ -198,8 +204,12 @@ public final class HoldingAnalysisApplicationService {
                 || evidence.capitalQuality() != EvidenceQuality.HEALTHY
                 || evidence.riskQuality() != EvidenceQuality.HEALTHY
                 || state == AnalysisReadiness.STALE
-                || freshness.stale(evidence.quote().dataAsOf(), now)
-                || freshness.stale(evidence.riskDataAsOf(), now)
+                || freshness.stalePrice(
+                        evidence.quote().marketDate(), now, evidence.strategy().freshness())
+                || freshness.staleDays(
+                        evidence.riskDataAsOf(),
+                        now,
+                        evidence.strategy().freshness().macroDailyDays())
                 || !evidence.position().classificationConfirmed()
                 || evidence.providerHardError()) return unavailableSizing();
         var investable = evidence.portfolioEquity().amount();
