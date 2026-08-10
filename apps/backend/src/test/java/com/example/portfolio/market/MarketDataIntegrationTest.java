@@ -43,6 +43,7 @@ class MarketDataIntegrationTest extends MySqlIntegrationTest {
                         "quote",
                         "corporate_action",
                         "provider_request",
+                        "provider_usage_daily",
                         "data_quality_event",
                         "fundamental_observation",
                         "company_event",
@@ -67,6 +68,14 @@ class MarketDataIntegrationTest extends MySqlIntegrationTest {
         assertThat(count("provider_request")).isEqualTo(1);
         assertThat(jdbc.sql("SELECT attempt_count FROM provider_request")
                         .query(Integer.class)
+                        .single())
+                .isEqualTo(2);
+        assertThat(jdbc.sql("SELECT request_count FROM provider_usage_daily WHERE operation='daily-bars'")
+                        .query(Long.class)
+                        .single())
+                .isEqualTo(2);
+        assertThat(jdbc.sql("SELECT success_count FROM provider_usage_daily WHERE operation='daily-bars'")
+                        .query(Long.class)
                         .single())
                 .isEqualTo(2);
 
