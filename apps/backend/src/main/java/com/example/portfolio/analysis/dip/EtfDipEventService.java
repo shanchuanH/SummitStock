@@ -288,21 +288,11 @@ public class EtfDipEventService {
     }
 
     private int sessionsSince(LocalDate from, LocalDate to) {
-        if (from == null || to == null || !to.isAfter(from)) return 0;
-        int sessions = 0;
-        for (var date = from.plusDays(1); !date.isAfter(to); date = date.plusDays(1))
-            if (calendar.isSession(date)) sessions++;
-        return sessions;
+        return calendar.sessionsBetween(from, to);
     }
 
     private LocalDate plusSessions(LocalDate from, int sessions) {
-        var date = from;
-        int added = 0;
-        while (added < sessions) {
-            date = date.plusDays(1);
-            if (calendar.isSession(date)) added++;
-        }
-        return date;
+        return calendar.plusSessions(from, sessions);
     }
 
     private static String state(EtfDipEngine.Result result, int completed) {

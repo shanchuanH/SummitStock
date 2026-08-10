@@ -271,3 +271,13 @@ Configure production provider credentials, run the documented deployment smoke c
 - Filing-index rows no longer infer a fiscal quarter from calendar month; later company-fact normalization supplies provider fiscal metadata on duplicate-period reconciliation.
 - Tests prove aggregate debt is not double counted, distinct components are summed once, alternate current components are mutually exclusive, and invalid units/negative debt fail closed. The complete 13-position vertical pipeline remains `ANALYSIS_READY` with correctly typed fixture facts.
 - Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 162 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests pass; production build has a clean zero exit code.
+
+## Hardening B6 - 2026-08-10
+
+- A single `TradingCalendar` now owns US-equity session membership, session arithmetic, open/close instants, early closes, completed-session selection, and a versioned calendar identity for XNYS/XNAS semantics.
+- The rules-based calendar covers observed exchange holidays and algorithmic Good Friday without a handwritten annual date list. It also models the day after Thanksgiving, applicable July 3 sessions, and applicable December 24 sessions as 13:00 Eastern early closes.
+- Session boundaries are calculated in `America/New_York`, preserving the exact UTC shift across daylight-saving transitions and preventing an in-progress or holiday bar from being treated as completed.
+- Analysis freshness and ETF dip cooldown/expiry logic now use the same centralized session arithmetic instead of maintaining separate trading-day loops.
+- Earnings reaction windows now discard non-session bars and apply event timing against exchange sessions. `AFTER_CLOSE` correctly uses the event-session close as the pre-event anchor and starts the reaction on the next trading session.
+- Tests cover Good Friday, observed holidays, early-close completion boundaries, daylight-saving UTC offsets, shared session arithmetic, calendar versioning, and an after-close earnings event spanning Good Friday.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 167 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.

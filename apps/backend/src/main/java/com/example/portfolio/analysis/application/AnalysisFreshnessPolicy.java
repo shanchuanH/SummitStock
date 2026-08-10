@@ -26,10 +26,7 @@ public final class AnalysisFreshnessPolicy {
         if (marketDate == null) return true;
         LocalDate latest = calendar.latestCompletedSession(now);
         if (marketDate.isAfter(latest)) return false;
-        int elapsedSessions = 0;
-        for (LocalDate date = marketDate.plusDays(1); !date.isAfter(latest); date = date.plusDays(1)) {
-            if (calendar.isSession(date)) elapsedSessions++;
-        }
+        int elapsedSessions = calendar.sessionsBetween(marketDate, latest);
         return elapsedSessions > policy.eodPriceTradingSessions();
     }
 

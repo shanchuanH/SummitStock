@@ -2,6 +2,7 @@ package com.example.portfolio.earnings;
 
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.market.provider.ProviderCallException;
+import com.example.portfolio.market.provider.TradingCalendar;
 import com.example.portfolio.strategy.position.EarningsPolicy;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -16,7 +17,7 @@ public class EarningsIntelligenceApplicationService {
     private final EarningsEvidenceStore store;
     private final PortfolioProperties properties;
     private final Clock clock;
-    private final EarningsReactionCalculator calculator = new EarningsReactionCalculator();
+    private final EarningsReactionCalculator calculator;
     private final EarningsReactionStats statsEngine = new EarningsReactionStats();
     private final EarningsEventRiskEngine riskEngine = new EarningsEventRiskEngine();
 
@@ -24,11 +25,13 @@ public class EarningsIntelligenceApplicationService {
             EarningsCalendarProvider provider,
             EarningsEvidenceStore store,
             PortfolioProperties properties,
-            Clock clock) {
+            Clock clock,
+            TradingCalendar calendar) {
         this.provider = provider;
         this.store = store;
         this.properties = properties;
         this.clock = clock;
+        this.calculator = new EarningsReactionCalculator(calendar);
     }
 
     public CollectionResult collectCalendar() {

@@ -1,5 +1,6 @@
 package com.example.portfolio.earnings;
 
+import com.example.portfolio.market.provider.TradingCalendar;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.time.LocalDate;
@@ -7,16 +8,28 @@ import java.util.List;
 
 public final class EarningsReactionCalculator {
     private static final MathContext MATH = MathContext.DECIMAL128;
+    private final TradingCalendar calendar;
+
+    public EarningsReactionCalculator(TradingCalendar calendar) {
+        this.calendar = calendar;
+    }
 
     public Result calculate(LocalDate eventDate, EarningsCalendarProvider.Timing timing, List<Bar> bars) {
-        var ordered =
-                bars.stream().sorted(java.util.Comparator.comparing(Bar::date)).toList();
-        var before =
-                ordered.stream().filter(bar -> bar.date().isBefore(eventDate)).toList();
-        var after = ordered.stream()
+        var effectiveSession = calendar.isSession(eventDate) ? eventDate : calendar.nextSession(eventDate);
+        var ordered = bars.stream()
+                .filter(bar -> calendar.isSession(bar.date()))
+                .sorted(java.util.Comparator.comparing(Bar::date))
+                .toList();
+        var before = ordered.stream()
                 .filter(bar -> timing == EarningsCalendarProvider.Timing.BEFORE_OPEN
-                        ? !bar.date().isBefore(eventDate)
-                        : bar.date().isAfter(eventDate))
+                        ? bar.date().isBefore(effectiveSession)
+                        : !bar.date().isAfter(effectiveSession))
+                .toList();
+        var firstReactionSession = timing == EarningsCalendarProvider.Timing.BEFORE_OPEN
+                ? effectiveSession
+                : calendar.nextSession(effectiveSession);
+        var after = ordered.stream()
+                .filter(bar -> !bar.date().isBefore(firstReactionSession))
                 .toList();
         if (before.isEmpty() || after.isEmpty()) return null;
         var pre = before.getLast();
