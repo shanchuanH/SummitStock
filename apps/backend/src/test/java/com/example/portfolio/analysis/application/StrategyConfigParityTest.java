@@ -35,6 +35,7 @@ class StrategyConfigParityTest {
         assertThat(strategy.coolingHours()).isEqualTo(48);
         assertThat(strategy.deepDiscountStarterEnabled()).isTrue();
         assertThat(strategy.speculativeAverageDownAllowed()).isFalse();
+        assertThat(strategy.speculativeTimeStopTradingDays()).isEqualTo(60);
         assertThat(strategy.tacticalReserveTargets()).containsExactly(new BigDecimal("0.10"), new BigDecimal("0.15"));
         assertThat(strategy.manualExecutionOnly()).isTrue();
         assertThat(strategy.primaryGrowthBenchmark()).isEqualTo("QQQ");

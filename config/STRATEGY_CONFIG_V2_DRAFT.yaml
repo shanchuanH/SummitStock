@@ -62,6 +62,7 @@ speculative:
   hardMaxPct: "0.02"
   tradeRiskPct: "0.002"
   averageDownAllowed: false
+  timeStopTradingDays: 60
 
 etfDip:
   setupScoreMin: 60

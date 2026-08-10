@@ -298,3 +298,13 @@ Configure production provider credentials, run the documented deployment smoke c
 - The formal runtime now passes configured drawdown thresholds into `DrawdownEngine`, configured price/risk requirements into exact sizing, configured risk precedence into conflict resolution, and the configured deep-discount switch into Quality starter decisions.
 - Existing strategy-core callers retain the V2 defaults through compatibility entry points; the backend runtime uses the loaded strategy values. A focused test moves the thresholds away from the defaults and proves classification follows configuration rather than embedded percentages.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 172 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening C3 - 2026-08-10
+
+- Formal `DecisionContext` now carries persisted behavioral evidence: last acknowledged decision/add, averaging-down state, thesis improvement, cost-basis anchoring, holding trading sessions, thesis progress, idea cooldown, and the decision timestamp.
+- A production `BehavioralFirewall` participates in the same candidate set and conflict resolver as portfolio and asset rules. Active cooling, unsubstantiated averaging down, and cost-basis anchoring produce `DO_NOT_ADD`; risk-reduction candidates retain precedence and cannot be suppressed by cooling.
+- Speculative positions now use a versioned 60-trading-session time stop from strategy YAML. Expiry without persisted thesis progress produces a formal `EXIT`, while documented progress prevents it.
+- Migration V29 adds thesis-progress evidence and an `investment_idea` workflow with `idea_created_at`, `cooldown_until`, and constrained `source_type`; social/watchlist ideas cannot enter a buy candidate before cooldown expiry.
+- Recommendation narration rejects cost basis or break-even language as an invalid decision anchor even if the underlying position facts include cost basis.
+- Tests prove all behavioral rules directly and through real MySQL formal recommendation generation, including that an active cooldown cannot suppress a speculative time-stop exit.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 179 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

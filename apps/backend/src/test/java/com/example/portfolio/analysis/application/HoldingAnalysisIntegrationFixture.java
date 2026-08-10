@@ -158,6 +158,7 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
 
     @AfterEach
     void cleanupHoldingEvidence() {
+        update("DELETE FROM investment_idea WHERE user_id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001')");
         update("DELETE FROM recommendation WHERE user_id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM earnings_risk_snapshot WHERE position_id IN (UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'))");

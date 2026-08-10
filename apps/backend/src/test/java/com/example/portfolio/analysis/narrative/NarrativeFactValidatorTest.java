@@ -43,6 +43,22 @@ class NarrativeFactValidatorTest {
         assertThat(validator.validate(input, output).valid()).isTrue();
     }
 
+    @Test
+    void rejectsCostBasisAsARecommendationAnchorEvenWhenItAppearsInFacts() {
+        var output = new DecisionNarrative(
+                "Hold for break even",
+                "Wait until the position returns to its cost basis.",
+                List.of(),
+                List.of(),
+                List.of(),
+                "LOW");
+
+        var result = validator.validate(input(), output);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).contains("COST_BASIS_ANCHORING");
+    }
+
     private static NarrativeInput input() {
         return new NarrativeInput(
                 "GOOGL",

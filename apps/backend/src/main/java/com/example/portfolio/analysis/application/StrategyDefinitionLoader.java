@@ -62,6 +62,7 @@ public final class StrategyDefinitionLoader {
             "speculative.hardMaxPct",
             "speculative.tradeRiskPct",
             "speculative.averageDownAllowed",
+            "speculative.timeStopTradingDays",
             "etfDip.setupScoreMin",
             "etfDip.requiredReversalSignals",
             "etfDip.tranchePctOfReserve",
@@ -166,7 +167,8 @@ public final class StrategyDefinitionLoader {
                     bool(values, "decision.exactQuantityRequiresReadyRisk"),
                     bool(values, "decision.riskPriorityOverTax"),
                     bool(values, "qualityStock.deepDiscountStarterEnabled"),
-                    bool(values, "speculative.averageDownAllowed"));
+                    bool(values, "speculative.averageDownAllowed"),
+                    integer(values, "speculative.timeStopTradingDays"));
         } catch (IOException exception) {
             throw new IllegalStateException("Published strategy configuration is unavailable", exception);
         }

@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.decision.AssetDecisionRouter;
+import com.example.portfolio.analysis.decision.BehavioralFirewall;
 import com.example.portfolio.analysis.decision.DecisionContext;
 import com.example.portfolio.analysis.decision.PortfolioConstraintEngine;
 import com.example.portfolio.analysis.dip.EtfDipEventService;
@@ -36,6 +37,8 @@ public final class HoldingAnalysisApplicationService {
     private final HoldingAnalysisStore store;
     private final PortfolioAllocationService allocations;
     private final EtfDipEventService dipEvents;
+    private final BehavioralEvidenceService behavioralEvidence;
+    private final BehavioralFirewall behavioralFirewall;
     private final Clock clock;
 
     public HoldingAnalysisApplicationService(
@@ -47,6 +50,8 @@ public final class HoldingAnalysisApplicationService {
             HoldingAnalysisStore store,
             PortfolioAllocationService allocations,
             EtfDipEventService dipEvents,
+            BehavioralEvidenceService behavioralEvidence,
+            BehavioralFirewall behavioralFirewall,
             Clock clock) {
         this.evidenceAssembler = evidenceAssembler;
         this.freshness = freshness;
@@ -56,6 +61,8 @@ public final class HoldingAnalysisApplicationService {
         this.store = store;
         this.allocations = allocations;
         this.dipEvents = dipEvents;
+        this.behavioralEvidence = behavioralEvidence;
+        this.behavioralFirewall = behavioralFirewall;
         this.clock = clock;
     }
 
@@ -73,7 +80,7 @@ public final class HoldingAnalysisApplicationService {
         var now = clock.instant();
         var state = HoldingEvidenceReadiness.assess(evidence, now, freshness);
         var policy = policy(evidence.position().classification(), evidence.strategy());
-        var candidates = candidates(evidence, state, policy);
+        var candidates = candidates(evidence, state, policy, now);
         var resolution =
                 conflictResolver.resolve(candidates, evidence.strategy().riskPriorityOverTax());
         var sizing = size(evidence, state, policy, resolution.winner(), now);
@@ -110,7 +117,9 @@ public final class HoldingAnalysisApplicationService {
         return new AnalyzedHolding(snapshotId, evidence, result, resolution);
     }
 
-    private List<RecommendationCandidate> candidates(HoldingEvidence evidence, AnalysisReadiness state, Policy policy) {
+    private List<RecommendationCandidate> candidates(
+            HoldingEvidence evidence, AnalysisReadiness state, Policy policy, java.time.Instant now) {
+        var behavior = behavioralEvidence.load(evidence, now);
         var context = new DecisionContext(
                 evidence,
                 state,
@@ -126,8 +135,18 @@ public final class HoldingAnalysisApplicationService {
                         .latest(
                                 evidence.position().userId(),
                                 evidence.instrument().id())
-                        .orElse(null));
+                        .orElse(null),
+                behavior.lastDecisionAt(),
+                behavior.lastAddAt(),
+                behavior.averagingDown(),
+                behavior.thesisImproving(),
+                behavior.anchoredToCostBasis(),
+                behavior.holdingTradingDays(),
+                behavior.thesisProgress(),
+                behavior.ideaCooldownUntil(),
+                now);
         var values = new ArrayList<>(portfolioConstraints.evaluate(context));
+        values.addAll(behavioralFirewall.evaluate(context));
         values.addAll(assetDecisions.evaluate(context));
         return List.copyOf(values);
     }

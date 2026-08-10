@@ -40,7 +40,8 @@ public record StrategyDefinition(
         boolean exactQuantityRequiresReadyRisk,
         boolean riskPriorityOverTax,
         boolean deepDiscountStarterEnabled,
-        boolean speculativeAverageDownAllowed) {
+        boolean speculativeAverageDownAllowed,
+        int speculativeTimeStopTradingDays) {
     public StrategyDefinition {
         if (version == null || version.isBlank()) throw new IllegalArgumentException("Strategy version is required");
         if (configHash == null || !configHash.matches("[a-f0-9]{64}")) {
@@ -70,6 +71,9 @@ public record StrategyDefinition(
         tacticalReserveTargets = List.copyOf(tacticalReserveTargets);
         if (tacticalReserveTargets.size() != 2) {
             throw new IllegalArgumentException("Tactical reserve target must contain two values");
+        }
+        if (speculativeTimeStopTradingDays < 1) {
+            throw new IllegalArgumentException("Speculative time stop must be positive");
         }
     }
 
@@ -134,7 +138,8 @@ public record StrategyDefinition(
                 true,
                 true,
                 true,
-                false);
+                false,
+                60);
     }
 
     public record PositionPolicy(
