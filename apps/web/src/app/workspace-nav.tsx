@@ -9,11 +9,12 @@ const links = [
 export function WorkspaceNav() {
   return (
     <nav className="workspace-nav" aria-label="投资组合工作区">
-      {links.map(([label, href]) => (
-        <a key={href} href={href}>
-          {label}
-        </a>
-      ))}
+      <a className="terminal-brand" href="/">SUMMIT<span>STOCK</span></a>
+      <div>
+        {links.map(([label, href]) => (
+          <a key={href} href={href}>{label}</a>
+        ))}
+      </div>
     </nav>
   );
 }

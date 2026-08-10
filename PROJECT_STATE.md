@@ -180,6 +180,8 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - T08 tests prove underweight-only restraint, broken-company exits, valuation blocks, deep-discount starters, confirmed Quality adds, hard-cap and pain-line precedence, market-driven Core ETF dip deployment, Speculative stop precedence, and Thematic ETF exclusion of company earnings
 - T09 tests prove investable-asset risk/weight sizing, emergency-cash exclusion, starter scaling, cluster risk-amount capacity, stale/impaired evidence precision blocking, and action-specific trim quantities
 - T10 tests prove deterministic fallback, validator rejection of unsupported percentages/target prices/analyst consensus, durable per-recommendation narrative provenance, and continued operation without model credentials
+- T11 tests prove the unified Executive Terminal renders honest empty/error/readiness states, caps MUST_ACT at three, preserves row-scoped classification, renders twelve evidence modules, and never invents missing financial or sizing precision
+- T11 frontend quality gate: 13 Vitest files / 27 tests pass using the stable fork pool; ESLint and the Vite production build pass
 - Backtest next-open/slippage/gap, split/dividend, ETF lifecycle, Core/Active, quantity, bias, walk-forward/OOS, decision-metric, V8 scope/idempotency, and report UI tests
 - CI dependency/secret/image gates, Playwright navigation, migration-mode exit, runtime smoke, and V8 backup/restore verification
 
@@ -193,8 +195,9 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 - Local runtime starts without private account/position data or synthesized recommendations; authenticated portfolio APIs correctly return empty collections until data is imported.
 - Production recommendation generation remains dormant until real, quality-gated provider and portfolio data are configured; an order lifecycle is intentionally absent.
 - Strategy `2.0.0-draft` remains unpublished and local credentials remain placeholders.
-- T11-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T10.
+- The complete shared-context backend suite consistently exposes an existing `openPlannedRiskFraction > 0` fixture-isolation failure in `RealPortfolioVerticalAcceptanceTest`; the same test passes in an isolated fresh MySQL container without code changes. The other 169 backend tests pass. This is unrelated to T11 frontend code and remains visible for a later test-isolation correction.
+- T12-T15 transformation capabilities remain pending and must be delivered in playbook order; no claim of full Analyst Intelligence V2 readiness is made after T11.
 
 ## Next Step
 
-Implement Transformation Phase T11 Boss UX now that the decision engine, sizing, and narration foundations are complete.
+Implement Transformation Phase T12 end-to-end Analyst Intelligence UX integration on the unified terminal foundation.
