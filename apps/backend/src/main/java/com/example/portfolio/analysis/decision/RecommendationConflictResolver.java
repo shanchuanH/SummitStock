@@ -10,6 +10,10 @@ import org.springframework.stereotype.Component;
 @Component
 public final class RecommendationConflictResolver {
     public RecommendationResolution resolve(List<RecommendationCandidate> candidates) {
+        return resolve(candidates, true);
+    }
+
+    public RecommendationResolution resolve(List<RecommendationCandidate> candidates, boolean riskPriorityOverTax) {
         if (candidates.isEmpty()) throw new IllegalArgumentException("At least one candidate is required");
         var reductions = candidates.stream()
                 .filter(candidate -> candidate.channel() == DecisionChannel.RISK_REDUCTION)
@@ -17,12 +21,12 @@ public final class RecommendationConflictResolver {
                         .thenComparingInt(RecommendationCandidate::riskRank)
                         .thenComparing(RecommendationCandidate::ruleId))
                 .toList();
-        var eligible = reductions.isEmpty() ? candidates : reductions;
+        var eligible = reductions.isEmpty() || !riskPriorityOverTax ? candidates : reductions;
         var ordered = eligible.stream()
                 .sorted(Comparator.comparingInt(RecommendationCandidate::riskRank)
                         .thenComparing(RecommendationCandidate::ruleId))
                 .toList();
-        var winner = reductions.isEmpty() ? ordered.getFirst() : reductions.getFirst();
+        var winner = reductions.isEmpty() || !riskPriorityOverTax ? ordered.getFirst() : reductions.getFirst();
         var suppressed =
                 candidates.stream().filter(candidate -> candidate != winner).toList();
         var reason = suppressed.isEmpty()

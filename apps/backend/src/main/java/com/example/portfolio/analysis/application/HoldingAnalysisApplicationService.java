@@ -74,7 +74,8 @@ public final class HoldingAnalysisApplicationService {
         var state = HoldingEvidenceReadiness.assess(evidence, now, freshness);
         var policy = policy(evidence.position().classification(), evidence.strategy());
         var candidates = candidates(evidence, state, policy);
-        var resolution = conflictResolver.resolve(candidates);
+        var resolution =
+                conflictResolver.resolve(candidates, evidence.strategy().riskPriorityOverTax());
         var sizing = size(evidence, state, policy, resolution.winner(), now);
         var confidence = confidence(evidence, state);
         var result = new HoldingAnalysisResult(
@@ -152,37 +153,40 @@ public final class HoldingAnalysisApplicationService {
                 .max(BigDecimal.ZERO);
         var weightCap = policy.hardMax() == null ? policy.targetMax() : policy.hardMax();
         var trimTarget = "POSITION.HARD_CAP".equals(winner.ruleId()) ? weightCap : policy.targetMax();
-        return PositionSizing.calculate(new PositionSizing.Input(
-                action,
-                investableAssets,
-                policy.tradeRisk(),
-                evidence.quote().last(),
-                evidence.stop().formalStop(),
-                evidence.quote().last(),
-                evidence.position().quantity(),
-                evidence.position().marketValue(),
-                policy.targetMin(),
-                weightCap,
-                trimTarget,
-                deployableCash,
-                investableAssets.multiply(evidence.clusterOpenRisk()),
-                evidence.strategy().clusterOpenRiskMax(),
-                evidence.strategy().qualityStarterFraction(),
-                stopRequired(evidence.position().classification()),
-                evidence.quote().quality(),
-                evidence.capitalQuality(),
-                evidence.riskQuality(),
-                state != AnalysisReadiness.STALE
-                        && !freshness.stalePrice(
-                                evidence.quote().marketDate(),
+        return PositionSizing.calculate(
+                new PositionSizing.Input(
+                        action,
+                        investableAssets,
+                        policy.tradeRisk(),
+                        evidence.quote().last(),
+                        evidence.stop().formalStop(),
+                        evidence.quote().last(),
+                        evidence.position().quantity(),
+                        evidence.position().marketValue(),
+                        policy.targetMin(),
+                        weightCap,
+                        trimTarget,
+                        deployableCash,
+                        investableAssets.multiply(evidence.clusterOpenRisk()),
+                        evidence.strategy().clusterOpenRiskMax(),
+                        evidence.strategy().qualityStarterFraction(),
+                        stopRequired(evidence.position().classification()),
+                        evidence.quote().quality(),
+                        evidence.capitalQuality(),
+                        evidence.riskQuality(),
+                        state != AnalysisReadiness.STALE
+                                && !freshness.stalePrice(
+                                        evidence.quote().marketDate(),
+                                        now,
+                                        evidence.strategy().freshness()),
+                        !freshness.staleDays(
+                                evidence.riskDataAsOf(),
                                 now,
-                                evidence.strategy().freshness()),
-                !freshness.staleDays(
-                        evidence.riskDataAsOf(),
-                        now,
-                        evidence.strategy().freshness().macroDailyDays()),
-                evidence.position().classificationConfirmed(),
-                evidence.providerHardError()));
+                                evidence.strategy().freshness().macroDailyDays()),
+                        evidence.position().classificationConfirmed(),
+                        evidence.providerHardError()),
+                evidence.strategy().exactQuantityRequiresHealthyPrice(),
+                evidence.strategy().exactQuantityRequiresReadyRisk());
     }
 
     private PositionSizing.Result dipSize(HoldingEvidence evidence, AnalysisReadiness state, java.time.Instant now) {

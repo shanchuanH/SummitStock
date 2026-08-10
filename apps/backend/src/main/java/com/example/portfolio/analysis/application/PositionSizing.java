@@ -10,7 +10,11 @@ public final class PositionSizing {
     private PositionSizing() {}
 
     public static Result calculate(Input input) {
-        if (!eligible(input)) return unavailable();
+        return calculate(input, true, true);
+    }
+
+    public static Result calculate(Input input, boolean requireHealthyPrice, boolean requireReadyRisk) {
+        if (!eligible(input, requireHealthyPrice, requireReadyRisk)) return unavailable();
         if (RecommendationSizingService.requiresSellSizing(input.action())) return sell(input);
         if (!RecommendationSizingService.requiresBuySizing(input.action())) return unavailable();
         return buy(input);
@@ -83,20 +87,19 @@ public final class PositionSizing {
         return ceil(excess.divide(input.quotePrice(), 12, RoundingMode.UP)).min(floor(input.currentQuantity()));
     }
 
-    private static boolean eligible(Input input) {
+    private static boolean eligible(Input input, boolean requireHealthyPrice, boolean requireReadyRisk) {
         if (input.investableAssets() == null
                 || input.investableAssets().signum() <= 0
                 || input.quotePrice() == null
                 || input.quotePrice().signum() <= 0
-                || input.priceQuality() != EvidenceQuality.HEALTHY
                 || input.capitalQuality() != EvidenceQuality.HEALTHY
-                || input.riskQuality() != EvidenceQuality.HEALTHY
-                || !input.priceFresh()
-                || !input.riskFresh()
                 || !input.classificationConfirmed()
                 || input.providerHardError()) {
             return false;
         }
+        if (requireHealthyPrice && (input.priceQuality() != EvidenceQuality.HEALTHY || !input.priceFresh()))
+            return false;
+        if (requireReadyRisk && (input.riskQuality() != EvidenceQuality.HEALTHY || !input.riskFresh())) return false;
         return !input.stopRequired()
                 || (input.formalStop() != null
                         && input.entryPrice() != null

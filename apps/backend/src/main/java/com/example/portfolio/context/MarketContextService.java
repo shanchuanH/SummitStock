@@ -1,5 +1,6 @@
 package com.example.portfolio.context;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.MarketContextStore.DrawdownWrite;
 import com.example.portfolio.context.MarketContextStore.RegimeWrite;
@@ -21,10 +22,16 @@ public class MarketContextService {
     private final MarketContextStore store;
     private final PortfolioProperties properties;
     private final Clock clock;
+    private final PublishedStrategyService strategies;
 
-    public MarketContextService(MarketContextStore store, PortfolioProperties properties, Clock clock) {
+    public MarketContextService(
+            MarketContextStore store,
+            PortfolioProperties properties,
+            PublishedStrategyService strategies,
+            Clock clock) {
         this.store = store;
         this.properties = properties;
+        this.strategies = strategies;
         this.clock = clock;
     }
 
@@ -59,7 +66,15 @@ public class MarketContextService {
             String positionAttributionJson,
             String clusterAttributionJson,
             Instant dataAsOf) {
-        var result = DrawdownEngine.classify(input);
+        var strategy = strategies.current();
+        var result = DrawdownEngine.classify(
+                input,
+                new DrawdownEngine.Thresholds(
+                        strategy.stopNewSpeculationAt().doubleValue(),
+                        strategy.reduceTacticalCapacityAt().doubleValue(),
+                        strategy.etfDipSetupAt().doubleValue(),
+                        strategy.marketDrivenEtfDeploymentAt().doubleValue(),
+                        strategy.painLine().doubleValue()));
         var canonical = input.toString() + ":" + positionAttributionJson + ":" + clusterAttributionJson;
         var checksum = sha256(properties.strategyVersion() + ":drawdown:" + dataAsOf + ":" + canonical);
         int inserted = store.appendDrawdown(new DrawdownWrite(

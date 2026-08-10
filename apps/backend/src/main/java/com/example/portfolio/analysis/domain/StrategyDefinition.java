@@ -27,7 +27,20 @@ public record StrategyDefinition(
         PositionPolicy speculative,
         EtfDipPolicy etfDip,
         FreshnessPolicy freshness,
-        FinancialHealthPolicy financialHealth) {
+        FinancialHealthPolicy financialHealth,
+        boolean manualExecutionOnly,
+        String primaryGrowthBenchmark,
+        String broadMarketBenchmark,
+        List<BigDecimal> tacticalReserveTargets,
+        BigDecimal stopNewSpeculationAt,
+        BigDecimal reduceTacticalCapacityAt,
+        BigDecimal etfDipSetupAt,
+        BigDecimal marketDrivenEtfDeploymentAt,
+        boolean exactQuantityRequiresHealthyPrice,
+        boolean exactQuantityRequiresReadyRisk,
+        boolean riskPriorityOverTax,
+        boolean deepDiscountStarterEnabled,
+        boolean speculativeAverageDownAllowed) {
     public StrategyDefinition {
         if (version == null || version.isBlank()) throw new IllegalArgumentException("Strategy version is required");
         if (configHash == null || !configHash.matches("[a-f0-9]{64}")) {
@@ -44,6 +57,19 @@ public record StrategyDefinition(
         }
         if (!emergencyExcludedFromInvestableAssets) {
             throw new IllegalArgumentException("Emergency reserve must be excluded from investable assets");
+        }
+        if (!manualExecutionOnly) {
+            throw new IllegalArgumentException("Only manual execution is supported");
+        }
+        if (primaryGrowthBenchmark == null || primaryGrowthBenchmark.isBlank()) {
+            throw new IllegalArgumentException("Primary growth benchmark is required");
+        }
+        if (broadMarketBenchmark == null || broadMarketBenchmark.isBlank()) {
+            throw new IllegalArgumentException("Broad market benchmark is required");
+        }
+        tacticalReserveTargets = List.copyOf(tacticalReserveTargets);
+        if (tacticalReserveTargets.size() != 2) {
+            throw new IllegalArgumentException("Tactical reserve target must contain two values");
         }
     }
 
@@ -95,7 +121,20 @@ public record StrategyDefinition(
                 speculative,
                 etfDip,
                 FreshnessPolicy.defaults(),
-                financialHealth);
+                financialHealth,
+                true,
+                "QQQ",
+                "SPY",
+                List.of(new BigDecimal("0.10"), new BigDecimal("0.15")),
+                new BigDecimal("0.08"),
+                new BigDecimal("0.10"),
+                new BigDecimal("0.12"),
+                new BigDecimal("0.15"),
+                true,
+                true,
+                true,
+                true,
+                false);
     }
 
     public record PositionPolicy(

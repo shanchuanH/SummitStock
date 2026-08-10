@@ -290,3 +290,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Every application route is wrapped by a shared strategy-status banner. A draft override is visibly labelled `DRAFT STRATEGY / NOT PRODUCTION`; an unverified runtime without an override is labelled blocked and states that formal ACTIVE recommendations are disabled.
 - Tests prove missing, DRAFT, hash-mismatched, and exact PUBLISHED release behavior; the existing recommendation integration test proves the explicit test override remains functional. UI tests prove draft warning visibility and suppression for a verified production strategy.
 - Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 170 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening C2 - 2026-08-10
+
+- `StrategyDefinition` and its loader now retain every decision-affecting V2 YAML leaf, including all five drawdown thresholds, exact-quantity evidence switches, risk-over-tax precedence, tactical-reserve range, manual-execution invariant, benchmark identities, deep-discount starter enablement, speculative averaging policy, and all freshness values.
+- A consumed-key registry covers every decision key while `profile.broker` is the sole explicitly classified non-decision metadata leaf. `StrategyConfigParityTest` compares the exact flattened YAML leaf set to that registry, so an unparsed or unclassified future key fails CI.
+- The formal runtime now passes configured drawdown thresholds into `DrawdownEngine`, configured price/risk requirements into exact sizing, configured risk precedence into conflict resolution, and the configured deep-discount switch into Quality starter decisions.
+- Existing strategy-core callers retain the V2 defaults through compatibility entry points; the backend runtime uses the loaded strategy values. A focused test moves the thresholds away from the defaults and proves classification follows configuration rather than embedded percentages.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 172 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
