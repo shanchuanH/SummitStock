@@ -29,7 +29,40 @@ public final class ProviderHttpClient {
         return executor.execute(() -> send(uri, headers));
     }
 
+    public String getText(URI uri, Map<String, String> headers) {
+        return executor.execute(() -> sendProviderText(uri, headers));
+    }
+
+    private String sendProviderText(URI uri, Map<String, String> headers) {
+        var body = sendText(uri, headers);
+        if (!body.stripLeading().startsWith("{")) return body;
+        try {
+            var candidate = json.readTree(body);
+            if (candidate != null) ProviderPayloads.rejectProviderError(candidate);
+            return body;
+        } catch (JacksonException exception) {
+            throw new ProviderCallException(
+                    ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned malformed text payload", 200, false);
+        }
+    }
+
     private Payload send(URI uri, Map<String, String> headers) {
+        var body = sendText(uri, headers);
+        try {
+            JsonNode jsonBody = json.readTree(body);
+            if (jsonBody == null || jsonBody.isNull()) {
+                throw new ProviderCallException(
+                        ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned an empty payload", 200, false);
+            }
+            ProviderPayloads.rejectProviderError(jsonBody);
+            return new Payload(body, jsonBody);
+        } catch (JacksonException exception) {
+            throw new ProviderCallException(
+                    ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned malformed JSON", 200, false);
+        }
+    }
+
+    private String sendText(URI uri, Map<String, String> headers) {
         var builder = HttpRequest.newBuilder(uri).GET().timeout(timeout).header("Accept", "application/json");
         headers.forEach(builder::header);
         try {
@@ -48,18 +81,7 @@ public final class ProviderHttpClient {
                 throw new ProviderCallException(
                         ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned an empty payload", status, false);
             }
-            try {
-                JsonNode body = json.readTree(response.body());
-                if (body == null || body.isNull()) {
-                    throw new ProviderCallException(
-                            ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned an empty payload", status, false);
-                }
-                ProviderPayloads.rejectProviderError(body);
-                return new Payload(response.body(), body);
-            } catch (JacksonException exception) {
-                throw new ProviderCallException(
-                        ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned malformed JSON", status, false);
-            }
+            return response.body();
         } catch (HttpTimeoutException exception) {
             throw new ProviderCallException(
                     ProviderErrorCode.PROVIDER_TIMEOUT, "Provider request timed out", null, true);

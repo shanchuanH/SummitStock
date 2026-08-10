@@ -6,6 +6,7 @@ import com.example.portfolio.market.persistence.MarketDataStore.FundamentalView;
 import com.example.portfolio.market.persistence.MarketDataStore.IndicatorView;
 import com.example.portfolio.market.persistence.MarketDataStore.InstrumentView;
 import com.example.portfolio.market.persistence.MarketDataStore.PriceBarView;
+import com.example.portfolio.market.provider.ProviderRuntimeStatus;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,10 +27,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class MarketDataController {
     private final MarketDataStore store;
     private final Clock clock;
+    private final ObjectProvider<ProviderRuntimeStatus> providerRuntimeStatus;
 
-    public MarketDataController(MarketDataStore store, Clock clock) {
+    public MarketDataController(
+            MarketDataStore store, Clock clock, ObjectProvider<ProviderRuntimeStatus> providerRuntimeStatus) {
         this.store = store;
         this.clock = clock;
+        this.providerRuntimeStatus = providerRuntimeStatus;
     }
 
     @GetMapping("/instruments")
@@ -65,7 +70,10 @@ public class MarketDataController {
 
     @GetMapping("/market/data-health")
     DataHealthResponse dataHealth() {
-        return DataHealthResponse.from(store.dataHealth(), clock.instant());
+        return DataHealthResponse.from(
+                store.dataHealth(),
+                clock.instant(),
+                providerRuntimeStatus.getIfAvailable(ProviderRuntimeStatus::complete));
     }
 
     private static Instant latestBar(List<PriceBarView> rows) {
@@ -201,9 +209,10 @@ public class MarketDataController {
             Instant latestPriceDataAsOf,
             Instant latestIndicatorDataAsOf,
             Instant dataAsOf) {
-        static DataHealthResponse from(DataHealthView row, Instant now) {
+        static DataHealthResponse from(DataHealthView row, Instant now, ProviderRuntimeStatus providerStatus) {
             String status;
-            if (row.priceBars() == 0) status = "EMPTY";
+            if ("PARTIAL".equals(providerStatus.status())) status = "PARTIAL";
+            else if (row.priceBars() == 0) status = "EMPTY";
             else if (row.openQualityEvents() > 0 || row.suspectObservations() > 0) status = "DEGRADED";
             else if (row.latestPriceDataAsOf() == null
                     || utc(row.latestPriceDataAsOf()).isBefore(now.minus(3, ChronoUnit.DAYS))) status = "STALE";

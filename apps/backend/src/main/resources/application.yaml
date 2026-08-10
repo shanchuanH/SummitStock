@@ -67,6 +67,31 @@ portfolio:
       type: ${PORTFOLIO_FUNDAMENTALS_PROVIDER:sec}
       base-url: ${PORTFOLIO_FUNDAMENTALS_BASE_URL:https://data.sec.gov}
       user-agent: ${SEC_USER_AGENT:}
+    estimates:
+      type: ${PORTFOLIO_ESTIMATES_PROVIDER:unavailable}
+      base-url: ${PORTFOLIO_ESTIMATES_BASE_URL:https://www.alphavantage.co/query}
+      api-key: ${PORTFOLIO_ESTIMATES_API_KEY:}
+      minimum-interval: ${PORTFOLIO_ESTIMATES_MINIMUM_INTERVAL:1s}
+      request-timeout: ${PORTFOLIO_ESTIMATES_REQUEST_TIMEOUT:10s}
+      max-attempts: ${PORTFOLIO_ESTIMATES_MAX_ATTEMPTS:3}
+      retry-delay: ${PORTFOLIO_ESTIMATES_RETRY_DELAY:1s}
+    earnings-calendar:
+      type: ${PORTFOLIO_EARNINGS_CALENDAR_PROVIDER:unavailable}
+      base-url: ${PORTFOLIO_EARNINGS_CALENDAR_BASE_URL:https://www.alphavantage.co/query}
+      api-key: ${PORTFOLIO_EARNINGS_CALENDAR_API_KEY:}
+      minimum-interval: ${PORTFOLIO_EARNINGS_CALENDAR_MINIMUM_INTERVAL:1s}
+      request-timeout: ${PORTFOLIO_EARNINGS_CALENDAR_REQUEST_TIMEOUT:10s}
+      max-attempts: ${PORTFOLIO_EARNINGS_CALENDAR_MAX_ATTEMPTS:3}
+      retry-delay: ${PORTFOLIO_EARNINGS_CALENDAR_RETRY_DELAY:1s}
+    macro:
+      type: ${PORTFOLIO_MACRO_PROVIDER:unavailable}
+      base-url: ${PORTFOLIO_MACRO_BASE_URL:https://api.stlouisfed.org/fred}
+      api-key: ${PORTFOLIO_MACRO_API_KEY:}
+      minimum-interval: ${PORTFOLIO_MACRO_MINIMUM_INTERVAL:1s}
+      request-timeout: ${PORTFOLIO_MACRO_REQUEST_TIMEOUT:10s}
+      max-attempts: ${PORTFOLIO_MACRO_MAX_ATTEMPTS:3}
+      retry-delay: ${PORTFOLIO_MACRO_RETRY_DELAY:1s}
+    allow-partial-production: ${ALLOW_PARTIAL_PRODUCTION:false}
     execution:
       max-attempts: ${PORTFOLIO_PROVIDER_MAX_ATTEMPTS:3}
       retry-delay: ${PORTFOLIO_PROVIDER_RETRY_DELAY:1s}

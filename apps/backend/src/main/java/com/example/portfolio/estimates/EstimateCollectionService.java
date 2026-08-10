@@ -1,5 +1,8 @@
 package com.example.portfolio.estimates;
 
+import com.example.portfolio.market.provider.ProviderCallException;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,13 +18,32 @@ public class EstimateCollectionService {
     public CollectionResult collectAll() {
         int observations = 0;
         int affected = 0;
+        var failed = new ArrayList<String>();
+        var warnings = new ArrayList<String>();
         for (var instrument : store.eligibleInstruments()) {
-            var result = provider.fetchEstimates(instrument.symbol());
+            final EarningsEstimateResult result;
+            try {
+                result = provider.fetchEstimates(instrument.symbol());
+            } catch (ProviderCallException exception) {
+                failed.add(instrument.symbol());
+                warnings.add(instrument.symbol() + ":" + exception.code());
+                continue;
+            }
             observations += result.estimates().size();
             affected += store.save(instrument.id(), result);
         }
-        return new CollectionResult(observations, affected);
+        return new CollectionResult(observations, affected, failed, warnings);
     }
 
-    public record CollectionResult(int observations, int affected) {}
+    public record CollectionResult(
+            int observations, int affected, List<String> failedInstruments, List<String> warnings) {
+        public CollectionResult {
+            failedInstruments = List.copyOf(failedInstruments);
+            warnings = List.copyOf(warnings);
+        }
+
+        public CollectionResult(int observations, int affected) {
+            this(observations, affected, List.of(), List.of());
+        }
+    }
 }

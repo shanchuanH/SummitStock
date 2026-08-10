@@ -17,9 +17,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -52,6 +54,8 @@ public class EodMarketPipelineService {
                 : calendar.latestCompletedSession(clock.instant());
         int observations = 0;
         int affected = 0;
+        var failed = new ArrayList<String>();
+        var warnings = new ArrayList<String>();
         for (var instrument : trackedInstruments()) {
             var latest = jdbc.sql("SELECT MAX(market_date) FROM price_bar WHERE instrument_id=UUID_TO_BIN(:id) "
                             + "AND adjusted=TRUE AND market_date<=:completedSession")
@@ -61,7 +65,13 @@ public class EodMarketPipelineService {
                     .optional()
                     .orElse(completedSession.minusDays(370));
             var from = latest.isBefore(completedSession) ? latest.plusDays(1) : completedSession;
-            var result = providerCall(() -> provider.fetchDailyBars(instrument.symbol(), from, completedSession));
+            var attempt = providerAttempt(
+                    () -> provider.fetchDailyBars(instrument.symbol(), from, completedSession),
+                    instrument.symbol(),
+                    failed,
+                    warnings);
+            if (attempt.isEmpty()) continue;
+            var result = attempt.orElseThrow();
             var now = clock.instant();
             var writes = result.bars().stream()
                     .map(bar -> new PriceBarWrite(
@@ -88,13 +98,19 @@ public class EodMarketPipelineService {
             observations += writes.size();
             affected += store.upsertBars(writes);
         }
-        return new StageCount(observations, affected);
+        enforceBenchmarkAvailability(failed);
+        return new StageCount(observations, affected, failed, warnings);
     }
 
     public StageCount collectQuotes() {
         int observations = 0;
+        var failed = new ArrayList<String>();
+        var warnings = new ArrayList<String>();
         for (var instrument : trackedInstruments()) {
-            var value = providerCall(() -> provider.fetchQuote(instrument.symbol()));
+            var attempt = providerAttempt(
+                    () -> provider.fetchQuote(instrument.symbol()), instrument.symbol(), failed, warnings);
+            if (attempt.isEmpty()) continue;
+            var value = attempt.orElseThrow();
             jdbc.sql(
                             """
                             INSERT IGNORE INTO quote (
@@ -130,15 +146,23 @@ public class EodMarketPipelineService {
                     .update();
             observations++;
         }
-        return new StageCount(observations, observations);
+        enforceBenchmarkAvailability(failed);
+        return new StageCount(observations, observations, failed, warnings);
     }
 
     public StageCount collectCorporateActions(LocalDate marketDate) {
         int observations = 0;
         int affected = 0;
+        var failed = new ArrayList<String>();
+        var warnings = new ArrayList<String>();
         for (var instrument : trackedInstruments()) {
-            var result = providerCall(
-                    () -> provider.fetchCorporateActions(instrument.symbol(), marketDate.minusYears(1), marketDate));
+            var attempt = providerAttempt(
+                    () -> provider.fetchCorporateActions(instrument.symbol(), marketDate.minusYears(1), marketDate),
+                    instrument.symbol(),
+                    failed,
+                    warnings);
+            if (attempt.isEmpty()) continue;
+            var result = attempt.orElseThrow();
             for (var action : result.actions()) {
                 observations++;
                 affected += jdbc.sql(
@@ -169,7 +193,7 @@ public class EodMarketPipelineService {
                         .update();
             }
         }
-        return new StageCount(observations, affected);
+        return new StageCount(observations, affected, failed, warnings);
     }
 
     public StageCount validateBars(LocalDate marketDate) {
@@ -273,11 +297,21 @@ public class EodMarketPipelineService {
                 .list();
     }
 
-    private static <T> T providerCall(Supplier<T> call) {
+    private static <T> Optional<T> providerAttempt(
+            Supplier<T> call, String instrument, List<String> failed, List<String> warnings) {
         try {
-            return call.get();
+            return Optional.of(call.get());
         } catch (ProviderCallException exception) {
-            throw new MarketPipelineException(exception.code(), exception.retryable(), exception);
+            failed.add(instrument);
+            warnings.add(instrument + ":" + exception.code());
+            return Optional.empty();
+        }
+    }
+
+    private static void enforceBenchmarkAvailability(List<String> failed) {
+        if (failed.contains("SPY") && failed.contains("QQQ")) {
+            throw new MarketPipelineException(
+                    "BENCHMARK_DATASET_UNAVAILABLE", true, new IllegalStateException("SPY and QQQ both failed"));
         }
     }
 
@@ -350,7 +384,21 @@ public class EodMarketPipelineService {
         }
     }
 
-    public record StageCount(int observations, int affected) {}
+    public record StageCount(int observations, int affected, List<String> failedInstruments, List<String> warnings) {
+        public StageCount {
+            failedInstruments = List.copyOf(failedInstruments);
+            warnings = List.copyOf(warnings);
+        }
+
+        public StageCount(int observations, int affected) {
+            this(observations, affected, List.of(), List.of());
+        }
+
+        public String status() {
+            if (failedInstruments.isEmpty()) return "SUCCESS";
+            return observations == 0 ? "FAILED" : "PARTIAL";
+        }
+    }
 
     record TrackedInstrument(UUID id, String symbol) {}
 

@@ -4,13 +4,15 @@ import com.example.portfolio.market.provider.ProviderModels;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 @Component
-final class UnavailableEarningsCalendarProvider implements EarningsCalendarProvider {
+@ConditionalOnExpression("'${portfolio.providers.earnings-calendar.type:unavailable}' != 'alpha-vantage'")
+public final class UnavailableEarningsCalendarProvider implements EarningsCalendarProvider {
     private final Clock clock;
 
-    UnavailableEarningsCalendarProvider(Clock clock) {
+    public UnavailableEarningsCalendarProvider(Clock clock) {
         this.clock = clock;
     }
 

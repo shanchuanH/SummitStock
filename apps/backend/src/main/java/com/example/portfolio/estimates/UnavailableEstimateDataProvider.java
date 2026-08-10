@@ -3,9 +3,11 @@ package com.example.portfolio.estimates;
 import com.example.portfolio.market.provider.ProviderModels;
 import java.time.Clock;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnExpression("'${portfolio.providers.estimates.type:unavailable}' != 'alpha-vantage'")
 public final class UnavailableEstimateDataProvider implements EstimateDataProvider {
     private final Clock clock;
 

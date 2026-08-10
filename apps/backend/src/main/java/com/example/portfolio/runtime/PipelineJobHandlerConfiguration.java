@@ -128,7 +128,7 @@ class PipelineJobHandlerConfiguration {
     JobHandler collectEarningsCalendarJobHandler(EarningsIntelligenceApplicationService earnings, Clock clock) {
         return handler("COLLECT_EARNINGS_CALENDAR", context -> {
             var result = earnings.collectCalendar();
-            var warnings = result.observations() == 0 ? List.of("EARNINGS_CALENDAR_UNAVAILABLE") : List.<String>of();
+            var warnings = warnings(result.warnings(), result.observations(), "EARNINGS_CALENDAR_UNAVAILABLE");
             return new JobExecutionResult(
                     warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                     "{\"observations\":" + result.observations() + ",\"affected\":" + result.affected() + "}",
@@ -179,7 +179,7 @@ class PipelineJobHandlerConfiguration {
             var date = payload(context, json).marketDate();
             var result = macro.collect(date);
             var breadth = portfolio.collectBreadthMacro(date);
-            var warnings = result.observations() == 0 ? List.of("MACRO_DATA_UNAVAILABLE") : List.<String>of();
+            var warnings = warnings(result.warnings(), result.observations(), "MACRO_DATA_UNAVAILABLE");
             return new JobExecutionResult(
                     warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                     "{\"observations\":" + result.observations() + ",\"affected\":" + (result.affected() + breadth)
@@ -299,7 +299,7 @@ class PipelineJobHandlerConfiguration {
     }
 
     private static JobExecutionResult count(EodMarketPipelineService.StageCount count, Instant at) {
-        var warnings = count.observations() == 0 ? List.of("NO_OBSERVATIONS") : List.<String>of();
+        var warnings = warnings(count.warnings(), count.observations(), "NO_OBSERVATIONS");
         return new JobExecutionResult(
                 warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                 "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
@@ -308,7 +308,7 @@ class PipelineJobHandlerConfiguration {
     }
 
     private static JobExecutionResult count(FundamentalsCollectionService.CollectionResult count, Instant at) {
-        var warnings = count.observations() == 0 ? List.of("NO_OBSERVATIONS") : List.<String>of();
+        var warnings = warnings(count.warnings(), count.observations(), "NO_OBSERVATIONS");
         return new JobExecutionResult(
                 warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                 "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
@@ -317,7 +317,7 @@ class PipelineJobHandlerConfiguration {
     }
 
     private static JobExecutionResult count(EstimateCollectionService.CollectionResult count, Instant at) {
-        var warnings = count.observations() == 0 ? List.of("ESTIMATES_UNAVAILABLE") : List.<String>of();
+        var warnings = warnings(count.warnings(), count.observations(), "ESTIMATES_UNAVAILABLE");
         return new JobExecutionResult(
                 warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                 "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
@@ -327,6 +327,12 @@ class PipelineJobHandlerConfiguration {
 
     private static JobExecutionResult success(int affected, Instant at) {
         return JobExecutionResult.succeeded("{\"affected\":" + affected + "}", at);
+    }
+
+    private static List<String> warnings(List<String> providerWarnings, int observations, String emptyWarning) {
+        var warnings = new java.util.ArrayList<>(providerWarnings);
+        if (observations == 0) warnings.add(emptyWarning);
+        return List.copyOf(warnings);
     }
 
     private static void enqueueNext(

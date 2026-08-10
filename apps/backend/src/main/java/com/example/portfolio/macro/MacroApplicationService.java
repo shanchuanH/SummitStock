@@ -1,11 +1,13 @@
 package com.example.portfolio.macro;
 
+import com.example.portfolio.market.provider.ProviderCallException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -29,8 +31,17 @@ public class MacroApplicationService {
     public CollectionResult collect(LocalDate marketDate) {
         int observations = 0;
         int affected = 0;
+        var failed = new ArrayList<String>();
+        var warnings = new ArrayList<String>();
         for (var code : CORE_SERIES) {
-            var result = provider.fetch(code, marketDate.minusYears(5), marketDate);
+            final MacroDataProvider.MacroSeriesResult result;
+            try {
+                result = provider.fetch(code, marketDate.minusYears(5), marketDate);
+            } catch (ProviderCallException exception) {
+                failed.add(code);
+                warnings.add(code + ":" + exception.code());
+                continue;
+            }
             observations += result.observations().size();
             for (var value : result.observations()) {
                 var checksum = sha256(code + "|" + value + "|" + result.provider());
@@ -51,7 +62,7 @@ public class MacroApplicationService {
                         .update();
             }
         }
-        return new CollectionResult(observations, affected);
+        return new CollectionResult(observations, affected, failed, warnings);
     }
 
     public int computeFactors(LocalDate marketDate, BigDecimal realizedVolatilityStress) {
@@ -132,7 +143,17 @@ public class MacroApplicationService {
         }
     }
 
-    public record CollectionResult(int observations, int affected) {}
+    public record CollectionResult(
+            int observations, int affected, List<String> failedInstruments, List<String> warnings) {
+        public CollectionResult {
+            failedInstruments = List.copyOf(failedInstruments);
+            warnings = List.copyOf(warnings);
+        }
+
+        public CollectionResult(int observations, int affected) {
+            this(observations, affected, List.of(), List.of());
+        }
+    }
 
     public record MacroSnapshot(
             BigDecimal stressResilience, BigDecimal volatilityStress, BigDecimal creditStress, String quality) {}

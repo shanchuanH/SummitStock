@@ -1,10 +1,13 @@
 package com.example.portfolio.earnings;
 
 import com.example.portfolio.configuration.PortfolioProperties;
+import com.example.portfolio.market.provider.ProviderCallException;
 import com.example.portfolio.strategy.position.EarningsPolicy;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -33,8 +36,17 @@ public class EarningsIntelligenceApplicationService {
         var to = from.plusDays(90);
         int observations = 0;
         int affected = 0;
+        var failed = new ArrayList<String>();
+        var warnings = new ArrayList<String>();
         for (var instrument : store.eligibleInstruments()) {
-            var result = provider.fetch(instrument.symbol(), from, to);
+            final EarningsCalendarProvider.CalendarResult result;
+            try {
+                result = provider.fetch(instrument.symbol(), from, to);
+            } catch (ProviderCallException exception) {
+                failed.add(instrument.symbol());
+                warnings.add(instrument.symbol() + ":" + exception.code());
+                continue;
+            }
             var bounded = result.events().stream()
                     .filter(event -> !event.marketDate().isBefore(from)
                             && !event.marketDate().isAfter(to))
@@ -48,7 +60,7 @@ public class EarningsIntelligenceApplicationService {
                         result.quality().name());
             }
         }
-        return new CollectionResult(observations, affected);
+        return new CollectionResult(observations, affected, failed, warnings);
     }
 
     public int computeReactions() {
@@ -95,5 +107,15 @@ public class EarningsIntelligenceApplicationService {
         }
     }
 
-    public record CollectionResult(int observations, int affected) {}
+    public record CollectionResult(
+            int observations, int affected, List<String> failedInstruments, List<String> warnings) {
+        public CollectionResult {
+            failedInstruments = List.copyOf(failedInstruments);
+            warnings = List.copyOf(warnings);
+        }
+
+        public CollectionResult(int observations, int affected) {
+            this(observations, affected, List.of(), List.of());
+        }
+    }
 }
