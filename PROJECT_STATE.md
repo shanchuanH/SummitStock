@@ -308,3 +308,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Recommendation narration rejects cost basis or break-even language as an invalid decision anchor even if the underlying position facts include cost basis.
 - Tests prove all behavioral rules directly and through real MySQL formal recommendation generation, including that an active cooldown cannot suppress a speculative time-stop exit.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 179 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening C4 - 2026-08-10
+
+- Backtest bias status is no longer caller supplied. `BacktestBiasProofEvaluator` derives `CLEAR` or `BLOCKED` from the training/OOS boundary, point-in-time feature timestamps, completed-bar evidence, and versioned universe, price-adjustment, exchange-calendar, cost-model, and feature-cutoff policies.
+- Migration V30 persists those five reproducibility versions plus a machine-readable `bias_proof`; legacy runs are explicitly backfilled as `NOT_EVALUATED` with `LEGACY_UNVERIFIED` provenance and cannot become release evidence.
+- `BacktestReportStore` verifies that persisted training/OOS dates match the proof, stores blocked runs rather than hiding them, and exposes the proof provenance through the read-only API contract.
+- Strategy approval now requires a successful, system-derived, empty-failure proof with non-legacy versions. Publication revalidates the approved run so post-approval tampering or stale legacy evidence fails closed.
+- Tests prove a complete point-in-time proof clears, overlap/future features/incomplete bars block, callers cannot force `CLEAR`, and mutation after human approval prevents publication.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 183 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

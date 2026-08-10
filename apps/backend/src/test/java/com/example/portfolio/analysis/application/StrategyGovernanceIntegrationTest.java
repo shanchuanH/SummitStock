@@ -46,10 +46,13 @@ class StrategyGovernanceIntegrationTest extends MySqlIntegrationTest {
         jdbc.sql(
                         """
                 INSERT INTO backtest_run (id,user_id,idempotency_key,strategy_version,period_start,period_end,
-                  training_through,out_of_sample_from,universe_checksum,config_checksum,status,bias_status,
-                  summary_json,started_at,completed_at,created_at)
+                  training_through,out_of_sample_from,universe_checksum,universe_version,price_adjustment_version,
+                  calendar_version,cost_model_version,feature_cutoff_policy,config_checksum,status,bias_status,
+                  bias_proof,summary_json,started_at,completed_at,created_at)
                 VALUES (UUID_TO_BIN(:run),UUID_TO_BIN(:user),'t14-governance',:version,'2020-01-01','2025-12-31',
-                  '2023-12-29','2024-01-02',:universe,:config,'SUCCEEDED','CLEAR',JSON_OBJECT('folds',4),
+                  '2023-12-29','2024-01-02',:universe,'sp500-2026-08','split-dividend-v2','xnys-2026a',
+                  'close-slippage-10bps-v1','completed-bars-only-v1',:config,'SUCCEEDED','CLEAR',
+                  JSON_OBJECT('verified',TRUE,'failures',JSON_ARRAY()),JSON_OBJECT('folds',4),
                   UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
                 """)
                 .param("run", RUN)
@@ -93,6 +96,15 @@ class StrategyGovernanceIntegrationTest extends MySqlIntegrationTest {
         assertThat(row.status()).isEqualTo("PUBLISHED");
         assertThat(row.approvedBy()).isEqualTo("risk-owner@example.local");
         assertThat(row.publishedAt()).isNotNull();
+    }
+
+    @Test
+    void publicationRevalidatesTheApprovedBiasProof() {
+        governance.approve(STRATEGY, UUID.fromString(RUN), "c".repeat(64), "risk-owner@example.local");
+        jdbc.sql("UPDATE backtest_run SET calendar_version='LEGACY_UNVERIFIED' WHERE id=UUID_TO_BIN(:run)")
+                .param("run", RUN)
+                .update();
+        assertThatThrownBy(() -> governance.publish(STRATEGY)).hasMessage("STRATEGY_RELEASE_NOT_APPROVED");
     }
 
     record ReleaseRow(String status, String approvedBy, java.time.LocalDateTime publishedAt) {}
