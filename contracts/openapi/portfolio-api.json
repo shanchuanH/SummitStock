@@ -2170,6 +2170,12 @@
               "type": "string"
             }
           },
+          "evidenceRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "strategyVersion": {
             "type": "string"
           },
@@ -2197,6 +2203,41 @@
             "type": "string"
           },
           "thesisStatus": {
+            "type": "string"
+          }
+        }
+      },
+      "DecisionNarrative": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "oneSentence": {
+            "type": "string"
+          },
+          "why": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "watchNext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidenceExplanation": {
             "type": "string"
           }
         }
@@ -2346,6 +2387,9 @@
           },
           "resolutionReason": {
             "type": "string"
+          },
+          "narrative": {
+            "$ref": "#/components/schemas/DecisionNarrative"
           },
           "validUntil": {
             "type": "string",
@@ -3404,6 +3448,33 @@
           "validUntil"
         ]
       },
+      "Capital": {
+        "type": "object",
+        "properties": {
+          "totalLiquidAssets": {
+            "type": "string"
+          },
+          "emergencyReserve": {
+            "type": "string"
+          },
+          "deployableCash": {
+            "type": "string"
+          },
+          "investableAssets": {
+            "type": "string"
+          },
+          "tacticalReserve": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deployableCash",
+          "emergencyReserve",
+          "investableAssets",
+          "tacticalReserve",
+          "totalLiquidAssets"
+        ]
+      },
       "DataReadiness": {
         "type": "object",
         "properties": {
@@ -3464,6 +3535,15 @@
           "summary": {
             "$ref": "#/components/schemas/PortfolioSummary"
           },
+          "market": {
+            "$ref": "#/components/schemas/Market"
+          },
+          "capital": {
+            "$ref": "#/components/schemas/Capital"
+          },
+          "portfolio": {
+            "$ref": "#/components/schemas/PortfolioCommand"
+          },
           "mustAct": {
             "type": "array",
             "items": {
@@ -3477,6 +3557,18 @@
             }
           },
           "watch": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefAction"
+            }
+          },
+          "opportunities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BriefAction"
+            }
+          },
+          "blocked": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/BriefAction"
@@ -3507,16 +3599,47 @@
           }
         },
         "required": [
+          "blocked",
+          "capital",
           "dataReadiness",
           "doNot",
           "headline",
+          "market",
           "mustAct",
           "nextEvents",
+          "opportunities",
+          "portfolio",
           "portfolioHealth",
           "state",
           "summary",
           "watch"
         ]
+      },
+      "Market": {
+        "type": "object",
+        "properties": {
+          "regime": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "qualityStatus": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["confidence", "qualityStatus", "regime", "summary"]
       },
       "NextEvent": {
         "type": "object",
@@ -3539,6 +3662,26 @@
           }
         },
         "required": ["eventAt", "eventType", "qualityStatus", "symbol", "title"]
+      },
+      "PortfolioCommand": {
+        "type": "object",
+        "properties": {
+          "drawdown": {
+            "type": "string"
+          },
+          "drawdownSource": {
+            "type": "string"
+          },
+          "technologyExposure": {
+            "type": "string"
+          },
+          "openRisk": {
+            "type": "string"
+          },
+          "clusterRisk": {
+            "type": "string"
+          }
+        }
       },
       "PortfolioHealth": {
         "type": "object",

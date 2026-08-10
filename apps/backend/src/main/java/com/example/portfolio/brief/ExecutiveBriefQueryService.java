@@ -31,6 +31,7 @@ public class ExecutiveBriefQueryService {
         var summary = portfolios.summary(email);
         var cash = briefStore.cashSummary(email);
         var metrics = briefStore.portfolioMetrics(email);
+        var marketSnapshot = briefStore.latestMarket();
         var evidence = briefStore.evidence(email);
         var metadata = briefStore.analysisMetadata(email);
         var run = briefStore.latestAnalysisRun(email);
@@ -56,7 +57,13 @@ public class ExecutiveBriefQueryService {
                         : List.<PortfolioStore.RecommendationView>of();
         var mustAct = actions(recommendations, "MUST_ACT", 3);
         var doNot = actions(recommendations, "DO_NOT", Integer.MAX_VALUE);
-        var watch = actions(recommendations, "WATCH", Integer.MAX_VALUE);
+        var blockedRecommendations = recommendations.stream().filter(ExecutiveBriefQueryService::isDataBlocked).toList();
+        var watch = actions(recommendations.stream().filter(item -> !isDataBlocked(item)).toList(), "WATCH", Integer.MAX_VALUE);
+        var opportunities = recommendations.stream()
+                .filter(item -> !isDataBlocked(item) && isOpportunity(item.action()))
+                .map(ExecutiveBriefQueryService::action)
+                .toList();
+        var blocked = blockedRecommendations.stream().map(ExecutiveBriefQueryService::action).toList();
         var portfolioHealth = health(state, mustAct);
         var readinessView = new DataReadiness(
                 dataStatus(state),
@@ -95,9 +102,32 @@ public class ExecutiveBriefQueryService {
                         decimal(metrics.unvestedCompensationValue()),
                         decimal(metrics.drawdownFraction()),
                         metrics.drawdownSource()),
+                new Market(
+                        marketSnapshot.regime(),
+                        marketSnapshot.score(),
+                        marketSnapshot.confidence(),
+                        marketSnapshot.qualityStatus(),
+                        marketSnapshot.regime().equals("UNKNOWN")
+                                ? "Required market-regime evidence is not available."
+                                : "Regime " + marketSnapshot.regime() + " with " + marketSnapshot.confidence() + " confidence.",
+                        instant(marketSnapshot.dataAsOf())),
+                new Capital(
+                        decimal(summary.investedValue().add(cash.trackedCash())),
+                        decimal(cash.emergencyCash()),
+                        decimal(cash.trackedCash().subtract(cash.emergencyCash()).max(BigDecimal.ZERO)),
+                        decimal(summary.investedValue().add(cash.trackedCash()).subtract(cash.emergencyCash()).max(BigDecimal.ZERO)),
+                        decimal(cash.tacticalReserve())),
+                new PortfolioCommand(
+                        decimal(metrics.drawdownFraction()),
+                        metrics.drawdownSource(),
+                        decimal(metrics.technologyExposureFraction()),
+                        decimal(metrics.openPlannedRiskFraction()),
+                        decimal(metrics.clusterRiskFraction())),
                 mustAct,
                 doNot,
                 watch,
+                opportunities,
+                blocked,
                 portfolioHealth,
                 readinessView,
                 briefStore.nextEvents(email).stream()
@@ -140,6 +170,24 @@ public class ExecutiveBriefQueryService {
                         instant(item.dataAsOf()),
                         instant(item.validUntil())))
                 .toList();
+    }
+
+    private static BriefAction action(PortfolioStore.RecommendationView item) {
+        return new BriefAction(
+                item.id(), item.positionId(), item.symbol(), item.classification(), item.action(), item.priority(),
+                decimal(item.quantityMin()), decimal(item.quantityMax()), decimal(item.currentWeight()),
+                decimal(item.targetWeightMin()), decimal(item.targetWeightMax()), decimal(item.estimatedAmount()),
+                decimal(item.riskBeforeFraction()), decimal(item.riskAfterFraction()), item.confidence(), item.reasons(),
+                item.risks(), item.changeConditions(), instant(item.dataAsOf()), instant(item.validUntil()));
+    }
+
+    private static boolean isDataBlocked(PortfolioStore.RecommendationView item) {
+        return "WAIT_FOR_DATA".equals(item.action()) || "WAIT_FOR_DATA".equals(item.confidence());
+    }
+
+    private static boolean isOpportunity(String action) {
+        return action != null && (action.contains("BUY") || action.contains("ADD") || action.contains("STARTER")
+                || action.contains("DEPLOY_DIP"));
     }
 
     private static PortfolioHealth health(PortfolioAnalysisState state, List<BriefAction> mustAct) {
@@ -206,15 +254,42 @@ public class ExecutiveBriefQueryService {
             @NotNull PortfolioAnalysisState state,
             @NotNull String headline,
             @NotNull @Valid PortfolioSummary summary,
+            @NotNull @Valid Market market,
+            @NotNull @Valid Capital capital,
+            @NotNull @Valid PortfolioCommand portfolio,
             @NotNull List<@Valid BriefAction> mustAct,
             @NotNull List<@Valid BriefAction> doNot,
             @NotNull List<@Valid BriefAction> watch,
+            @NotNull List<@Valid BriefAction> opportunities,
+            @NotNull List<@Valid BriefAction> blocked,
             @NotNull @Valid PortfolioHealth portfolioHealth,
             @NotNull @Valid DataReadiness dataReadiness,
             @NotNull List<@Valid NextEvent> nextEvents,
             UUID analysisRunId,
             String strategyVersion,
             Instant dataAsOf) {}
+
+    public record Market(
+            @NotNull String regime,
+            Double score,
+            @NotNull String confidence,
+            @NotNull String qualityStatus,
+            @NotNull String summary,
+            Instant dataAsOf) {}
+
+    public record Capital(
+            @NotNull String totalLiquidAssets,
+            @NotNull String emergencyReserve,
+            @NotNull String deployableCash,
+            @NotNull String investableAssets,
+            @NotNull String tacticalReserve) {}
+
+    public record PortfolioCommand(
+            String drawdown,
+            String drawdownSource,
+            String technologyExposure,
+            String openRisk,
+            String clusterRisk) {}
 
     public record PortfolioSummary(
             @NotNull String investedValue,

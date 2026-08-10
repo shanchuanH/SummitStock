@@ -1011,6 +1011,7 @@ export interface components {
       analysisStatus?: string;
       exactQuantityAllowed?: boolean;
       ruleIds?: string[];
+      evidenceRefs?: string[];
       strategyVersion?: string;
       configHash?: string;
     };
@@ -1021,6 +1022,15 @@ export interface components {
       valuationStatus?: string;
       earningsRiskStatus?: string;
       thesisStatus?: string;
+    };
+    DecisionNarrative: {
+      source?: string;
+      headline?: string;
+      oneSentence?: string;
+      why?: string[];
+      risks?: string[];
+      watchNext?: string[];
+      confidenceExplanation?: string;
     };
     EtfEvidence: {
       etfModelApplied?: boolean;
@@ -1070,6 +1080,7 @@ export interface components {
       winningRule?: string;
       suppressedCandidates?: components["schemas"]["SuppressedCandidate"][];
       resolutionReason?: string;
+      narrative?: components["schemas"]["DecisionNarrative"];
       /** Format: date-time */
       validUntil?: string;
     };
@@ -1464,6 +1475,13 @@ export interface components {
       /** Format: date-time */
       validUntil: string;
     };
+    Capital: {
+      totalLiquidAssets: string;
+      emergencyReserve: string;
+      deployableCash: string;
+      investableAssets: string;
+      tacticalReserve: string;
+    };
     DataReadiness: {
       status: string;
       marketCoverage: string;
@@ -1492,15 +1510,30 @@ export interface components {
         | "FAILED";
       headline: string;
       summary: components["schemas"]["PortfolioSummary"];
+      market: components["schemas"]["Market"];
+      capital: components["schemas"]["Capital"];
+      portfolio: components["schemas"]["PortfolioCommand"];
       mustAct: components["schemas"]["BriefAction"][];
       doNot: components["schemas"]["BriefAction"][];
       watch: components["schemas"]["BriefAction"][];
+      opportunities: components["schemas"]["BriefAction"][];
+      blocked: components["schemas"]["BriefAction"][];
       portfolioHealth: components["schemas"]["PortfolioHealth"];
       dataReadiness: components["schemas"]["DataReadiness"];
       nextEvents: components["schemas"]["NextEvent"][];
       /** Format: uuid */
       analysisRunId?: string;
       strategyVersion?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    Market: {
+      regime: string;
+      /** Format: double */
+      score?: number;
+      confidence: string;
+      qualityStatus: string;
+      summary: string;
       /** Format: date-time */
       dataAsOf?: string;
     };
@@ -1511,6 +1544,13 @@ export interface components {
       /** Format: date-time */
       eventAt: string;
       qualityStatus: string;
+    };
+    PortfolioCommand: {
+      drawdown?: string;
+      drawdownSource?: string;
+      technologyExposure?: string;
+      openRisk?: string;
+      clusterRisk?: string;
     };
     PortfolioHealth: {
       status: string;

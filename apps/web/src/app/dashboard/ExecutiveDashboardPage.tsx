@@ -34,21 +34,22 @@ export function ExecutiveDashboardPage() {
       : <>
         <DataReadinessBanner state={brief.data.state} headline={brief.data.headline} readiness={brief.data.dataReadiness} />
         <section className="terminal-overview">
-          <article><span>市场状态</span><strong>{brief.data.portfolioHealth.status}</strong><small>{brief.data.headline}</small></article>
-          <article><span>组合回撤</span><strong>{percent(brief.data.summary.portfolioDrawdownFraction)}</strong><small>{brief.data.summary.drawdownSource ?? "来源待确认"}</small></article>
-          <article><span>可投资现金</span><strong>{money(Number(brief.data.summary.trackedCash) - Number(brief.data.summary.emergencyCash))}</strong><small>已扣除应急现金</small></article>
+          <article><span>市场状态</span><strong>{brief.data.market.regime}</strong><small>{brief.data.market.summary}</small></article>
+          <article><span>组合回撤</span><strong>{percent(brief.data.portfolio.drawdown)}</strong><small>{brief.data.portfolio.drawdownSource ?? "来源待确认"}</small></article>
+          <article><span>可投资资产</span><strong>{money(brief.data.capital.investableAssets)}</strong><small>可部署现金 {money(brief.data.capital.deployableCash)}</small></article>
           <article><span>数据截至</span><strong className="as-of-value">{asOf(brief.data.dataAsOf)}</strong><small>{brief.data.dataReadiness.status}</small></article>
         </section>
         <section className="brief-counts" aria-label="今日项目统计">
           <article><strong>{brief.data.mustAct.length}</strong><span>需要行动</span></article>
           <article><strong>{brief.data.doNot.length}</strong><span>不要执行</span></article>
           <article><strong>{brief.data.watch.length}</strong><span>继续观察</span></article>
-          <article><strong>{brief.data.dataReadiness.missingPositionCount + brief.data.dataReadiness.stalePositionCount}</strong><span>数据受阻</span></article>
+          <article><strong>{brief.data.blocked.length}</strong><span>数据受阻</span></article>
         </section>
         {!brief.data.mustAct.length && !brief.data.doNot.length && !brief.data.watch.length ? <section className="context-card calm-state"><strong>当前无需紧急操作</strong><span>分析已完成，没有生效的行动建议。</span></section> : null}
         <ActionSection title="必须行动" actions={brief.data.mustAct.slice(0, 3)} />
         <ActionSection title="不要执行" actions={brief.data.doNot} />
         <ActionSection title="持续观察" actions={brief.data.watch} />
+        <ActionSection title="数据阻塞" actions={brief.data.blocked} />
         <section className="dashboard-grid"><article className="context-card"><p className="eyebrow">组合概览</p><h2>{brief.data.summary.openPositions} 个持仓</h2><dl className="health-metrics"><div><dt>流动资产</dt><dd>{money(brief.data.summary.totalLiquidAssets)}</dd></div><div><dt>已投资 / 现金</dt><dd>{money(brief.data.summary.investedValue)} / {money(brief.data.summary.trackedCash)}</dd></div><div><dt>核心 / 战术</dt><dd>{percent(brief.data.summary.coreExposureFraction)} / {percent(brief.data.summary.tacticalExposureFraction)}</dd></div><div><dt>集群风险</dt><dd>{percent(brief.data.summary.clusterRiskFraction)}</dd></div></dl></article><PortfolioHealthCard health={brief.data.portfolioHealth} /></section>
         <details className="context-card audit-details"><summary>数据与审计依据</summary><p>策略版本：{brief.data.strategyVersion ?? "未选择"}；数据截至：{asOf(brief.data.dataAsOf)}</p></details>
       </>}

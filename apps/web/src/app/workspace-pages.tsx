@@ -23,7 +23,7 @@ type Brief = components["schemas"]["ExecutiveBrief"];
 function OpportunityList({title,items}:{title:string;items:components["schemas"]["BriefAction"][]}) { return <article className="context-card"><h2>{title}</h2>{items.length?<ul>{items.map(x=><li key={x.id}><a href={x.positionId?`/positions/${x.positionId}`:"/portfolio"}><strong>{x.symbol??"组合"}</strong> · {x.action} · {x.confidence}</a></li>)}</ul>:<p>当前没有通过数据完整性与风险约束的候选。</p>}</article>; }
 export function OpportunitiesPage(){
   const brief=useQuery({queryKey:["opportunity-brief"],queryFn:()=>requireData<Brief>(api.GET("/api/v1/brief/today"),"Brief"),retry:false});
-  const actions=brief.data?[...brief.data.mustAct,...brief.data.watch]:[];
+  const actions=brief.data?.opportunities??[];
   const quality=actions.filter(x=>/QUALITY|CORE|STOCK/.test(x.classification??"")); const etf=actions.filter(x=>/ETF/.test(x.classification??""));
   return <Frame eyebrow="MARKET & OPPORTUNITIES" title="市场与机会">{brief.isPending?<section className="context-card">正在读取真实候选…</section>:brief.isError?<section className="context-card" role="alert">无法读取机会数据。</section>:<section className="opportunity-grid"><OpportunityList title="Quality Discount" items={quality}/><OpportunityList title="ETF Dip" items={etf}/><OpportunityList title="Watchlist" items={brief.data.watch}/></section>}<a href="/advanced/market-context">查看市场状态与数据依据 →</a></Frame>;
 }

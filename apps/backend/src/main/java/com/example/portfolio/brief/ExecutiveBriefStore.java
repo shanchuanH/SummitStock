@@ -147,6 +147,19 @@ class ExecutiveBriefStore {
                 .single();
     }
 
+    MarketSnapshot latestMarket() {
+        return jdbc.sql(
+                        """
+                        SELECT regime_label regime,total_score score,confidence,quality_status qualityStatus,
+                               data_as_of dataAsOf
+                        FROM market_regime_snapshot
+                        ORDER BY data_as_of DESC,created_at DESC LIMIT 1
+                        """)
+                .query(MarketSnapshot.class)
+                .optional()
+                .orElse(new MarketSnapshot("UNKNOWN", null, "WAIT_FOR_DATA", "MISSING", null));
+    }
+
     PortfolioMetrics portfolioMetrics(String email) {
         var exposure = jdbc.sql(
                         """
@@ -263,6 +276,9 @@ class ExecutiveBriefStore {
             BigDecimal tacticalValue,
             BigDecimal openPlannedRisk,
             BigDecimal clusterRisk) {}
+
+    record MarketSnapshot(
+            String regime, Double score, String confidence, String qualityStatus, LocalDateTime dataAsOf) {}
 
     record DrawdownMetrics(BigDecimal drawdownFraction, String drawdownSource) {}
 

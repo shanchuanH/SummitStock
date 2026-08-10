@@ -48,6 +48,11 @@ describe("Packet 07 workspace", () => {
         })),
         doNot: [],
         watch: [],
+        opportunities: [],
+        blocked: [],
+        market: { regime: "YELLOW", score: 52, confidence: "MEDIUM", qualityStatus: "HEALTHY", summary: "Balanced", dataAsOf: "2026-08-05T20:00:00Z" },
+        capital: { totalLiquidAssets: "12000", emergencyReserve: "1000", deployableCash: "1000", investableAssets: "11000", tacticalReserve: "1000" },
+        portfolio: { drawdown: "0.02", drawdownSource: "MARKET_DRIVEN", technologyExposure: "0.4", openRisk: "0.01", clusterRisk: "0.02" },
         portfolioHealth: { status: "WARNING", reasons: [] },
         dataReadiness: {
           status: "HEALTHY",
