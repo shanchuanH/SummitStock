@@ -93,31 +93,33 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
         boolean unitConflict = false;
         LocalDate latestFiled = null;
         for (var mapping : CONCEPTS.entrySet()) {
-            var selected = firstConcept(usGaap, mapping.getValue());
-            if (selected == null) {
+            var selectedConcepts = selectedConcepts(usGaap, mapping.getKey(), mapping.getValue());
+            if (selectedConcepts.isEmpty()) {
                 warnings.add("MISSING_METRIC:" + mapping.getKey());
                 continue;
             }
-            var units = selected.node().get("units");
-            if (units == null || !units.isObject()) {
-                warnings.add("MISSING_UNITS:" + selected.name());
-                continue;
-            }
-            int populatedUnits = 0;
-            for (var unitEntry : units.properties()) {
-                if (unitEntry.getValue().isArray() && !unitEntry.getValue().isEmpty()) populatedUnits++;
-                for (var observation : unitEntry.getValue()) {
-                    var parsed =
-                            fact(mapping.getKey(), selected.name(), unitEntry.getKey(), normalizedCik, observation);
-                    if (parsed != null) {
-                        facts.add(parsed);
-                        resolvedMetrics.add(mapping.getKey());
-                        if (latestFiled == null || parsed.filingDate().isAfter(latestFiled))
-                            latestFiled = parsed.filingDate();
+            for (var selected : selectedConcepts) {
+                var units = selected.node().get("units");
+                if (units == null || !units.isObject()) {
+                    warnings.add("MISSING_UNITS:" + selected.name());
+                    continue;
+                }
+                int populatedUnits = 0;
+                for (var unitEntry : units.properties()) {
+                    if (unitEntry.getValue().isArray() && !unitEntry.getValue().isEmpty()) populatedUnits++;
+                    for (var observation : unitEntry.getValue()) {
+                        var parsed =
+                                fact(mapping.getKey(), selected.name(), unitEntry.getKey(), normalizedCik, observation);
+                        if (parsed != null) {
+                            facts.add(parsed);
+                            resolvedMetrics.add(mapping.getKey());
+                            if (latestFiled == null || parsed.filingDate().isAfter(latestFiled))
+                                latestFiled = parsed.filingDate();
+                        }
                     }
                 }
+                unitConflict |= populatedUnits > 1;
             }
-            unitConflict |= populatedUnits > 1;
         }
         if (unitConflict) warnings.add("MULTIPLE_UNITS_FOR_MAPPED_CONCEPT");
         var sourceTimestamp = latestFiled == null
@@ -189,6 +191,20 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
         return null;
     }
 
+    private static List<SelectedConcept> selectedConcepts(
+            JsonNode taxonomy, String businessMetric, List<String> candidates) {
+        if (!"LongTermDebt".equals(businessMetric)) {
+            var selected = firstConcept(taxonomy, candidates);
+            return selected == null ? List.of() : List.of(selected);
+        }
+        var result = new ArrayList<SelectedConcept>();
+        for (var candidate : candidates) {
+            var node = taxonomy.get(candidate);
+            if (node != null && node.isObject()) result.add(new SelectedConcept(candidate, node));
+        }
+        return List.copyOf(result);
+    }
+
     private static JsonNode path(JsonNode root, String... fields) {
         var current = root;
         for (String field : fields) {
@@ -258,7 +274,13 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
         mappings.put("CashAndCashEquivalents", List.of("CashAndCashEquivalentsAtCarryingValue"));
         mappings.put(
                 "LongTermDebt",
-                List.of("LongTermDebtNoncurrent", "LongTermDebt", "LongTermDebtAndFinanceLeaseObligationsCurrent"));
+                List.of(
+                        "DebtCurrentAndNoncurrent",
+                        "LongTermDebt",
+                        "ShortTermBorrowings",
+                        "LongTermDebtCurrent",
+                        "LongTermDebtNoncurrent",
+                        "LongTermDebtAndFinanceLeaseObligationsCurrent"));
         mappings.put("CurrentAssets", List.of("AssetsCurrent"));
         mappings.put("CurrentLiabilities", List.of("LiabilitiesCurrent"));
         mappings.put("ShareholdersEquity", List.of("StockholdersEquity"));

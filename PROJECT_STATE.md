@@ -261,3 +261,13 @@ Configure production provider credentials, run the documented deployment smoke c
 - YoY and three-year comparisons select the same canonical fiscal period from the required prior fiscal year, not an exact `endDate.minusYears(...)`, so 52/53-week issuers remain comparable.
 - Tests cover a retailer Q1 ending in May, missing fiscal-period metadata, a one-day-shifted 53-week comparison, and official SEC `fy/fp` parsing.
 - Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 160 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.
+
+## Hardening B5 - 2026-08-10
+
+- Financial concepts now pass explicit unit and sign contracts before normalization: monetary facts require USD, diluted shares require `shares`, diluted EPS requires `USD/shares`, and balance-sheet values such as debt cannot be negative.
+- SEC ingestion collects all relevant debt concepts. `TOTAL_DEBT` uses a reported aggregate when present and never also sums its components; otherwise it sums distinct short-term, current, and non-current components while treating alternative current-debt concepts as mutually exclusive.
+- Migration V28 adds `source_concepts`, `mapping_version`, and `aggregation_method` to every financial metric snapshot, with safe legacy backfill before enforcing non-null constraints.
+- Raw/derived metric provenance uses versioned identifiers and records `PREFERRED_AGGREGATE`, `SUM_DISTINCT_COMPONENTS`, `SINGLE_CONCEPT`, or `DERIVED_FORMULA` as appropriate.
+- Filing-index rows no longer infer a fiscal quarter from calendar month; later company-fact normalization supplies provider fiscal metadata on duplicate-period reconciliation.
+- Tests prove aggregate debt is not double counted, distinct components are summed once, alternate current components are mutually exclusive, and invalid units/negative debt fail closed. The complete 13-position vertical pipeline remains `ANALYSIS_READY` with correctly typed fixture facts.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 162 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests pass; production build has a clean zero exit code.

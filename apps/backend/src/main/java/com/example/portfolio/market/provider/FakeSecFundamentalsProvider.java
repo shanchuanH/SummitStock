@@ -81,7 +81,7 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
                     value.businessMetric(),
                     "us-gaap",
                     value.concept(),
-                    value.businessMetric().equals("DILUTED_EPS") ? "USD/shares" : "USD",
+                    unit(value.businessMetric()),
                     value.value(),
                     end.minusYears(1),
                     end,
@@ -92,6 +92,14 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
                     end.getYear(),
                     "FY"));
         }
+    }
+
+    private static String unit(String businessMetric) {
+        return switch (businessMetric) {
+            case "DILUTED_EPS" -> "USD/shares";
+            case "DILUTED_SHARES" -> "shares";
+            default -> "USD";
+        };
     }
 
     private static FixtureMetric metric(String businessMetric, String concept, String value) {
