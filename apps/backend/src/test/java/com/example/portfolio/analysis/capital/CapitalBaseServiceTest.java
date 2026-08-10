@@ -7,6 +7,7 @@ import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.allocation.PortfolioSleeve;
 import com.example.portfolio.analysis.application.HoldingEvidenceAssembler;
 import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.market.provider.TradingCalendar;
 import java.time.Clock;
 import java.time.Instant;
@@ -37,6 +38,9 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
 
     @Autowired
     PortfolioAllocationService allocations;
+
+    @Autowired
+    ClusterRiskService clusterRisks;
 
     @Autowired
     TradingCalendar calendar;
@@ -98,6 +102,9 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
                 "DELETE FROM portfolio_capital_snapshot WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM portfolio_allocation_snapshot WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
+        update("DELETE FROM risk_cluster_snapshot WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM position_risk_snapshot WHERE position_id IN (UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000003'))");
         update(
                 "DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000003'))");
         update(
@@ -164,7 +171,20 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
                 (UUID_TO_BIN('a7000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a6000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),1,UTC_TIMESTAMP(6))
                 """);
 
+        update(
+                """
+                INSERT INTO position_risk_snapshot (id,position_id,strategy_version,current_weight,open_risk_fraction,
+                  cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at) VALUES
+                (UUID_TO_BIN('a9000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),'2.0.0-draft',0.10,0.0030,0,240,'HEALTHY',SHA2('risk1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('a9000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),'2.0.0-draft',0.15,0.0025,0,200,'HEALTHY',SHA2('risk2',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                """);
+
+        assertThat(clusterRisks.capture(USER, clock.instant())).isEqualTo(1);
+        assertThat(clusterRisks.forPosition(POSITION).openRiskAmount()).isEqualByComparingTo("440");
+        assertThat(clusterRisks.forPosition(POSITION).openRiskFraction()).isEqualByComparingTo("0.0055");
+
         assertThat(evidenceAssembler.assemble(USER, POSITION).clusterWeight()).isEqualByComparingTo("0.25");
+        assertThat(evidenceAssembler.assemble(USER, POSITION).clusterOpenRisk()).isEqualByComparingTo("0.0055");
     }
 
     private void update(String sql) {

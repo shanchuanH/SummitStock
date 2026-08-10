@@ -4,6 +4,7 @@ import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.MarketContextService;
 import com.example.portfolio.macro.MacroApplicationService;
@@ -35,6 +36,7 @@ public class PortfolioAnalysisPipelineService {
     private final PositionMarkService positionMarks;
     private final PortfolioAllocationService allocations;
     private final EtfDipEventService dipEvents;
+    private final ClusterRiskService clusterRisks;
     private final MacroApplicationService macro;
     private final Clock clock;
 
@@ -46,6 +48,7 @@ public class PortfolioAnalysisPipelineService {
             PositionMarkService positionMarks,
             PortfolioAllocationService allocations,
             EtfDipEventService dipEvents,
+            ClusterRiskService clusterRisks,
             MacroApplicationService macro,
             Clock clock) {
         this.jdbc = jdbc;
@@ -55,6 +58,7 @@ public class PortfolioAnalysisPipelineService {
         this.positionMarks = positionMarks;
         this.allocations = allocations;
         this.dipEvents = dipEvents;
+        this.clusterRisks = clusterRisks;
         this.macro = macro;
         this.clock = clock;
     }
@@ -256,7 +260,9 @@ public class PortfolioAnalysisPipelineService {
                     .param("now", clock.instant())
                     .update();
         }
-        return affected + snapshotPortfolioRisk(userId);
+        var positionRisks = snapshotPortfolioRisk(userId);
+        var clusterRiskSnapshots = clusterRisks.capture(userId, clock.instant());
+        return affected + positionRisks + clusterRiskSnapshots;
     }
 
     private int snapshotPortfolioRisk(UUID userId) {
@@ -286,7 +292,7 @@ public class PortfolioAnalysisPipelineService {
                         SELECT UUID_TO_BIN(UUID()),c.id,:strategy,
                                CASE WHEN c.equity=0 OR c.market_value IS NULL THEN 0 ELSE c.market_value/c.equity END,
                                CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
-                               CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
+                               0,
                                c.risk_amount,
                                CASE WHEN c.last_price IS NULL OR c.mark_quality<>'HEALTHY'
                                       OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)

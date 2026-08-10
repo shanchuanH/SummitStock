@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
+import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
@@ -20,12 +21,17 @@ public final class HoldingEvidenceAssembler {
     private final JdbcClient jdbc;
     private final PublishedStrategyService strategies;
     private final CapitalBaseService capitalBases;
+    private final ClusterRiskService clusterRisks;
 
     public HoldingEvidenceAssembler(
-            JdbcClient jdbc, PublishedStrategyService strategies, CapitalBaseService capitalBases) {
+            JdbcClient jdbc,
+            PublishedStrategyService strategies,
+            CapitalBaseService capitalBases,
+            ClusterRiskService clusterRisks) {
         this.jdbc = jdbc;
         this.strategies = strategies;
         this.capitalBases = capitalBases;
+        this.clusterRisks = clusterRisks;
     }
 
     public List<HoldingEvidence> assembleAll(UUID userId) {
@@ -49,6 +55,7 @@ public final class HoldingEvidenceAssembler {
                 ? BigDecimal.ZERO
                 : position.marketValue().divide(investable, MathContext.DECIMAL64);
         var cluster = cluster(position.positionId(), investable);
+        var clusterRisk = clusterRisks.forPosition(position.positionId());
         var quote = quote(position.instrumentId());
         var bars = bars(position.instrumentId());
         var indicators = indicators(position.instrumentId(), bars);
@@ -90,7 +97,7 @@ public final class HoldingEvidenceAssembler {
                 money(totals.tactical()),
                 currentWeight,
                 cluster.weight(),
-                cluster.risk(),
+                clusterRisk.openRiskFraction(),
                 totals.openRisk(),
                 quote,
                 bars,
@@ -159,16 +166,12 @@ public final class HoldingEvidenceAssembler {
     private ClusterEvidence cluster(UUID positionId, BigDecimal liquid) {
         var value = jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(marked.marked_market_value*m.contribution_weight),0) clusterValue,
-                               COALESCE(MAX(r.cluster_risk_fraction),0) clusterRisk
+                        SELECT COALESCE(SUM(marked.marked_market_value*m.contribution_weight),0) clusterValue
                         FROM risk_cluster_membership own
                         JOIN risk_cluster c ON c.id=own.risk_cluster_id
                         JOIN risk_cluster_membership m ON m.risk_cluster_id=c.id
                         JOIN position other ON other.id=m.position_id AND other.status='OPEN'
                         LEFT JOIN current_position_mark marked ON marked.position_id=other.id
-                        LEFT JOIN position_risk_snapshot r ON r.position_id=other.id
-                          AND r.data_as_of=(SELECT MAX(x.data_as_of) FROM position_risk_snapshot x
-                                            WHERE x.position_id=other.id)
                         WHERE own.position_id=UUID_TO_BIN(:positionId)
                         """)
                 .param("positionId", positionId.toString())
@@ -176,7 +179,7 @@ public final class HoldingEvidenceAssembler {
                 .single();
         var weight =
                 liquid.signum() == 0 ? BigDecimal.ZERO : value.clusterValue().divide(liquid, MathContext.DECIMAL64);
-        return new ClusterEvidence(weight, value.clusterRisk());
+        return new ClusterEvidence(weight);
     }
 
     private RiskEvidence riskEvidence(UUID userId) {
@@ -535,9 +538,9 @@ public final class HoldingEvidenceAssembler {
 
     record PortfolioTotals(BigDecimal tactical, BigDecimal openRisk) {}
 
-    record ClusterRow(BigDecimal clusterValue, BigDecimal clusterRisk) {}
+    record ClusterRow(BigDecimal clusterValue) {}
 
-    record ClusterEvidence(BigDecimal weight, BigDecimal risk) {}
+    record ClusterEvidence(BigDecimal weight) {}
 
     record RiskRow(long snapshotCount, long impairedCount, LocalDateTime dataAsOf) {}
 

@@ -170,20 +170,19 @@ class ExecutiveBriefStore {
                             LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE u.email=:email AND p.status='OPEN'
                         ), latest_risk AS (
-                            SELECT r.position_id,r.open_risk_fraction,r.cluster_risk_fraction,
+                            SELECT r.position_id,r.open_risk_fraction,
                                    ROW_NUMBER() OVER (PARTITION BY r.position_id ORDER BY r.data_as_of DESC,r.created_at DESC) rn
                             FROM position_risk_snapshot r JOIN owned o ON o.id=r.position_id
-                        ), cluster_totals AS (
-                            SELECT m.risk_cluster_id,SUM(r.open_risk_fraction) cluster_risk
-                            FROM risk_cluster_membership m JOIN latest_risk r ON r.position_id=m.position_id AND r.rn=1
-                            GROUP BY m.risk_cluster_id
+                        ), latest_cluster AS (
+                            SELECT s.open_risk_fraction,
+                                   ROW_NUMBER() OVER (PARTITION BY s.risk_cluster_id ORDER BY s.data_as_of DESC,s.created_at DESC) rn
+                            FROM risk_cluster_snapshot s JOIN app_user u ON u.id=s.user_id WHERE u.email=:email
                         )
                         SELECT COALESCE(SUM(o.market_value),0) investedValue,
                                COALESCE(SUM(CASE WHEN o.classification IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) coreValue,
                                COALESCE(SUM(CASE WHEN o.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) tacticalValue,
                                COALESCE((SELECT SUM(open_risk_fraction) FROM latest_risk WHERE rn=1),0) openPlannedRisk,
-                               COALESCE((SELECT MAX(cluster_risk) FROM cluster_totals),
-                                        (SELECT MAX(cluster_risk_fraction) FROM latest_risk WHERE rn=1),0) clusterRisk
+                               COALESCE((SELECT MAX(open_risk_fraction) FROM latest_cluster WHERE rn=1),0) clusterRisk
                         FROM owned o
                         """)
                 .param("email", email)

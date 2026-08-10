@@ -140,6 +140,17 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void canonicalClusterRiskAboveCapBlocksNewRisk() {
+        var evidence = withClusterRisk(
+                qualityEvidence("STRONG", "ATTRACTIVE", "POSITIVE", "UPTREND", "0.01"), new BigDecimal("0.0100"));
+        var context = context(evidence);
+        var candidates = new ArrayList<>(constraints.evaluate(context));
+        candidates.addAll(quality.evaluate(context));
+
+        assertThat(resolve(evidence, context, candidates)).isEqualTo(RecommendationAction.DO_NOT_ADD);
+    }
+
+    @Test
     void marketDrivenFifteenPercentCanDeployCoreEtfDip() {
         var evidence = withDrawdown(
                 HoldingEvidenceFixtures.evidence("QQQM", "ETF", HoldingClassification.CORE_TECH_ETF),
@@ -415,6 +426,38 @@ class AssetDecisionEngineV2Test {
                 new HoldingEvidence.EarningsEvent(true, value.nextEvent().eventAt(), risk),
                 value.drawdown(),
                 value.stop());
+    }
+
+    private static HoldingEvidence withClusterRisk(HoldingEvidence value, BigDecimal clusterRisk) {
+        return new HoldingEvidence(
+                value.position(),
+                value.instrument(),
+                value.portfolioEquity(),
+                value.trackedCash(),
+                value.emergencyCash(),
+                value.tacticalReserve(),
+                value.currentWeight(),
+                value.clusterWeight(),
+                clusterRisk,
+                value.totalOpenRisk(),
+                value.quote(),
+                value.completedBars(),
+                value.indicators(),
+                value.fundamentals(),
+                value.valuation(),
+                value.nextEvent(),
+                value.thesis(),
+                value.regime(),
+                value.drawdown(),
+                value.stop(),
+                value.profile(),
+                value.capitalQuality(),
+                value.riskQuality(),
+                value.riskDataAsOf(),
+                value.providerHardError(),
+                value.quality(),
+                value.strategy(),
+                value.dataAsOf());
     }
 
     private static HoldingEvidence copy(
