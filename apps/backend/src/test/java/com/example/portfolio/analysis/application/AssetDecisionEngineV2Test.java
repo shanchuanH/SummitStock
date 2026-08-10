@@ -8,6 +8,7 @@ import com.example.portfolio.analysis.decision.PortfolioConstraintEngine;
 import com.example.portfolio.analysis.decision.QualityStockDecisionEngine;
 import com.example.portfolio.analysis.decision.RecommendationConflictResolver;
 import com.example.portfolio.analysis.decision.SpeculativeDecisionEngine;
+import com.example.portfolio.analysis.decision.TacticalStockDecisionEngine;
 import com.example.portfolio.analysis.decision.ThematicEtfDecisionEngine;
 import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
@@ -161,6 +162,60 @@ class AssetDecisionEngineV2Test {
         var context = new DecisionContext(
                 evidence,
                 AnalysisReadiness.PARTIAL,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+
+        assertThat(resolve(evidence, context, new SpeculativeDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.EXIT);
+    }
+
+    @Test
+    void qualityBrokenThesisExitBeatsPainLinePause() {
+        var evidence = withDrawdown(
+                qualityEvidence("BROKEN", "RICH", "MISSING", "DOWNTREND", "0.01"),
+                new BigDecimal("0.20"),
+                "PAIN_LINE",
+                true);
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.EXIT);
+    }
+
+    @Test
+    void tacticalStopExitBeatsPainLinePause() {
+        var evidence = withDrawdown(
+                withStop(
+                        HoldingEvidenceFixtures.evidence("NOK", "EQUITY", HoldingClassification.TURNAROUND_TACTICAL),
+                        true),
+                new BigDecimal("0.20"),
+                "PAIN_LINE",
+                true);
+        var policy = evidence.strategy().tactical();
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+
+        assertThat(resolve(evidence, context, new TacticalStockDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.EXIT);
+    }
+
+    @Test
+    void speculativeStopExitBeatsPainLinePause() {
+        var evidence = withDrawdown(
+                withStop(HoldingEvidenceFixtures.evidence("DXYZ", "EQUITY", HoldingClassification.SPECULATIVE), true),
+                new BigDecimal("0.20"),
+                "PAIN_LINE",
+                true);
+        var policy = evidence.strategy().speculative();
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
                 policy.targetMin(),
                 policy.targetMax(),
                 policy.normalMax(),
