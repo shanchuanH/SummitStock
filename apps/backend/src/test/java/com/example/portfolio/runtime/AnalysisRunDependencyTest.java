@@ -69,6 +69,16 @@ class AnalysisRunDependencyTest extends MySqlIntegrationTest {
 
     static DurableJobStore.ClaimedJob claimed(UUID runId, String type) {
         return new DurableJobStore.ClaimedJob(
-                UUID.randomUUID(), UUID.randomUUID(), runId, type, "key", "{}", 1, 5, Instant.now(), "test");
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                runId,
+                type,
+                "key",
+                "{}",
+                1,
+                5,
+                Instant.now(),
+                "test",
+                UUID.randomUUID());
     }
 }

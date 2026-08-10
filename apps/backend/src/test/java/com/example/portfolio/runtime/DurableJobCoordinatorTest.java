@@ -59,6 +59,16 @@ class DurableJobCoordinatorTest {
 
     private static DurableJobStore.ClaimedJob job(String type) {
         return new DurableJobStore.ClaimedJob(
-                UUID.randomUUID(), UUID.randomUUID(), null, type, "key", "{}", 1, 5, Instant.EPOCH, "worker-test");
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                null,
+                type,
+                "key",
+                "{}",
+                1,
+                5,
+                Instant.EPOCH,
+                "worker-test",
+                UUID.randomUUID());
     }
 }

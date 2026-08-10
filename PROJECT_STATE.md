@@ -317,3 +317,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Strategy approval now requires a successful, system-derived, empty-failure proof with non-legacy versions. Publication revalidates the approved run so post-approval tampering or stale legacy evidence fails closed.
 - Tests prove a complete point-in-time proof clears, overlap/future features/incomplete bars block, callers cannot force `CLEAR`, and mutation after human approval prevents publication.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 183 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D1 - 2026-08-10
+
+- Migration V31 adds a unique UUID fencing token to each worker lease and safely returns any in-flight legacy job to `PENDING` during deployment.
+- Claiming a job atomically installs a new owner, token, expiry, and attempt. Heartbeat, success, retry, and permanent failure writes require the same running job, owner, token, and an unexpired lease; a stale writer raises `LeaseLostException` and its transaction is rolled back.
+- The worker coordinator renews active leases every 30 seconds against a five-minute lease, cancels the heartbeat when execution finishes, and never publishes orchestration success/failure from a fenced worker.
+- Expired-lease recovery marks the abandoned attempt `FAILED/LEASE_EXPIRED` before making the job claimable, preserving an auditable attempt history.
+- The required A/B race test proves that after A expires and B reclaims, A cannot heartbeat or complete, B exclusively owns the final result, and A's attempt remains closed as expired.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 184 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

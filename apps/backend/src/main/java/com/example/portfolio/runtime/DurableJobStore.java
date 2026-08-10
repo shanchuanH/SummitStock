@@ -70,18 +70,21 @@ public class DurableJobStore {
             if (candidate.isEmpty()) return Optional.<ClaimedJob>empty();
             var value = candidate.orElseThrow();
             var attempt = value.attemptCount() + 1;
-            jdbc.sql(
+            var leaseToken = UUID.randomUUID();
+            var claimed = jdbc.sql(
                             """
                     UPDATE job_run SET status='RUNNING', attempt_count=:attempt, lease_owner=:worker,
-                        lease_expires_at=:expires, updated_at=:now, version=version+1
-                    WHERE id=UUID_TO_BIN(:id)
+                        lease_token=UUID_TO_BIN(:token), lease_expires_at=:expires, updated_at=:now, version=version+1
+                    WHERE id=UUID_TO_BIN(:id) AND status='PENDING'
                     """)
                     .param("attempt", attempt)
                     .param("worker", workerId)
+                    .param("token", leaseToken.toString())
                     .param("expires", clock.instant().plus(lease))
                     .param("now", clock.instant())
                     .param("id", value.id().toString())
                     .update();
+            if (claimed != 1) return Optional.<ClaimedJob>empty();
             var attemptId = UUID.randomUUID();
             jdbc.sql(
                             """
@@ -104,8 +107,26 @@ public class DurableJobStore {
                     attempt,
                     value.maxAttempts(),
                     clock.instant(),
-                    workerId));
+                    workerId,
+                    leaseToken));
         });
+    }
+
+    public boolean heartbeat(ClaimedJob job, Duration lease) {
+        var now = clock.instant();
+        return jdbc.sql(
+                                """
+                        UPDATE job_run SET lease_expires_at=:expires, updated_at=:now, version=version+1
+                        WHERE id=UUID_TO_BIN(:id) AND status='RUNNING' AND lease_owner=:worker
+                          AND lease_token=UUID_TO_BIN(:token) AND lease_expires_at >= :now
+                        """)
+                        .param("expires", now.plus(lease))
+                        .param("now", now)
+                        .param("id", job.id().toString())
+                        .param("worker", job.workerId())
+                        .param("token", job.leaseToken().toString())
+                        .update()
+                == 1;
     }
 
     public void succeed(ClaimedJob job, JobExecutionResult result) {
@@ -146,7 +167,16 @@ public class DurableJobStore {
     private void recoverExpiredLeases() {
         jdbc.sql(
                         """
-                UPDATE job_run SET status='PENDING', lease_owner=NULL, lease_expires_at=NULL,
+                UPDATE job_attempt a JOIN job_run j ON j.id=a.job_run_id
+                SET a.status='FAILED', a.finished_at=:now, a.error_code='LEASE_EXPIRED',
+                    a.duration_ms=TIMESTAMPDIFF(MICROSECOND, a.started_at, :now)/1000
+                WHERE j.status='RUNNING' AND j.lease_expires_at < :now AND a.status='RUNNING'
+                """)
+                .param("now", clock.instant())
+                .update();
+        jdbc.sql(
+                        """
+                UPDATE job_run SET status='PENDING', lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL,
                     scheduled_at=:now, updated_at=:now, version=version+1
                 WHERE status='RUNNING' AND lease_expires_at < :now
                 """)
@@ -158,6 +188,28 @@ public class DurableJobStore {
             ClaimedJob job, String status, String errorCode, Instant scheduledAt, JobExecutionResult result) {
         transactions.executeWithoutResult(ignored -> {
             var now = clock.instant();
+            var warnings = result == null ? null : jsonArray(result.warnings());
+            var updated = jdbc.sql(
+                            """
+                    UPDATE job_run SET status=:status, lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL,
+                        last_error_code=:error, scheduled_at=COALESCE(:scheduledAt, scheduled_at),
+                        result_json=CAST(:result AS JSON), warnings=CAST(:warnings AS JSON), data_as_of=:dataAsOf,
+                        updated_at=:now, version=version+1
+                    WHERE id=UUID_TO_BIN(:jobId) AND status='RUNNING' AND lease_owner=:worker
+                      AND lease_token=UUID_TO_BIN(:token) AND lease_expires_at >= :now
+                    """)
+                    .param("status", status)
+                    .param("error", errorCode)
+                    .param("scheduledAt", scheduledAt)
+                    .param("result", result == null ? null : result.resultJson())
+                    .param("warnings", warnings)
+                    .param("dataAsOf", result == null ? null : result.dataAsOf())
+                    .param("now", now)
+                    .param("jobId", job.id().toString())
+                    .param("worker", job.workerId())
+                    .param("token", job.leaseToken().toString())
+                    .update();
+            if (updated != 1) throw new LeaseLostException(job.id(), job.workerId());
             if (result == null) {
                 jdbc.sql(
                                 """
@@ -169,22 +221,8 @@ public class DurableJobStore {
                         .param("error", errorCode)
                         .param("attemptId", job.attemptId().toString())
                         .update();
-                jdbc.sql(
-                                """
-                        UPDATE job_run SET status=:status, lease_owner=NULL, lease_expires_at=NULL,
-                            last_error_code=:error, scheduled_at=COALESCE(:scheduledAt, scheduled_at),
-                            updated_at=:now, version=version+1
-                        WHERE id=UUID_TO_BIN(:jobId)
-                        """)
-                        .param("status", status)
-                        .param("error", errorCode)
-                        .param("scheduledAt", scheduledAt)
-                        .param("now", now)
-                        .param("jobId", job.id().toString())
-                        .update();
                 return;
             }
-            var warnings = jsonArray(result.warnings());
             jdbc.sql(
                             """
                     UPDATE job_attempt SET status='SUCCEEDED', finished_at=:now, error_code=NULL,
@@ -197,19 +235,6 @@ public class DurableJobStore {
                     .param("warnings", warnings)
                     .param("dataAsOf", result.dataAsOf())
                     .param("attemptId", job.attemptId().toString())
-                    .update();
-            jdbc.sql(
-                            """
-                    UPDATE job_run SET status='SUCCEEDED', lease_owner=NULL, lease_expires_at=NULL,
-                        last_error_code=NULL, result_json=CAST(:result AS JSON), warnings=CAST(:warnings AS JSON),
-                        data_as_of=:dataAsOf, updated_at=:now, version=version+1
-                    WHERE id=UUID_TO_BIN(:jobId)
-                    """)
-                    .param("result", result.resultJson())
-                    .param("warnings", warnings)
-                    .param("dataAsOf", result.dataAsOf())
-                    .param("now", now)
-                    .param("jobId", job.id().toString())
                     .update();
         });
     }
@@ -239,5 +264,12 @@ public class DurableJobStore {
             int attemptNumber,
             int maxAttempts,
             Instant startedAt,
-            String workerId) {}
+            String workerId,
+            UUID leaseToken) {}
+
+    public static final class LeaseLostException extends RuntimeException {
+        LeaseLostException(UUID jobId, String workerId) {
+            super("JOB_LEASE_LOST jobId=" + jobId + " workerId=" + workerId);
+        }
+    }
 }
