@@ -15,17 +15,24 @@ Prerequisites are JDK 25, Node.js 22.22+, pnpm 11+, and Docker Desktop. Copy `.e
 
 ```powershell
 docker compose -f infra/compose.yaml up -d mysql
+$env:SPRING_PROFILES_ACTIVE = "local-fixture"
+$env:PORTFOLIO_MARKET_PROVIDER = "fake"
+$env:PORTFOLIO_FUNDAMENTALS_PROVIDER = "fake"
 .\mvnw.cmd -pl apps/backend -am spring-boot:run
 pnpm dev
 ```
 
-The API runs at `http://localhost:8080`; the SPA runs at `http://localhost:4173`. The default development login is documented in `.env.example` and must not be used outside local development.
+The API runs at `http://localhost:8080`; the SPA runs at `http://localhost:4173`. The default development login is documented in `.env.example` and must not be used outside local development. The explicit `local-fixture` profile is required for deterministic local providers; omitting it fails closed.
 
-The read-only market inspection page is available at `http://localhost:4173/market-data`. The default fake EOD and SEC/IR adapters provide deterministic local fixtures and are replaceable at the provider interfaces.
+The read-only market inspection page is available at `http://localhost:4173/market-data`. Deterministic fake EOD and SEC/IR adapters are available only under the explicit `local-fixture` and `test` profiles. Outside those profiles, Alpha Vantage market data requires `PORTFOLIO_MARKET_API_KEY`, and SEC EDGAR requires a declared organization/contact value in `SEC_USER_AGENT`; disabled, fake, or incomplete production configuration fails closed.
 
 Regime, drawdown source, and data-quality gates are shown at `http://localhost:4173/market-context`. Private portfolio drawdown requires authentication; missing snapshots remain explicit `EMPTY` / `WAIT_FOR_DATA` states.
 
-The authenticated portfolio workspace is available at `http://localhost:4173/portfolio`. It shows summary, positions, capped Today Actions, a confirmation-based classifier, and server-evaluated trade-plan previews.
+The Dashboard reads one backend-owned contract, `GET /api/v1/brief/today`. The response contains the unified portfolio analysis state, Decimal String summary values, capped action queues, portfolio health, data readiness, upcoming events, strategy version, and evidence time. The browser does not combine multiple APIs to infer readiness.
+
+The authenticated portfolio workspace is available at `http://localhost:4173/portfolio`. It shows summary, positions, and capped Today Actions. Classification and trade-plan controls remain unavailable until they are backed by selected-position, server-side calculations.
+
+Real holdings can be imported at `http://localhost:4173/portfolio-import` from a Fidelity Positions CSV, a copied Fidelity table, or one manually entered holding. Every submission is preview-only until explicit confirmation. Unknown rows must be corrected or ignored; confirmation reconciles the full imported account snapshot, retains history, and queues analysis. SummitStock never connects to or operates a Fidelity account.
 
 Position links open `http://localhost:4173/positions/{positionId}` for server-owned stop, thesis, valuation, earnings, chart-marker, tax, and journal evidence.
 
@@ -71,4 +78,4 @@ OpenAPI is exported from a real Spring context backed by a disposable MySQL 8.4 
 
 ## Safety boundary
 
-The system is manual-execution only. Unvested compensation is non-liquid and non-tradable. Emergency cash is not deployable capital. “NO URGENT ACTION” is a normal outcome.
+The system is manual-execution only. Unvested compensation is non-liquid and non-tradable. Emergency cash is not deployable capital. “NO URGENT ACTION” may be shown only after the backend explicitly confirms analysis readiness; missing, loading, empty, unauthenticated, and failed states never imply that conclusion.

@@ -2,6 +2,7 @@ package com.example.portfolio.context;
 
 import com.example.portfolio.context.MarketContextStore.DrawdownView;
 import com.example.portfolio.context.MarketContextStore.RegimeView;
+import java.security.Principal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -28,8 +29,8 @@ public class MarketContextController {
     }
 
     @GetMapping("/portfolio/drawdown")
-    SnapshotEnvelope<DrawdownResponse> drawdown() {
-        return store.latestDrawdown()
+    SnapshotEnvelope<DrawdownResponse> drawdown(Principal principal) {
+        return store.latestDrawdown(principal.getName())
                 .map(value -> new SnapshotEnvelope<>("READY", DrawdownResponse.from(value), clock.instant()))
                 .orElseGet(() -> new SnapshotEnvelope<>("EMPTY", null, clock.instant()));
     }

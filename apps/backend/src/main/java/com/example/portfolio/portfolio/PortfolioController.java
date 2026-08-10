@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +24,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,10 +32,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class PortfolioController {
     private final PortfolioStore store;
     private final Clock clock;
+    private final Optional<DebugApiAccess> debugAccess;
 
-    public PortfolioController(PortfolioStore store, Clock clock) {
+    public PortfolioController(PortfolioStore store, Clock clock, Optional<DebugApiAccess> debugAccess) {
         this.store = store;
         this.clock = clock;
+        this.debugAccess = debugAccess;
     }
 
     @GetMapping("/accounts")
@@ -60,6 +62,13 @@ public class PortfolioController {
                 .toList();
     }
 
+    @GetMapping("/portfolio/holdings")
+    List<PortfolioHoldingResponse> holdings(Principal principal) {
+        return store.holdings(principal.getName()).stream()
+                .map(PortfolioHoldingResponse::from)
+                .toList();
+    }
+
     @GetMapping("/positions/{id}")
     PositionResponse position(@PathVariable UUID id, Principal principal) {
         return store.position(principal.getName(), id)
@@ -71,19 +80,28 @@ public class PortfolioController {
     PositionResponse classify(
             @PathVariable UUID id, @Valid @RequestBody ClassificationRequest request, Principal principal) {
         var classification = classification(request.classification());
-        return PositionResponse.from(
-                store.confirmClassification(principal.getName(), id, classification.name(), request.expectedVersion()));
+        var evidence = store.classificationEvidence(principal.getName(), id);
+        var suggestion = HoldingClassifier.suggest(
+                evidence.symbol(), evidence.assetType(), evidence.thematic(), evidence.unvestedCompensation());
+        var source = suggestion.classification() == classification ? "USER_CONFIRMED" : "USER_OVERRIDE";
+        return PositionResponse.from(store.confirmClassification(
+                principal.getName(), id, classification.name(), source, request.expectedVersion()));
     }
 
-    @GetMapping("/positions/classification-suggestion")
-    ClassificationSuggestionResponse classificationSuggestion(
-            @RequestParam String symbol,
-            @RequestParam String assetType,
-            @RequestParam(defaultValue = "false") boolean thematic,
-            @RequestParam(defaultValue = "false") boolean unvestedCompensation) {
-        var suggestion = HoldingClassifier.suggest(symbol, assetType, thematic, unvestedCompensation);
+    @GetMapping("/positions/{id}/classification-suggestion")
+    ClassificationSuggestionResponse classificationSuggestion(@PathVariable UUID id, Principal principal) {
+        var evidence = store.classificationEvidence(principal.getName(), id);
+        var suggestion = HoldingClassifier.suggest(
+                evidence.symbol(), evidence.assetType(), evidence.thematic(), evidence.unvestedCompensation());
         return new ClassificationSuggestionResponse(
-                suggestion.classification().name(), suggestion.blocked(), suggestion.reason(), true);
+                id,
+                evidence.symbol(),
+                evidence.assetType(),
+                suggestion.classification().name(),
+                "SYSTEM_RULE",
+                suggestion.blocked(),
+                suggestion.reason(),
+                true);
     }
 
     @GetMapping("/holdings/analysis")
@@ -113,6 +131,7 @@ public class PortfolioController {
 
     @PostMapping("/trade-plans/preview")
     TradePlanPreviewResponse preview(@Valid @RequestBody TradePlanPreviewRequest request) {
+        requireDebugProfile();
         var analysis = HoldingPolicy.analyze(new HoldingPolicy.Input(
                 classification(request.classification()),
                 request.classificationConfirmed(),
@@ -128,6 +147,10 @@ public class PortfolioController {
                 clock.instant(),
                 quality(request.quality())));
         return TradePlanPreviewResponse.from(analysis);
+    }
+
+    private void requireDebugProfile() {
+        if (debugAccess.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }
 
     private static HoldingClassification classification(String value) {
@@ -157,7 +180,14 @@ public class PortfolioController {
     public record ClassificationRequest(@NotBlank String classification, long expectedVersion) {}
 
     public record ClassificationSuggestionResponse(
-            String classification, boolean blocked, String reason, boolean confirmationRequired) {}
+            UUID positionId,
+            String symbol,
+            String assetType,
+            String classification,
+            String source,
+            boolean blocked,
+            String reason,
+            boolean confirmationRequired) {}
 
     public record PortfolioSummaryResponse(
             String investedValue, String trackedCash, long openPositions, Instant dataAsOf) {}
@@ -187,6 +217,48 @@ public class PortfolioController {
                     decimal(value.marketValue()),
                     value.status(),
                     value.version());
+        }
+    }
+
+    public record PortfolioHoldingResponse(
+            UUID id,
+            long version,
+            String symbol,
+            String name,
+            String assetType,
+            String bucket,
+            String classification,
+            boolean classificationConfirmed,
+            String marketValue,
+            String currentWeight,
+            String targetWeightMin,
+            String targetWeightMax,
+            String action,
+            String priority,
+            String confidence,
+            String trend,
+            Instant nextEvent,
+            String dataStatus) {
+        static PortfolioHoldingResponse from(PortfolioStore.PortfolioHoldingView value) {
+            return new PortfolioHoldingResponse(
+                    value.id(),
+                    value.version(),
+                    value.symbol(),
+                    value.name(),
+                    value.assetType(),
+                    value.bucket(),
+                    value.classification(),
+                    value.classificationConfirmed(),
+                    decimal(value.marketValue()),
+                    decimal(value.currentWeight()),
+                    decimal(value.targetWeightMin()),
+                    decimal(value.targetWeightMax()),
+                    value.action(),
+                    value.priority(),
+                    value.confidence(),
+                    value.trend(),
+                    instant(value.nextEvent()),
+                    value.dataStatus());
         }
     }
 
@@ -232,6 +304,7 @@ public class PortfolioController {
             UUID id,
             UUID positionId,
             String symbol,
+            String classification,
             String action,
             String priority,
             String quantityMin,
@@ -240,6 +313,8 @@ public class PortfolioController {
             String targetWeightMax,
             String riskBeforeFraction,
             String riskAfterFraction,
+            String currentWeight,
+            String estimatedAmount,
             String confidence,
             String reasonsJson,
             String risksJson,
@@ -253,6 +328,7 @@ public class PortfolioController {
                     value.id(),
                     value.positionId(),
                     value.symbol(),
+                    value.classification(),
                     value.action(),
                     value.priority(),
                     decimal(value.quantityMin()),
@@ -261,6 +337,8 @@ public class PortfolioController {
                     decimal(value.targetWeightMax()),
                     decimal(value.riskBeforeFraction()),
                     decimal(value.riskAfterFraction()),
+                    decimal(value.currentWeight()),
+                    decimal(value.estimatedAmount()),
                     value.confidence(),
                     value.reasons(),
                     value.risks(),
@@ -292,6 +370,7 @@ public class PortfolioController {
             @NotBlank String quality) {}
 
     public record TradePlanPreviewResponse(
+            boolean debug,
             boolean allowed,
             boolean preciseQuantityAllowed,
             String weightCap,
@@ -304,6 +383,7 @@ public class PortfolioController {
             List<String> risks) {
         static TradePlanPreviewResponse from(HoldingPolicy.Analysis value) {
             return new TradePlanPreviewResponse(
+                    true,
                     value.allowed(),
                     value.preciseQuantityAllowed(),
                     decimal(value.weightCap()),

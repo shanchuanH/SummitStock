@@ -1,7 +1,9 @@
 package com.example.portfolio.portfolio;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -16,10 +18,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class PositionIntelligenceStore {
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final PublishedStrategyService strategies;
 
-    public PositionIntelligenceStore(JdbcClient jdbc, Clock clock) {
+    public PositionIntelligenceStore(JdbcClient jdbc, Clock clock, PublishedStrategyService strategies) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.strategies = strategies;
     }
 
     public Optional<StopView> latestStop(String email, UUID positionId) {
@@ -115,6 +119,84 @@ public class PositionIntelligenceStore {
                 .list();
     }
 
+    public ChartView chart(String email, UUID positionId, LocalDate from) {
+        var owned = jdbc.sql(
+                        """
+                        SELECT COUNT(*) FROM position p JOIN investment_account a ON a.id=p.account_id
+                        JOIN app_user u ON u.id=a.user_id
+                        WHERE u.email=:email AND p.id=UUID_TO_BIN(:positionId)
+                        """)
+                .param("email", email)
+                .param("positionId", positionId.toString())
+                .query(Integer.class)
+                .single();
+        if (owned != 1) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        var bars = jdbc.sql(
+                        """
+                        WITH ranked AS (
+                            SELECT b.market_date, b.open_price, b.high_price, b.low_price, b.close_price,
+                                   b.quality_status, b.data_as_of,
+                                   ROW_NUMBER() OVER (PARTITION BY b.market_date ORDER BY b.data_as_of DESC,b.created_at DESC) rn
+                            FROM price_bar b JOIN position p ON p.instrument_id=b.instrument_id
+                            WHERE p.id=UUID_TO_BIN(:positionId) AND b.adjusted=TRUE AND b.timeframe='1D'
+                              AND b.market_date>=:from AND b.market_date<=CURRENT_DATE
+                        )
+                        SELECT market_date marketDate,open_price open,high_price high,low_price low,
+                               close_price close,quality_status quality,data_as_of dataAsOf
+                        FROM ranked WHERE rn=1 ORDER BY market_date
+                        """)
+                .param("positionId", positionId.toString())
+                .param("from", from)
+                .query(ChartBarView.class)
+                .list();
+        var entries = jdbc.sql(
+                        """
+                        SELECT DATE(p.opened_at) marketDate,p.average_cost price,'AVERAGE_COST' markerType
+                        FROM position p WHERE p.id=UUID_TO_BIN(:positionId) AND p.average_cost IS NOT NULL
+                        """)
+                .param("positionId", positionId.toString())
+                .query(ChartMarkerView.class)
+                .list();
+        var stops = jdbc.sql(
+                        """
+                        SELECT DATE(data_as_of) marketDate,initial_stop formalStop,live_stop liveStop,soft_alert softAlert
+                        FROM stop_snapshot WHERE position_id=UUID_TO_BIN(:positionId) AND DATE(data_as_of)>=:from
+                        ORDER BY data_as_of
+                        """)
+                .param("positionId", positionId.toString())
+                .param("from", from)
+                .query(StopSeriesView.class)
+                .list();
+        var events = jdbc.sql(
+                        """
+                        SELECT e.market_date marketDate,e.event_type markerType,e.title label
+                        FROM company_event e JOIN position p ON p.instrument_id=e.instrument_id
+                        WHERE p.id=UUID_TO_BIN(:positionId) AND e.market_date>=:from ORDER BY e.market_date
+                        """)
+                .param("positionId", positionId.toString())
+                .param("from", from)
+                .query(EventMarkerView.class)
+                .list();
+        var trades = jdbc.sql(
+                        """
+                        SELECT DATE(occurred_at) marketDate,entry_type markerType,
+                               COALESCE(notes,entry_type) label FROM trade_journal
+                        WHERE position_id=UUID_TO_BIN(:positionId) AND DATE(occurred_at)>=:from ORDER BY occurred_at
+                        """)
+                .param("positionId", positionId.toString())
+                .param("from", from)
+                .query(EventMarkerView.class)
+                .list();
+        var quality = bars.isEmpty()
+                ? "MISSING"
+                : bars.stream().anyMatch(value -> !"HEALTHY".equals(value.quality())) ? "PARTIAL" : "HEALTHY";
+        var dataAsOf = bars.stream()
+                .map(ChartBarView::dataAsOf)
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
+        return new ChartView(bars, entries, stops, events, trades, dataAsOf, quality);
+    }
+
     @Transactional
     public ThesisView confirmThesis(String email, UUID positionId, long expectedVersion) {
         var current = thesis(email, positionId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
@@ -141,13 +223,14 @@ public class PositionIntelligenceStore {
                         INSERT INTO audit_log (id, user_id, event_type, entity_type, entity_id,
                             strategy_version, rule_ids, details, occurred_at)
                         SELECT UUID_TO_BIN(:id), u.id, 'THESIS_CONFIRMED', 'POSITION', :entityId,
-                            '1.0.0-draft', JSON_ARRAY('THESIS.CONFIRM.001'),
+                            :strategyVersion, JSON_ARRAY('THESIS.CONFIRM.001'),
                             JSON_OBJECT('previousVersion', :version), :now
                         FROM app_user u WHERE u.email = :email
                         """)
                 .param("id", UUID.randomUUID().toString())
                 .param("entityId", positionId.toString())
                 .param("version", expectedVersion)
+                .param("strategyVersion", strategies.current().version())
                 .param("now", clock.instant())
                 .param("email", email)
                 .update();
@@ -218,4 +301,29 @@ public class PositionIntelligenceStore {
             String exitReason,
             String notes,
             LocalDateTime occurredAt) {}
+
+    public record ChartView(
+            List<ChartBarView> bars,
+            List<ChartMarkerView> entryMarkers,
+            List<StopSeriesView> stopSeries,
+            List<EventMarkerView> earningsMarkers,
+            List<EventMarkerView> tradeMarkers,
+            LocalDateTime dataAsOf,
+            String quality) {}
+
+    public record ChartBarView(
+            LocalDate marketDate,
+            BigDecimal open,
+            BigDecimal high,
+            BigDecimal low,
+            BigDecimal close,
+            String quality,
+            LocalDateTime dataAsOf) {}
+
+    public record ChartMarkerView(LocalDate marketDate, BigDecimal price, String markerType) {}
+
+    public record StopSeriesView(
+            LocalDate marketDate, BigDecimal formalStop, BigDecimal liveStop, BigDecimal softAlert) {}
+
+    public record EventMarkerView(LocalDate marketDate, String markerType, String label) {}
 }

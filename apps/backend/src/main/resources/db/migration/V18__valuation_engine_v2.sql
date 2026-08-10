@@ -1,0 +1,60 @@
+CREATE TABLE valuation_metric_history (
+    id BINARY(16) NOT NULL,
+    instrument_id BINARY(16) NOT NULL,
+    market_date DATE NOT NULL,
+    trailing_pe DECIMAL(24,10) NULL,
+    forward_pe DECIMAL(24,10) NULL,
+    ev_sales DECIMAL(24,10) NULL,
+    fcf_yield DECIMAL(24,10) NULL,
+    price_sales DECIMAL(24,10) NULL,
+    market_cap DECIMAL(28,8) NULL,
+    source VARCHAR(64) NOT NULL,
+    quality VARCHAR(32) NOT NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    data_as_of DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_valuation_metric_evidence (instrument_id, market_date, evidence_checksum),
+    KEY ix_valuation_metric_history (instrument_id, market_date),
+    CONSTRAINT fk_valuation_metric_instrument FOREIGN KEY (instrument_id) REFERENCES instrument (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE valuation_assessment_snapshot (
+    id BINARY(16) NOT NULL,
+    instrument_id BINARY(16) NOT NULL,
+    valuation_state VARCHAR(32) NOT NULL,
+    confidence VARCHAR(16) NOT NULL,
+    own_history_percentile_3y DECIMAL(18,10) NULL,
+    own_history_percentile_5y DECIMAL(18,10) NULL,
+    relative_valuation DECIMAL(18,10) NULL,
+    growth_adjusted_valuation DECIMAL(18,10) NULL,
+    observation_count INT NOT NULL,
+    quality VARCHAR(32) NOT NULL,
+    strategy_version VARCHAR(64) NOT NULL,
+    config_hash CHAR(64) NOT NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    data_as_of DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_valuation_assessment_evidence (instrument_id, data_as_of, config_hash, evidence_checksum),
+    KEY ix_valuation_assessment_latest (instrument_id, data_as_of),
+    CONSTRAINT fk_valuation_assessment_instrument FOREIGN KEY (instrument_id) REFERENCES instrument (id),
+    CONSTRAINT chk_valuation_state CHECK (valuation_state IN ('DEEP_DISCOUNT','ATTRACTIVE','FAIR','RICH','EXTREME','MISSING')),
+    CONSTRAINT chk_valuation_observations CHECK (observation_count >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE quality_starter_event (
+    id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    recommendation_id BINARY(16) NULL,
+    sequence_number INT NOT NULL,
+    independent_confirmation_required BOOLEAN NOT NULL,
+    confirmed_at DATETIME(6) NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_quality_starter_sequence (position_id, sequence_number),
+    CONSTRAINT fk_quality_starter_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT fk_quality_starter_recommendation FOREIGN KEY (recommendation_id) REFERENCES recommendation (id),
+    CONSTRAINT chk_quality_starter_sequence CHECK (sequence_number >= 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

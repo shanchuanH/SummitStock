@@ -107,6 +107,20 @@
     </dependency>
   </dependencies>
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <targetPath>strategy</targetPath>
+        <directory>../../config</directory>
+        <includes>
+          <include>STRATEGY_CONFIG_V1_DRAFT.yaml</include>
+          <include>STRATEGY_CONFIG_V2_DRAFT.yaml</include>
+          <include>financial-concept-mapping.yaml</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>

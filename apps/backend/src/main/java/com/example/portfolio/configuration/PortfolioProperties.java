@@ -10,7 +10,10 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties("portfolio")
 public record PortfolioProperties(
-        @NotBlank String runtimeMode, @NotBlank String strategyVersion, @NotNull @Valid Security security) {
+        @NotBlank String runtimeMode,
+        @NotBlank String strategyVersion,
+        @NotBlank String strategyConfigPath,
+        @NotNull @Valid Security security) {
 
     public record Security(@NotBlank @Email String devUser, @NotBlank String devPassword) {}
 }

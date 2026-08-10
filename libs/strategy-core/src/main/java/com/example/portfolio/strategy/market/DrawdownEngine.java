@@ -58,6 +58,7 @@ public final class DrawdownEngine {
         boolean broadStress = input.breadth50() < 0.40 || input.stressLevel() >= 0.65;
         boolean marketDriven = drawdown >= 0.15 && benchmarkStress && broadStress;
         boolean positionSpecific = input.largestPositionContribution() >= 0.50 && !benchmarkStress;
+        boolean clusterSpecific = input.largestClusterContribution() >= 0.50 && !positionSpecific && !benchmarkStress;
         State state = State.NORMAL;
         Source source = Source.MIXED;
         if (drawdown >= 0.20) {
@@ -72,7 +73,9 @@ public final class DrawdownEngine {
                 narratives.add("Portfolio and benchmark stress confirm a market-driven drawdown.");
             } else {
                 state = State.REVIEW_POSITION_SPECIFIC;
-                source = positionSpecific ? Source.POSITION_SPECIFIC : Source.MIXED;
+                source = positionSpecific
+                        ? Source.POSITION_SPECIFIC
+                        : clusterSpecific ? Source.CLUSTER_SPECIFIC : Source.MIXED;
                 rules.add(RuleIds.DRAWDOWN_POSITION_SPECIFIC);
                 narratives.add(
                         "The 15% drawdown lacks sufficient broad-market confirmation; ETF Dip-Buy is not enabled.");
@@ -93,6 +96,7 @@ public final class DrawdownEngine {
             narratives.add("Portfolio drawdown remains below the first 8% control threshold.");
         }
         if (source == Source.MIXED && positionSpecific) source = Source.POSITION_SPECIFIC;
+        if (source == Source.MIXED && clusterSpecific) source = Source.CLUSTER_SPECIFIC;
         return new Result(
                 highWaterMark, drawdown, state, source, marketDriven, confidence(input.quality()), narratives, rules);
     }
@@ -120,6 +124,7 @@ public final class DrawdownEngine {
     public enum Source {
         MARKET_DRIVEN,
         POSITION_SPECIFIC,
+        CLUSTER_SPECIFIC,
         MIXED,
         UNKNOWN
     }

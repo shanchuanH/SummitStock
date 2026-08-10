@@ -16,29 +16,44 @@ public final class StopEngine {
         requirePositive(input.entry(), "entry");
         requirePositive(input.atr(), "atr");
         if (isCoreEtf(input.classification())) {
-            return new Result(false, null, null, null, null, false, false, List.of(RuleIds.STOP_CORE_ETF_EXEMPT));
+            return new Result(
+                    false, null, null, null, null, null, null, false, false, List.of(RuleIds.STOP_CORE_ETF_EXEMPT));
         }
         var structureStop = input.confirmedSwingLow().subtract(input.atr().multiply(QUARTER));
-        var volatilityStop = input.entry().subtract(input.atr().multiply(multiplier(input.classification())));
+        var k = input.volatilityAtrMultiplier() == null
+                ? multiplier(input.classification())
+                : input.volatilityAtrMultiplier();
+        requirePositive(k, "volatilityAtrMultiplier");
+        var volatilityStop = input.entry().subtract(input.atr().multiply(k));
         var initialStop = structureStop.min(volatilityStop);
+        var chandelier = input.chandelier() != null
+                ? input.chandelier()
+                : input.rollingHigh().subtract(input.atr().multiply(k));
         var liveStop = maximum(
                 input.previousLiveStop(),
-                input.chandelier(),
+                chandelier,
                 input.ema20().subtract(input.atr().multiply(HALF)),
                 input.confirmedHigherLow().subtract(input.atr().multiply(QUARTER)),
                 initialStop);
         var softAlert = liveStop.add(input.atr().multiply(HALF));
         var catastrophic = liveStop.subtract(input.atr().multiply(THREE_QUARTERS));
         var closeConfirmed = input.dailyClose().compareTo(liveStop) < 0;
-        var catastrophicBreach = input.dailyClose().compareTo(catastrophic) < 0;
         var rules = new java.util.ArrayList<String>();
         rules.add(RuleIds.STOP_INITIAL);
         rules.add(RuleIds.STOP_MONOTONIC);
         if (input.dailyClose().compareTo(softAlert) <= 0) rules.add(RuleIds.STOP_SOFT_ALERT);
         if (closeConfirmed) rules.add(RuleIds.STOP_CLOSE_CONFIRMED);
-        if (catastrophicBreach) rules.add(RuleIds.STOP_CATASTROPHIC);
         return new Result(
-                true, initialStop, liveStop, softAlert, catastrophic, closeConfirmed, catastrophicBreach, rules);
+                true,
+                structureStop,
+                volatilityStop,
+                initialStop,
+                liveStop,
+                softAlert,
+                catastrophic,
+                closeConfirmed,
+                false,
+                rules);
     }
 
     private static boolean isCoreEtf(HoldingClassification classification) {
@@ -55,8 +70,11 @@ public final class StopEngine {
     }
 
     private static BigDecimal maximum(BigDecimal... values) {
-        var result = values[0];
-        for (var value : values) result = result.max(value);
+        BigDecimal result = null;
+        for (var value : values) {
+            if (value != null) result = result == null ? value : result.max(value);
+        }
+        if (result == null) throw new IllegalArgumentException("At least one stop candidate is required");
         return result;
     }
 
@@ -73,10 +91,38 @@ public final class StopEngine {
             BigDecimal chandelier,
             BigDecimal ema20,
             BigDecimal confirmedHigherLow,
-            BigDecimal dailyClose) {}
+            BigDecimal dailyClose,
+            BigDecimal rollingHigh,
+            BigDecimal volatilityAtrMultiplier) {
+        public Input(
+                HoldingClassification classification,
+                BigDecimal entry,
+                BigDecimal confirmedSwingLow,
+                BigDecimal atr,
+                BigDecimal previousLiveStop,
+                BigDecimal chandelier,
+                BigDecimal ema20,
+                BigDecimal confirmedHigherLow,
+                BigDecimal dailyClose) {
+            this(
+                    classification,
+                    entry,
+                    confirmedSwingLow,
+                    atr,
+                    previousLiveStop,
+                    chandelier,
+                    ema20,
+                    confirmedHigherLow,
+                    dailyClose,
+                    null,
+                    null);
+        }
+    }
 
     public record Result(
             boolean ordinaryStopApplicable,
+            BigDecimal structureStop,
+            BigDecimal volatilityStop,
             BigDecimal initialStop,
             BigDecimal liveStop,
             BigDecimal softAlert,

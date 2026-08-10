@@ -9,13 +9,13 @@ import { PortfolioPage } from "./app/portfolio-page";
 import { PositionDetailPage } from "./app/position-detail-page";
 import { DipPage } from "./app/dip-page";
 import { BacktestPage } from "./app/backtest-page";
+import { PortfolioImportPage } from "./app/portfolio-import/PortfolioImportPage";
 import {
   DashboardPage,
   DataHealthPage,
-  JournalPage,
-  PlanPage,
+  OpportunitiesPage,
+  ReviewPage,
   SettingsPage,
-  ThesisPage,
 } from "./app/workspace-pages";
 import "./styles.css";
 
@@ -31,18 +31,18 @@ const queryClient = new QueryClient({
 
 const router = createBrowserRouter([
   { path: "/", element: <DashboardPage /> },
-  { path: "/foundation", element: <HealthPage /> },
-  { path: "/market-data", element: <MarketInspectionPage /> },
-  { path: "/market-context", element: <MarketContextPage /> },
   { path: "/portfolio", element: <PortfolioPage /> },
+  { path: "/portfolio/import", element: <PortfolioImportPage /> },
   { path: "/positions/:positionId", element: <PositionDetailPage /> },
-  { path: "/dip-buy", element: <DipPage /> },
-  { path: "/plan", element: <PlanPage /> },
-  { path: "/thesis", element: <ThesisPage /> },
-  { path: "/journal", element: <JournalPage /> },
+  { path: "/opportunities", element: <OpportunitiesPage /> },
+  { path: "/review", element: <ReviewPage /> },
   { path: "/settings", element: <SettingsPage /> },
-  { path: "/data-health", element: <DataHealthPage /> },
-  { path: "/backtests", element: <BacktestPage /> },
+  { path: "/admin/data-health", element: <DataHealthPage /> },
+  { path: "/admin/backtests", element: <BacktestPage /> },
+  { path: "/advanced/health", element: <HealthPage /> },
+  { path: "/advanced/market-data", element: <MarketInspectionPage /> },
+  { path: "/advanced/market-context", element: <MarketContextPage /> },
+  { path: "/advanced/dip-buy", element: <DipPage /> },
   { path: "*", element: <DashboardPage /> },
 ]);
 

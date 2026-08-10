@@ -1,0 +1,30 @@
+REVENUE:
+  - RevenueFromContractWithCustomerExcludingAssessedTax
+  - Revenues
+  - SalesRevenueNet
+GROSS_PROFIT:
+  - GrossProfit
+OPERATING_INCOME:
+  - OperatingIncomeLoss
+NET_INCOME:
+  - NetIncomeLoss
+DILUTED_EPS:
+  - EarningsPerShareDiluted
+OPERATING_CASH_FLOW:
+  - NetCashProvidedByUsedInOperatingActivities
+CAPEX:
+  - PaymentsToAcquirePropertyPlantAndEquipment
+CASH:
+  - CashAndCashEquivalentsAtCarryingValue
+TOTAL_DEBT:
+  - LongTermDebtNoncurrent
+  - LongTermDebt
+  - LongTermDebtAndFinanceLeaseObligationsCurrent
+CURRENT_ASSETS:
+  - AssetsCurrent
+CURRENT_LIABILITIES:
+  - LiabilitiesCurrent
+SHAREHOLDERS_EQUITY:
+  - StockholdersEquity
+DILUTED_SHARES:
+  - WeightedAverageNumberOfDilutedSharesOutstanding

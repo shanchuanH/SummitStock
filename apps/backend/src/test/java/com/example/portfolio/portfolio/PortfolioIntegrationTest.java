@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.portfolio.MySqlIntegrationTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,43 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
 
     @BeforeEach
     void seedIsolatedPortfolios() {
+        removeSeededPortfolios();
+        update(
+                """
+                INSERT INTO app_user (id, email, password_hash, status, timezone, created_at, updated_at, version)
+                VALUES (UUID_TO_BIN('%s'), 'admin@example.local', 'unused', 'ACTIVE', 'UTC', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0),
+                       (UUID_TO_BIN('%s'), 'other@example.local', 'unused', 'ACTIVE', 'UTC', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
+                """
+                        .formatted(OWNER, OTHER));
+        update(
+                """
+                INSERT INTO investment_account (id, user_id, account_key, institution, account_type, display_name, currency, active, created_at, updated_at, version)
+                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'owner-brokerage', 'Example', 'BROKERAGE', 'Primary', 'USD', TRUE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0),
+                       (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'other-brokerage', 'Example', 'BROKERAGE', 'Other', 'USD', TRUE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
+                """
+                        .formatted(OWNER_ACCOUNT, OWNER, OTHER_ACCOUNT, OTHER));
+        update(
+                """
+                INSERT INTO equity_snapshot (id, account_id, total_equity, cash_balance, provider, checksum, quality_status, data_as_of, created_at)
+                VALUES (UUID_TO_BIN('10000000-0000-0000-0000-000000000001'), UUID_TO_BIN('%s'), 12500.12, 2500.12, 'TEST', REPEAT('a',64), 'HEALTHY', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+                """
+                        .formatted(OWNER_ACCOUNT));
+        update(
+                """
+                INSERT INTO position (id, account_id, instrument_id, bucket, classification, classification_confirmed, quantity, average_cost, market_value, status, opened_at, created_at, updated_at, version)
+                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'CORE', 'UNKNOWN', FALSE, 10.125, 400.25, 5000.125, 'OPEN', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0),
+                       (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'CORE', 'CORE_TECH_ETF', TRUE, 2, 450, 1000, 'OPEN', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
+                """
+                        .formatted(OWNER_POSITION, OWNER_ACCOUNT, SPY, OTHER_POSITION, OTHER_ACCOUNT, QQQ));
+        for (int index = 1; index <= 4; index++) {
+            recommendation("20000000-0000-0000-0000-00000000000" + index, "MUST_ACT", "REVIEW_" + index, index);
+        }
+        recommendation("20000000-0000-0000-0000-000000000005", "DO_NOT", "DO_NOT_AVERAGE", 5);
+        recommendation("20000000-0000-0000-0000-000000000006", "WATCH", "WATCH_RISK", 6);
+    }
+
+    @AfterEach
+    void removeSeededPortfolios() {
         update(
                 "DELETE bm FROM backtest_metric bm JOIN backtest_run br ON br.id=bm.backtest_run_id WHERE br.user_id IN (UUID_TO_BIN('"
                         + OWNER + "'), UUID_TO_BIN('" + OTHER + "'))");
@@ -75,6 +113,8 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
         update("DELETE FROM audit_log WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER + "'))");
         update("DELETE FROM recommendation WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER
                 + "'))");
+        update("DELETE FROM portfolio_drawdown_snapshot WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('"
+                + OTHER + "'))");
         update("DELETE FROM position WHERE account_id IN (UUID_TO_BIN('" + OWNER_ACCOUNT + "'), UUID_TO_BIN('"
                 + OTHER_ACCOUNT + "'))");
         update("DELETE FROM equity_snapshot WHERE account_id IN (UUID_TO_BIN('" + OWNER_ACCOUNT + "'), UUID_TO_BIN('"
@@ -82,38 +122,6 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
         update("DELETE FROM investment_account WHERE id IN (UUID_TO_BIN('" + OWNER_ACCOUNT + "'), UUID_TO_BIN('"
                 + OTHER_ACCOUNT + "'))");
         update("DELETE FROM app_user WHERE id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER + "'))");
-        update(
-                """
-                INSERT INTO app_user (id, email, password_hash, status, timezone, created_at, updated_at, version)
-                VALUES (UUID_TO_BIN('%s'), 'admin@example.local', 'unused', 'ACTIVE', 'UTC', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0),
-                       (UUID_TO_BIN('%s'), 'other@example.local', 'unused', 'ACTIVE', 'UTC', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
-                """
-                        .formatted(OWNER, OTHER));
-        update(
-                """
-                INSERT INTO investment_account (id, user_id, account_key, institution, account_type, display_name, currency, active, created_at, updated_at, version)
-                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'owner-brokerage', 'Example', 'BROKERAGE', 'Primary', 'USD', TRUE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0),
-                       (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'other-brokerage', 'Example', 'BROKERAGE', 'Other', 'USD', TRUE, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
-                """
-                        .formatted(OWNER_ACCOUNT, OWNER, OTHER_ACCOUNT, OTHER));
-        update(
-                """
-                INSERT INTO equity_snapshot (id, account_id, total_equity, cash_balance, provider, checksum, quality_status, data_as_of, created_at)
-                VALUES (UUID_TO_BIN('10000000-0000-0000-0000-000000000001'), UUID_TO_BIN('%s'), 12500.12, 2500.12, 'TEST', REPEAT('a',64), 'HEALTHY', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-                """
-                        .formatted(OWNER_ACCOUNT));
-        update(
-                """
-                INSERT INTO position (id, account_id, instrument_id, bucket, classification, classification_confirmed, quantity, average_cost, market_value, status, opened_at, created_at, updated_at, version)
-                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'CORE', 'UNKNOWN', FALSE, 10.125, 400.25, 5000.125, 'OPEN', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0),
-                       (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), 'CORE', 'CORE_TECH_ETF', TRUE, 2, 450, 1000, 'OPEN', UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
-                """
-                        .formatted(OWNER_POSITION, OWNER_ACCOUNT, SPY, OTHER_POSITION, OTHER_ACCOUNT, QQQ));
-        for (int index = 1; index <= 4; index++) {
-            recommendation("20000000-0000-0000-0000-00000000000" + index, "MUST_ACT", "REVIEW_" + index, index);
-        }
-        recommendation("20000000-0000-0000-0000-000000000005", "DO_NOT", "DO_NOT_AVERAGE", 5);
-        recommendation("20000000-0000-0000-0000-000000000006", "WATCH", "WATCH_RISK", 6);
     }
 
     @Test
@@ -163,12 +171,13 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
 
     @Test
     void classifierDoesNotInventQualityAndStalePreviewBlocksExactQuantity() throws Exception {
-        mockMvc.perform(get("/api/v1/positions/classification-suggestion")
-                        .with(httpBasic("admin@example.local", "change-before-use"))
-                        .param("symbol", "DXYZ")
-                        .param("assetType", "EQUITY"))
+        mockMvc.perform(get("/api/v1/positions/{id}/classification-suggestion", OWNER_POSITION)
+                        .with(httpBasic("admin@example.local", "change-before-use")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.classification").value("UNKNOWN"))
+                .andExpect(jsonPath("$.positionId").value(OWNER_POSITION))
+                .andExpect(jsonPath("$.symbol").value("SPY"))
+                .andExpect(jsonPath("$.classification").value("CORE_BROAD_ETF"))
+                .andExpect(jsonPath("$.source").value("SYSTEM_RULE"))
                 .andExpect(jsonPath("$.confirmationRequired").value(true));
 
         mockMvc.perform(
@@ -309,13 +318,14 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
     @Test
     void acknowledgingRecommendationIsIdempotentAndNeverExecutes() throws Exception {
         var recommendationId = "20000000-0000-0000-0000-000000000001";
-        var body = "{\"idempotencyKey\":\"ack-1\"}";
+        var body = "{\"idempotencyKey\":\"ack-1\",\"decisionType\":\"DEFERRED\",\"rationale\":\"Wait for earnings\"}";
         mockMvc.perform(post("/api/v1/recommendations/{id}/acknowledge", recommendationId)
                         .with(httpBasic("admin@example.local", "change-before-use"))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decisionType").value("DEFERRED"))
                 .andExpect(jsonPath("$.newlyAcknowledged").value(true))
                 .andExpect(jsonPath("$.executionSubmitted").value(false));
         mockMvc.perform(post("/api/v1/recommendations/{id}/acknowledge", recommendationId)
@@ -326,6 +336,37 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.newlyAcknowledged").value(false))
                 .andExpect(jsonPath("$.executionSubmitted").value(false));
+        assertThat(jdbc.sql(
+                                "SELECT CONCAT(decision_type, ':', rationale) FROM recommendation_acknowledgement WHERE recommendation_id=UUID_TO_BIN(:id)")
+                        .param("id", recommendationId)
+                        .query(String.class)
+                        .single())
+                .isEqualTo("DEFERRED:Wait for earnings");
+    }
+
+    @Test
+    void portfolioListAndChartContractsAreOwnedAndEvidenceBased() throws Exception {
+        mockMvc.perform(get("/api/v1/portfolio/holdings").with(httpBasic("admin@example.local", "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(OWNER_POSITION))
+                .andExpect(jsonPath("$[0].version").value(0))
+                .andExpect(jsonPath("$[0].symbol").value("SPY"))
+                .andExpect(jsonPath("$[0].marketValue").value("5000.125"))
+                .andExpect(jsonPath("$[0].classificationConfirmed").value(false));
+        mockMvc.perform(get("/api/v1/positions/{id}/chart", OWNER_POSITION)
+                        .param("range", "1Y")
+                        .with(httpBasic("admin@example.local", "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bars").isArray())
+                .andExpect(jsonPath("$.entryMarkers").isArray())
+                .andExpect(jsonPath("$.stopSeries").isArray())
+                .andExpect(jsonPath("$.earningsMarkers").isArray())
+                .andExpect(jsonPath("$.tradeMarkers").isArray())
+                .andExpect(jsonPath("$.quality").isString());
+        mockMvc.perform(get("/api/v1/positions/{id}/chart", OTHER_POSITION)
+                        .with(httpBasic("admin@example.local", "change-before-use")))
+                .andExpect(status().isNotFound());
     }
 
     private void seedPositionIntelligence() {

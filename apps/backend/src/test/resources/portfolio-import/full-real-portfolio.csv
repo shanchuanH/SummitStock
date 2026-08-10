@@ -1,0 +1,16 @@
+Account Number,Account Name,Symbol,Description,Quantity,Last Price,Current Value,Average Cost Basis,Cost Basis Total,Type
+Z12345678,Primary Brokerage,GOOGL,Alphabet Class A,40,$200.00,"$8,000.00",$150.00,"$6,000.00",Equity
+Z12345678,Primary Brokerage,DRAM,Theme ETF,100,$30.00,"$3,000.00",$25.00,"$2,500.00",ETF
+Z12345678,Primary Brokerage,DXYZ,Destiny Tech100,50,$20.00,"$1,000.00",$18.00,$900.00,ETF
+Z12345678,Primary Brokerage,MSFT,Microsoft,15,$500.00,"$7,500.00",$350.00,"$5,250.00",Equity
+Z12345678,Primary Brokerage,QQQM,Nasdaq 100 ETF,60,$250.00,"$15,000.00",$200.00,"$12,000.00",ETF
+Z12345678,Primary Brokerage,VGT,Vanguard Information Technology ETF,20,$700.00,"$14,000.00",$550.00,"$11,000.00",ETF
+Z12345678,Primary Brokerage,NOK,Nokia ADR,500,$5.00,"$2,500.00",$4.00,"$2,000.00",Equity
+Z12345678,Primary Brokerage,AAOI,Applied Optoelectronics,100,$40.00,"$4,000.00",$30.00,"$3,000.00",Equity
+Z12345678,Primary Brokerage,VOO,Vanguard S&P 500 ETF,30,$600.00,"$18,000.00",$500.00,"$15,000.00",ETF
+Z12345678,Primary Brokerage,CSIQ,Canadian Solar,100,$15.00,"$1,500.00",$20.00,"$2,000.00",Equity
+Z12345678,Primary Brokerage,TSLA,Tesla,20,$400.00,"$8,000.00",$300.00,"$6,000.00",Equity
+Z12345678,Primary Brokerage,SNDK,Sandisk,50,$80.00,"$4,000.00",$70.00,"$3,500.00",Equity
+Z12345678,Primary Brokerage,NVDA,NVIDIA,50,$180.00,"$9,000.00",$120.00,"$6,000.00",Equity
+Z12345678,Primary Brokerage,SPAXX,Fidelity Government Money Market,22000,$1.00,"$22,000.00",$1.00,"$22,000.00",Money Market
+Z12345678,Primary Brokerage,AMZN,Amazon RSU Unvested Award,20,$200.00,"$4,000.00",N/A,N/A,Restricted Stock

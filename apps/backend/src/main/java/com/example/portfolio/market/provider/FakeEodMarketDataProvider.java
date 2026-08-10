@@ -10,11 +10,12 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"default", "local", "test"})
+@Profile({"local-fixture", "test"})
 public class FakeEodMarketDataProvider implements MarketDataProvider {
     private final Clock clock;
     private final FailureMode failureMode;
@@ -26,6 +27,21 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
     public FakeEodMarketDataProvider(Clock clock, FailureMode failureMode) {
         this.clock = clock;
         this.failureMode = failureMode;
+    }
+
+    @Override
+    public String providerId() {
+        return "fake-eod";
+    }
+
+    @Override
+    public Set<ProviderCapability> capabilities() {
+        return Set.of(
+                ProviderCapability.EOD_BARS,
+                ProviderCapability.ADJUSTED_BARS,
+                ProviderCapability.QUOTE_LAST,
+                ProviderCapability.QUOTE_BID_ASK,
+                ProviderCapability.CORPORATE_ACTIONS);
     }
 
     @Override
@@ -74,7 +90,7 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
     private ProviderModels.Provenance provenance(String content) {
         var now = clock.instant();
         return new ProviderModels.Provenance(
-                "fake-eod", now, now, sha256(content), "v1", ProviderModels.QualityStatus.VALID, List.of());
+                "fake-eod", now, now, sha256(content), "v1", ProviderModels.QualityStatus.HEALTHY, List.of());
     }
 
     private void failIfConfigured() {

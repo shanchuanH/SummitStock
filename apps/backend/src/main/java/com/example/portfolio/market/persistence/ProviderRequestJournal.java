@@ -1,5 +1,6 @@
 package com.example.portfolio.market.persistence;
 
+import com.example.portfolio.market.provider.ProviderCostControl;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -12,14 +13,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProviderRequestJournal {
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final ProviderCostControl costControl;
 
-    public ProviderRequestJournal(JdbcClient jdbc, Clock clock) {
+    public ProviderRequestJournal(JdbcClient jdbc, Clock clock, ProviderCostControl costControl) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.costControl = costControl;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UUID start(String requestKey, String provider, String operation, String contextJson) {
+        costControl.acquire(provider, operation);
         var id = UUID.randomUUID();
         jdbc.sql(
                         """
@@ -67,6 +71,15 @@ public class ProviderRequestJournal {
                 .param("metadata", responseMetadataJson)
                 .param("requestKey", requestKey)
                 .update();
+        jdbc.sql("""
+                        UPDATE provider_usage_daily u JOIN provider_request p
+                          ON p.provider=u.provider_id AND DATE(p.requested_at)=u.usage_date AND p.operation=u.operation
+                        SET u.success_count=u.success_count+1,u.last_success_at=:now,u.last_error_code=NULL
+                        WHERE p.request_key=:requestKey
+                        """)
+                .param("now", clock.instant())
+                .param("requestKey", requestKey)
+                .update();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -83,6 +96,15 @@ public class ProviderRequestJournal {
         else spec = spec.param("httpStatus", httpStatus);
         spec.param("errorCode", errorCode)
                 .param("detail", detail)
+                .param("requestKey", requestKey)
+                .update();
+        jdbc.sql("""
+                        UPDATE provider_usage_daily u JOIN provider_request p
+                          ON p.provider=u.provider_id AND DATE(p.requested_at)=u.usage_date AND p.operation=u.operation
+                        SET u.failure_count=u.failure_count+1,u.last_error_code=:errorCode
+                        WHERE p.request_key=:requestKey
+                        """)
+                .param("errorCode", errorCode)
                 .param("requestKey", requestKey)
                 .update();
     }

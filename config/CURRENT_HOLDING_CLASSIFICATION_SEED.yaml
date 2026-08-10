@@ -1,0 +1,29 @@
+asOf: "2026-08-04"
+status: PROPOSED_REQUIRES_USER_CONFIRMATION
+holdings:
+  - { ticker: SPAXX, classification: CASH_EQUIVALENT, confidence: HIGH }
+  - { ticker: VOO, classification: CORE_BROAD_ETF, confidence: HIGH }
+  - { ticker: QQQM, classification: CORE_TECH_ETF, confidence: HIGH }
+  - ticker: VGT
+    classification: CORE_TECH_ETF
+    confidence: MEDIUM
+    note: Account for QQQM overlap; pause new allocation until cluster review.
+  - { ticker: GOOGL, classification: QUALITY_STOCK, confidence: HIGH }
+  - { ticker: MSFT, classification: QUALITY_STOCK, confidence: HIGH }
+  - {
+      ticker: NVDA,
+      classification: QUALITY_GROWTH_HIGH_VOL,
+      confidence: MEDIUM,
+    }
+  - { ticker: DRAM, classification: THEMATIC_ETF, confidence: HIGH }
+  - { ticker: AAOI, classification: TACTICAL_STOCK, confidence: HIGH }
+  - { ticker: SNDK, classification: CYCLICAL_TACTICAL, confidence: MEDIUM }
+  - { ticker: CSIQ, classification: CYCLICAL_TACTICAL, confidence: HIGH }
+  - { ticker: NOK, classification: TURNAROUND_TACTICAL, confidence: MEDIUM }
+  - { ticker: DXYZ, classification: SPECULATIVE, confidence: HIGH }
+  - { ticker: TSLA, classification: QUALITY_GROWTH_HIGH_VOL, confidence: LOW }
+  - ticker: AMAZON.RSU
+    classification: UNVESTED_COMPENSATION
+    confidence: HIGH
+    vestedQuantity: "0"
+    vestedValue: "0"

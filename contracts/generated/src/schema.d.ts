@@ -100,7 +100,55 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/etf-dip/preview": {
+  "/api/v1/portfolio-imports/{batchId}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["confirm"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/pasted/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewPasted"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/manual/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewManual"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/fidelity/preview": {
     parameters: {
       query?: never;
       header?: never;
@@ -110,6 +158,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["preview_1"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/etf-dip/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["preview_2"];
     delete?: never;
     options?: never;
     head?: never;
@@ -212,6 +276,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/positions/{positionId}/report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/positions/{positionId}/journal": {
     parameters: {
       query?: never;
@@ -244,6 +324,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/positions/{positionId}/chart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["chart"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/positions/{id}": {
     parameters: {
       query?: never;
@@ -260,7 +356,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/positions/classification-suggestion": {
+  "/api/v1/positions/{id}/classification-suggestion": {
     parameters: {
       query?: never;
       header?: never;
@@ -292,6 +388,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/portfolio/holdings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["holdings"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/portfolio/drawdown": {
     parameters: {
       query?: never;
@@ -300,6 +412,22 @@ export interface paths {
       cookie?: never;
     };
     get: operations["drawdown"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/{batchId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["find"];
     put?: never;
     post?: never;
     delete?: never;
@@ -436,6 +564,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/brief/today": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["today"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/backtests/{id}": {
     parameters: {
       query?: never;
@@ -443,7 +587,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get: operations["find"];
+    get: operations["find_1"];
     put?: never;
     post?: never;
     delete?: never;
@@ -552,6 +696,7 @@ export interface components {
       quality: string;
     };
     TradePlanPreviewResponse: {
+      debug?: boolean;
       allowed?: boolean;
       preciseQuantityAllowed?: boolean;
       weightCap?: string;
@@ -565,10 +710,13 @@ export interface components {
     };
     AcknowledgementRequest: {
       idempotencyKey: string;
+      decisionType?: string;
+      rationale?: string;
     };
     AcknowledgementResponse: {
       /** Format: uuid */
       recommendationId?: string;
+      decisionType?: string;
       newlyAcknowledged?: boolean;
       executionSubmitted?: boolean;
       /** Format: date-time */
@@ -606,6 +754,7 @@ export interface components {
       dailyClose: number;
     };
     StopPreviewResponse: {
+      debug?: boolean;
       ordinaryStopApplicable?: boolean;
       initialStop?: string;
       liveStop?: string;
@@ -647,6 +796,117 @@ export interface components {
       /** Format: int64 */
       version?: number;
     };
+    AccountMappingRequest: {
+      accountNumberMasked?: string;
+      /** Format: uuid */
+      existingAccountId?: string;
+      displayName?: string;
+    };
+    ConfirmationRequest: {
+      /** Format: int64 */
+      expectedVersion?: number;
+      accountMappings?: components["schemas"]["AccountMappingRequest"][];
+      rowOverrides?: components["schemas"]["RowOverrideRequest"][];
+    };
+    RowOverrideRequest: {
+      /** Format: int32 */
+      rowNumber?: number;
+      symbol?: string;
+      assetType?: string;
+      rowType?: string;
+      ignored?: boolean;
+    };
+    ConfirmationResponse: {
+      /** Format: uuid */
+      batchId?: string;
+      status?: string;
+      /** Format: int64 */
+      version?: number;
+      /** Format: uuid */
+      analysisRunId?: string;
+      analysisState?: string;
+      /** Format: int32 */
+      openPositionCount?: number;
+      /** Format: int32 */
+      closedPositionCount?: number;
+      /** Format: int32 */
+      cashRowCount?: number;
+      /** Format: int32 */
+      compensationRowCount?: number;
+      idempotentReplay?: boolean;
+    };
+    PastedTableRequest: {
+      table: string;
+    };
+    CashResponse: {
+      /** Format: int32 */
+      rowNumber?: number;
+      accountName?: string;
+      accountNumberMasked?: string;
+      symbol?: string;
+      description?: string;
+      currentValue?: string;
+      status?: string;
+      warnings?: string[];
+    };
+    HoldingResponse: {
+      /** Format: int32 */
+      rowNumber?: number;
+      accountName?: string;
+      accountNumberMasked?: string;
+      symbol?: string;
+      description?: string;
+      assetType?: string;
+      quantity?: string;
+      lastPrice?: string;
+      currentValue?: string;
+      averageCost?: string;
+      costBasis?: string;
+      rowType?: string;
+      status?: string;
+      warnings?: string[];
+    };
+    ImportAccount: {
+      accountName?: string;
+      accountNumberMasked?: string;
+    };
+    PreviewResponse: {
+      /** Format: uuid */
+      batchId?: string;
+      status?: string;
+      /** Format: int64 */
+      version?: number;
+      accounts?: components["schemas"]["ImportAccount"][];
+      holdings?: components["schemas"]["HoldingResponse"][];
+      cash?: components["schemas"]["CashResponse"][];
+      warnings?: string[];
+      errors?: string[];
+      summary?: components["schemas"]["SummaryResponse"];
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    SummaryResponse: {
+      /** Format: int32 */
+      rowCount?: number;
+      /** Format: int32 */
+      validRowCount?: number;
+      /** Format: int32 */
+      errorRowCount?: number;
+      estimatedInvestedValue: string;
+      estimatedCashValue: string;
+    };
+    ManualHoldingRequest: {
+      accountNumber?: string;
+      accountName: string;
+      symbol: string;
+      description?: string;
+      quantity: string;
+      lastPrice?: string;
+      currentValue: string;
+      averageCost?: string;
+      costBasis?: string;
+      assetType: string;
+    };
     DipPreviewRequest: {
       portfolioDrawdown: number;
       marketDriven?: boolean;
@@ -685,6 +945,7 @@ export interface components {
       trancheNumber?: number;
       reserveFraction?: string;
       ruleIds?: string[];
+      debug?: boolean;
       executionSubmitted?: boolean;
     };
     CashflowPlanRequest: {
@@ -739,6 +1000,106 @@ export interface components {
       /** Format: date-time */
       validUntil?: string;
       status?: string;
+    };
+    AssetEvidence: {
+      company?: components["schemas"]["CompanyEvidence"];
+      etf?: components["schemas"]["EtfEvidence"];
+      speculative?: components["schemas"]["SpeculativeEvidence"];
+      portfolioContext?: components["schemas"]["PortfolioContext"];
+    };
+    AuditEvidence: {
+      analysisStatus?: string;
+      exactQuantityAllowed?: boolean;
+      ruleIds?: string[];
+      evidenceRefs?: string[];
+      strategyVersion?: string;
+      configHash?: string;
+    };
+    CompanyEvidence: {
+      companyModelApplied?: boolean;
+      fundamentalsStatus?: string;
+      growthProfitabilityCashFlowStatus?: string;
+      valuationStatus?: string;
+      earningsRiskStatus?: string;
+      thesisStatus?: string;
+    };
+    DecisionNarrative: {
+      source?: string;
+      headline?: string;
+      oneSentence?: string;
+      why?: string[];
+      risks?: string[];
+      watchNext?: string[];
+      confidenceExplanation?: string;
+    };
+    EtfEvidence: {
+      etfModelApplied?: boolean;
+      thematic?: boolean;
+      topHoldingsConcentration?: string;
+      portfolioOverlapFraction?: string;
+      trendStatus?: string;
+      liquidityStatus?: string;
+      eventStatus?: string;
+      companyEarningsModelApplied?: boolean;
+    };
+    PortfolioContext: {
+      currentWeight?: string;
+      clusterWeight?: string;
+      clusterOpenRisk?: string;
+    };
+    Position: {
+      /** Format: uuid */
+      id?: string;
+      symbol?: string;
+      classification?: string;
+      classificationSource?: string;
+    };
+    PositionReportResponse: {
+      position?: components["schemas"]["Position"];
+      readiness?: string;
+      recommendation?: components["schemas"]["Recommendation"];
+      evidence?: components["schemas"]["AuditEvidence"];
+      assetEvidence?: components["schemas"]["AssetEvidence"];
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    Recommendation: {
+      /** Format: uuid */
+      id?: string;
+      action?: string;
+      priority?: string;
+      quantityMin?: string;
+      quantityMax?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      confidence?: string;
+      reasons?: string[];
+      risks?: string[];
+      changeConditions?: string[];
+      winningRule?: string;
+      suppressedCandidates?: components["schemas"]["SuppressedCandidate"][];
+      resolutionReason?: string;
+      narrative?: components["schemas"]["DecisionNarrative"];
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    SpeculativeEvidence: {
+      speculativePolicyApplied?: boolean;
+      hardMaxWeight?: string;
+      confidenceCeiling?: string;
+      stopStatus?: string;
+      eventRiskStatus?: string;
+      tickerOrPriceCanUpgradeQuality?: boolean;
+    };
+    SuppressedCandidate: {
+      action?: string;
+      priority?: string;
+      /** Format: int32 */
+      riskRank?: number;
+      ruleId?: string;
+      reason?: string;
+      risks?: string[];
     };
     JournalResponse: {
       /** Format: uuid */
@@ -810,8 +1171,51 @@ export interface components {
       /** Format: date-time */
       validUntil?: string;
     };
+    ChartBarResponse: {
+      /** Format: date */
+      marketDate?: string;
+      open?: string;
+      high?: string;
+      low?: string;
+      close?: string;
+      quality?: string;
+    };
+    ChartMarkerResponse: {
+      /** Format: date */
+      marketDate?: string;
+      price?: string;
+      markerType?: string;
+    };
+    ChartResponse: {
+      bars?: components["schemas"]["ChartBarResponse"][];
+      entryMarkers?: components["schemas"]["ChartMarkerResponse"][];
+      stopSeries?: components["schemas"]["StopSeriesResponse"][];
+      earningsMarkers?: components["schemas"]["EventMarkerResponse"][];
+      tradeMarkers?: components["schemas"]["EventMarkerResponse"][];
+      /** Format: date-time */
+      dataAsOf?: string;
+      quality?: string;
+    };
+    EventMarkerResponse: {
+      /** Format: date */
+      marketDate?: string;
+      markerType?: string;
+      label?: string;
+    };
+    StopSeriesResponse: {
+      /** Format: date */
+      marketDate?: string;
+      formalStop?: string;
+      liveStop?: string;
+      softAlert?: string;
+    };
     ClassificationSuggestionResponse: {
+      /** Format: uuid */
+      positionId?: string;
+      symbol?: string;
+      assetType?: string;
       classification?: string;
+      source?: string;
       blocked?: boolean;
       reason?: string;
       confirmationRequired?: boolean;
@@ -823,6 +1227,29 @@ export interface components {
       openPositions?: number;
       /** Format: date-time */
       dataAsOf?: string;
+    };
+    PortfolioHoldingResponse: {
+      /** Format: uuid */
+      id?: string;
+      /** Format: int64 */
+      version?: number;
+      symbol?: string;
+      name?: string;
+      assetType?: string;
+      bucket?: string;
+      classification?: string;
+      classificationConfirmed?: boolean;
+      marketValue?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      action?: string;
+      priority?: string;
+      confidence?: string;
+      trend?: string;
+      /** Format: date-time */
+      nextEvent?: string;
+      dataStatus?: string;
     };
     DrawdownResponse: {
       strategyVersion?: string;
@@ -1022,6 +1449,131 @@ export interface components {
       /** Format: date-time */
       validUntil?: string;
     };
+    BriefAction: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      positionId?: string;
+      symbol?: string;
+      classification?: string;
+      action: string;
+      priority: string;
+      quantityMin?: string;
+      quantityMax?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      estimatedAmount?: string;
+      riskBeforeFraction?: string;
+      riskAfterFraction?: string;
+      confidence: string;
+      reasonsJson: string;
+      risksJson: string;
+      changeConditionsJson: string;
+      /** Format: date-time */
+      dataAsOf: string;
+      /** Format: date-time */
+      validUntil: string;
+    };
+    Capital: {
+      totalLiquidAssets: string;
+      emergencyReserve: string;
+      deployableCash: string;
+      investableAssets: string;
+      tacticalReserve: string;
+    };
+    DataReadiness: {
+      status: string;
+      marketCoverage: string;
+      fundamentalCoverage: string;
+      /** Format: int64 */
+      stalePositionCount: number;
+      /** Format: int64 */
+      missingPositionCount: number;
+      /** Format: int64 */
+      failedJobCount: number;
+    };
+    ExecutiveBrief: {
+      /** @enum {string} */
+      state:
+        | "NO_PORTFOLIO"
+        | "IMPORT_PENDING_CONFIRMATION"
+        | "IMPORTING"
+        | "PORTFOLIO_READY"
+        | "ANALYSIS_QUEUED"
+        | "WAIT_FOR_MARKET_DATA"
+        | "WAIT_FOR_FUNDAMENTALS"
+        | "PARTIAL_ANALYSIS"
+        | "ANALYSIS_READY"
+        | "STALE"
+        | "BLOCKED"
+        | "FAILED";
+      headline: string;
+      summary: components["schemas"]["PortfolioSummary"];
+      market: components["schemas"]["Market"];
+      capital: components["schemas"]["Capital"];
+      portfolio: components["schemas"]["PortfolioCommand"];
+      mustAct: components["schemas"]["BriefAction"][];
+      doNot: components["schemas"]["BriefAction"][];
+      watch: components["schemas"]["BriefAction"][];
+      opportunities: components["schemas"]["BriefAction"][];
+      blocked: components["schemas"]["BriefAction"][];
+      portfolioHealth: components["schemas"]["PortfolioHealth"];
+      dataReadiness: components["schemas"]["DataReadiness"];
+      nextEvents: components["schemas"]["NextEvent"][];
+      /** Format: uuid */
+      analysisRunId?: string;
+      strategyVersion?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    Market: {
+      regime: string;
+      /** Format: double */
+      score?: number;
+      confidence: string;
+      qualityStatus: string;
+      summary: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    NextEvent: {
+      symbol: string;
+      eventType: string;
+      title: string;
+      /** Format: date-time */
+      eventAt: string;
+      qualityStatus: string;
+    };
+    PortfolioCommand: {
+      drawdown?: string;
+      drawdownSource?: string;
+      technologyExposure?: string;
+      openRisk?: string;
+      clusterRisk?: string;
+    };
+    PortfolioHealth: {
+      status: string;
+      reasons: string[];
+    };
+    PortfolioSummary: {
+      investedValue: string;
+      trackedCash: string;
+      emergencyCash: string;
+      tacticalReserve: string;
+      /** Format: int64 */
+      openPositions: number;
+      totalLiquidAssets: string;
+      coreExposureFraction?: string;
+      tacticalExposureFraction?: string;
+      technologyExposureFraction?: string;
+      employerExposureFraction?: string;
+      clusterRiskFraction?: string;
+      openPlannedRiskFraction?: string;
+      unvestedCompensationValue: string;
+      portfolioDrawdownFraction?: string;
+      drawdownSource?: string;
+    };
     Metric: {
       name?: string;
       /** Format: double */
@@ -1066,6 +1618,7 @@ export interface components {
       /** Format: uuid */
       positionId?: string;
       symbol?: string;
+      classification?: string;
       action?: string;
       priority?: string;
       quantityMin?: string;
@@ -1074,6 +1627,8 @@ export interface components {
       targetWeightMax?: string;
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
+      currentWeight?: string;
+      estimatedAmount?: string;
       confidence?: string;
       reasonsJson?: string;
       risksJson?: string;
@@ -1264,7 +1819,108 @@ export interface operations {
       };
     };
   };
+  confirm: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        batchId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmationRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ConfirmationResponse"];
+        };
+      };
+    };
+  };
+  previewPasted: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PastedTableRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  previewManual: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManualHoldingRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
   preview_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  preview_2: {
     parameters: {
       query?: never;
       header?: never;
@@ -1416,6 +2072,28 @@ export interface operations {
       };
     };
   };
+  report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionReportResponse"];
+        };
+      };
+    };
+  };
   journal: {
     parameters: {
       query?: never;
@@ -1460,6 +2138,30 @@ export interface operations {
       };
     };
   };
+  chart: {
+    parameters: {
+      query?: {
+        range?: string;
+      };
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ChartResponse"];
+        };
+      };
+    };
+  };
   position: {
     parameters: {
       query?: never;
@@ -1484,14 +2186,11 @@ export interface operations {
   };
   classificationSuggestion: {
     parameters: {
-      query: {
-        symbol: string;
-        assetType: string;
-        thematic?: boolean;
-        unvestedCompensation?: boolean;
-      };
+      query?: never;
       header?: never;
-      path?: never;
+      path: {
+        id: string;
+      };
       cookie?: never;
     };
     requestBody?: never;
@@ -1527,6 +2226,26 @@ export interface operations {
       };
     };
   };
+  holdings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PortfolioHoldingResponse"][];
+        };
+      };
+    };
+  };
   drawdown: {
     parameters: {
       query?: never;
@@ -1543,6 +2262,28 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["SnapshotEnvelopeDrawdownResponse"];
+        };
+      };
+    };
+  };
+  find: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        batchId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
         };
       };
     };
@@ -1723,7 +2464,27 @@ export interface operations {
       };
     };
   };
-  find: {
+  today: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ExecutiveBrief"];
+        };
+      };
+    };
+  };
+  find_1: {
     parameters: {
       query?: never;
       header?: never;

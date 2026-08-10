@@ -1,5 +1,7 @@
 package com.example.portfolio.portfolio;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
+import com.example.portfolio.analysis.capital.CapitalBaseService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -16,10 +18,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class PortfolioStore {
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final CapitalBaseService capitalBases;
+    private final PublishedStrategyService strategies;
 
-    public PortfolioStore(JdbcClient jdbc, Clock clock) {
+    public PortfolioStore(
+            JdbcClient jdbc, Clock clock, CapitalBaseService capitalBases, PublishedStrategyService strategies) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.capitalBases = capitalBases;
+        this.strategies = strategies;
     }
 
     public List<AccountView> accounts(String email) {
@@ -101,8 +108,87 @@ public class PortfolioStore {
                 .optional();
     }
 
+    public List<PortfolioHoldingView> holdings(String email) {
+        var investable = capitalBases.calculate(userId(email)).investableAssets();
+        return jdbc.sql(
+                        """
+                        WITH owned AS (
+                            SELECT p.*, i.symbol, i.asset_type,
+                                   COALESCE(JSON_UNQUOTE(JSON_EXTRACT(i.metadata,'$.name')),i.symbol) instrument_name,
+                                   a.user_id
+                            FROM position p
+                            JOIN investment_account a ON a.id=p.account_id
+                            JOIN app_user u ON u.id=a.user_id
+                            JOIN instrument i ON i.id=p.instrument_id
+                            WHERE u.email=:email AND p.status='OPEN'
+                        )
+                        SELECT BIN_TO_UUID(o.id) id, o.version, o.symbol, o.instrument_name name, o.asset_type assetType,
+                               o.bucket, o.classification, o.classification_confirmed classificationConfirmed,
+                               o.market_value marketValue,
+                               CASE WHEN :investable=0 THEN 0 ELSE o.market_value/:investable END currentWeight,
+                               h.target_weight_min targetWeightMin, h.target_weight_max targetWeightMax,
+                               COALESCE(r.action,h.recommended_action,'WAIT_FOR_DATA') action,
+                               COALESCE(r.priority,'WATCH') priority,
+                               COALESCE(r.confidence,h.confidence,'WAIT_FOR_DATA') confidence,
+                               CASE WHEN q.last_price IS NULL OR sma.value_double IS NULL THEN 'WAIT_FOR_DATA'
+                                    WHEN q.last_price>=sma.value_double THEN 'ABOVE_TREND' ELSE 'BELOW_TREND' END trend,
+                               (SELECT MIN(e.event_at) FROM company_event e
+                                WHERE e.instrument_id=o.instrument_id AND e.event_at>=UTC_TIMESTAMP(6)) nextEvent,
+                               COALESCE(h.readiness,o.data_readiness,'WAIT_FOR_DATA') dataStatus
+                        FROM owned o
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=(
+                            SELECT x.id FROM holding_analysis_snapshot x WHERE x.position_id=o.id
+                            ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)
+                        LEFT JOIN recommendation r ON r.id=(
+                            SELECT y.id FROM recommendation y WHERE y.position_id=o.id AND y.status='ACTIVE'
+                            ORDER BY y.data_as_of DESC,y.created_at DESC LIMIT 1)
+                        LEFT JOIN quote q ON q.id=(
+                            SELECT z.id FROM quote z WHERE z.instrument_id=o.instrument_id
+                            ORDER BY z.data_as_of DESC,z.created_at DESC LIMIT 1)
+                        LEFT JOIN indicator_snapshot sma ON sma.id=(
+                            SELECT s.id FROM indicator_snapshot s WHERE s.instrument_id=o.instrument_id
+                              AND s.indicator_code='SMA_20' AND s.status='READY'
+                            ORDER BY s.market_date DESC,s.created_at DESC LIMIT 1)
+                        ORDER BY FIELD(COALESCE(r.priority,'WATCH'),'MUST_ACT','DO_NOT','WATCH','NORMAL'),o.symbol
+                        """)
+                .param("email", email)
+                .param("investable", investable)
+                .query(PortfolioHoldingView.class)
+                .list();
+    }
+
+    private UUID userId(String email) {
+        return jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email=:email")
+                .param("email", email)
+                .query(UUID.class)
+                .optional()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
     @Transactional
-    public PositionView confirmClassification(String email, UUID id, String classification, long expectedVersion) {
+    public ClassificationEvidence classificationEvidence(String email, UUID id) {
+        return jdbc.sql(
+                        """
+                        SELECT i.symbol, i.asset_type assetType,
+                               COALESCE((SELECT x.thematic FROM instrument_analysis_profile x
+                                         WHERE x.instrument_id=i.id ORDER BY x.data_as_of DESC LIMIT 1), FALSE) thematic,
+                               (p.classification='UNVESTED_COMPENSATION') unvestedCompensation
+                        FROM position p
+                        JOIN investment_account a ON a.id=p.account_id
+                        JOIN app_user u ON u.id=a.user_id
+                        JOIN instrument i ON i.id=p.instrument_id
+                        WHERE u.email=:email AND p.id=UUID_TO_BIN(:id)
+                        """)
+                .param("email", email)
+                .param("id", id.toString())
+                .query(ClassificationEvidence.class)
+                .optional()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    @Transactional
+    public PositionView confirmClassification(
+            String email, UUID id, String classification, String source, long expectedVersion) {
         var current = position(email, id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (current.version() != expectedVersion) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Position version changed");
@@ -114,11 +200,13 @@ public class PortfolioStore {
                         JOIN app_user u ON u.id = a.user_id
                         SET p.classification = :classification,
                             p.classification_confirmed = TRUE,
+                            p.classification_source = :source,
                             p.updated_at = :updatedAt,
                             p.version = p.version + 1
                         WHERE p.id = UUID_TO_BIN(:id) AND u.email = :email AND p.version = :version
                         """)
                 .param("classification", classification)
+                .param("source", source)
                 .param("updatedAt", clock.instant())
                 .param("id", id.toString())
                 .param("email", email)
@@ -132,14 +220,17 @@ public class PortfolioStore {
                             strategy_version, rule_ids, details, occurred_at
                         )
                         SELECT UUID_TO_BIN(:auditId), u.id, 'POSITION_CLASSIFIED', 'POSITION', :entityId,
-                               '1.0.0-draft', JSON_ARRAY('POSITION.CLASSIFY.001'),
-                               JSON_OBJECT('classification', :classification, 'previousVersion', :version), :occurredAt
+                               :strategyVersion, JSON_ARRAY('POSITION.CLASSIFY.001'),
+                               JSON_OBJECT('classification', :classification, 'source', :source,
+                                           'previousVersion', :version), :occurredAt
                         FROM app_user u WHERE u.email = :email
                         """)
                 .param("auditId", UUID.randomUUID().toString())
                 .param("entityId", id.toString())
                 .param("classification", classification)
+                .param("source", source)
                 .param("version", expectedVersion)
+                .param("strategyVersion", strategies.current().version())
                 .param("occurredAt", clock.instant())
                 .param("email", email)
                 .update();
@@ -171,15 +262,21 @@ public class PortfolioStore {
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(r.id) id, BIN_TO_UUID(r.position_id) position_id,
-                               i.symbol, r.action, r.priority, r.quantity_min, r.quantity_max,
+                               i.symbol, p.classification, p.market_value,
+                               h.current_weight, r.action, r.priority, r.quantity_min, r.quantity_max,
                                r.target_weight_min, r.target_weight_max, r.risk_before_fraction,
                                r.risk_after_fraction, r.confidence, r.reasons, r.risks,
                                r.change_conditions, r.rule_ids, r.strategy_version,
-                               r.data_as_of, r.valid_until
+                               r.data_as_of, r.valid_until,
+                               CASE WHEN r.quantity_max IS NULL OR q.last_price IS NULL THEN NULL
+                                    ELSE r.quantity_max*q.last_price END estimated_amount
                         FROM recommendation r
                         JOIN app_user u ON u.id = r.user_id
                         LEFT JOIN position p ON p.id = r.position_id
                         LEFT JOIN instrument i ON i.id = p.instrument_id
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
+                        LEFT JOIN quote q ON q.id=(SELECT x.id FROM quote x WHERE x.instrument_id=p.instrument_id
+                            ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)
                         WHERE u.email = :email AND r.status = 'ACTIVE' AND r.valid_until > UTC_TIMESTAMP(6)
                         ORDER BY FIELD(r.priority, 'MUST_ACT', 'DO_NOT', 'WATCH', 'NORMAL'), r.created_at
                         """)
@@ -213,6 +310,29 @@ public class PortfolioStore {
             String status,
             long version) {}
 
+    public record ClassificationEvidence(
+            String symbol, String assetType, boolean thematic, boolean unvestedCompensation) {}
+
+    public record PortfolioHoldingView(
+            UUID id,
+            long version,
+            String symbol,
+            String name,
+            String assetType,
+            String bucket,
+            String classification,
+            boolean classificationConfirmed,
+            BigDecimal marketValue,
+            BigDecimal currentWeight,
+            BigDecimal targetWeightMin,
+            BigDecimal targetWeightMax,
+            String action,
+            String priority,
+            String confidence,
+            String trend,
+            LocalDateTime nextEvent,
+            String dataStatus) {}
+
     public record HoldingAnalysisView(
             UUID id,
             UUID positionId,
@@ -235,6 +355,9 @@ public class PortfolioStore {
             UUID id,
             UUID positionId,
             String symbol,
+            String classification,
+            BigDecimal marketValue,
+            BigDecimal currentWeight,
             String action,
             String priority,
             BigDecimal quantityMin,
@@ -250,5 +373,6 @@ public class PortfolioStore {
             String ruleIds,
             String strategyVersion,
             LocalDateTime dataAsOf,
-            LocalDateTime validUntil) {}
+            LocalDateTime validUntil,
+            BigDecimal estimatedAmount) {}
 }

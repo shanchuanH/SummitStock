@@ -1,0 +1,29 @@
+package com.example.portfolio.fundamentals;
+
+public enum FinancialMetric {
+    REVENUE,
+    GROSS_PROFIT,
+    OPERATING_INCOME,
+    NET_INCOME,
+    DILUTED_EPS,
+    OPERATING_CASH_FLOW,
+    CAPEX,
+    FREE_CASH_FLOW,
+    CASH,
+    TOTAL_DEBT,
+    CURRENT_ASSETS,
+    CURRENT_LIABILITIES,
+    SHAREHOLDERS_EQUITY,
+    DILUTED_SHARES,
+    REVENUE_YOY,
+    REVENUE_3Y_CAGR,
+    EPS_YOY,
+    OPERATING_MARGIN,
+    NET_MARGIN,
+    FCF_MARGIN,
+    FCF_CONVERSION,
+    NET_CASH,
+    NET_DEBT_TO_FCF,
+    CURRENT_RATIO,
+    SHARE_DILUTION_YOY
+}

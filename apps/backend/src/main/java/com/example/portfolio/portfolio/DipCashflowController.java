@@ -14,19 +14,24 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1")
 public class DipCashflowController {
     private final DipCashflowStore store;
+    private final Optional<DebugApiAccess> debugAccess;
 
-    public DipCashflowController(DipCashflowStore store) {
+    public DipCashflowController(DipCashflowStore store, Optional<DebugApiAccess> debugAccess) {
         this.store = store;
+        this.debugAccess = debugAccess;
     }
 
     @GetMapping("/etf-dip/status")
@@ -38,6 +43,7 @@ public class DipCashflowController {
 
     @PostMapping("/etf-dip/preview")
     DipPreviewResponse preview(@Valid @RequestBody DipPreviewRequest r) {
+        if (debugAccess.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         var result = EtfDipEngine.evaluate(new EtfDipEngine.Input(
                 r.portfolioDrawdown(),
                 r.marketDriven(),
@@ -64,6 +70,7 @@ public class DipCashflowController {
                 result.trancheNumber(),
                 decimal(result.reserveFraction()),
                 result.ruleIds(),
+                true,
                 false);
     }
 
@@ -160,6 +167,7 @@ public class DipCashflowController {
             Integer trancheNumber,
             String reserveFraction,
             List<String> ruleIds,
+            boolean debug,
             boolean executionSubmitted) {}
 
     public record CashflowPlanRequest(
