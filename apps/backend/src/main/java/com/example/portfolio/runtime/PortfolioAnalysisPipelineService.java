@@ -2,6 +2,7 @@ package com.example.portfolio.runtime;
 
 import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
+import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.MarketContextService;
@@ -33,6 +34,7 @@ public class PortfolioAnalysisPipelineService {
     private final CapitalBaseService capitalBases;
     private final PositionMarkService positionMarks;
     private final PortfolioAllocationService allocations;
+    private final EtfDipEventService dipEvents;
     private final MacroApplicationService macro;
     private final Clock clock;
 
@@ -43,6 +45,7 @@ public class PortfolioAnalysisPipelineService {
             CapitalBaseService capitalBases,
             PositionMarkService positionMarks,
             PortfolioAllocationService allocations,
+            EtfDipEventService dipEvents,
             MacroApplicationService macro,
             Clock clock) {
         this.jdbc = jdbc;
@@ -51,6 +54,7 @@ public class PortfolioAnalysisPipelineService {
         this.capitalBases = capitalBases;
         this.positionMarks = positionMarks;
         this.allocations = allocations;
+        this.dipEvents = dipEvents;
         this.macro = macro;
         this.clock = clock;
     }
@@ -312,11 +316,7 @@ public class PortfolioAnalysisPipelineService {
     }
 
     public int updateDipEvents(UUID userId) {
-        return jdbc.sql("SELECT COUNT(*) FROM etf_dip_event WHERE user_id=UUID_TO_BIN(:userId) AND valid_until>=:now")
-                .param("userId", userId.toString())
-                .param("now", clock.instant())
-                .query(Integer.class)
-                .single();
+        return dipEvents.evaluateAndCapture(userId);
     }
 
     public int dailyDigest(UUID userId) {

@@ -4,6 +4,7 @@ import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.decision.AssetDecisionRouter;
 import com.example.portfolio.analysis.decision.DecisionContext;
 import com.example.portfolio.analysis.decision.PortfolioConstraintEngine;
+import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.HoldingAnalysisResult;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
@@ -15,6 +16,7 @@ import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -33,6 +35,7 @@ public final class HoldingAnalysisApplicationService {
     private final AssetDecisionRouter assetDecisions;
     private final HoldingAnalysisStore store;
     private final PortfolioAllocationService allocations;
+    private final EtfDipEventService dipEvents;
     private final Clock clock;
 
     public HoldingAnalysisApplicationService(
@@ -43,6 +46,7 @@ public final class HoldingAnalysisApplicationService {
             AssetDecisionRouter assetDecisions,
             HoldingAnalysisStore store,
             PortfolioAllocationService allocations,
+            EtfDipEventService dipEvents,
             Clock clock) {
         this.evidenceAssembler = evidenceAssembler;
         this.freshness = freshness;
@@ -51,6 +55,7 @@ public final class HoldingAnalysisApplicationService {
         this.assetDecisions = assetDecisions;
         this.store = store;
         this.allocations = allocations;
+        this.dipEvents = dipEvents;
         this.clock = clock;
     }
 
@@ -115,7 +120,12 @@ public final class HoldingAnalysisApplicationService {
                 allocations.forPosition(
                         evidence.position().userId(),
                         evidence.position().classification(),
-                        evidence.instrument().symbol()));
+                        evidence.instrument().symbol()),
+                dipEvents
+                        .latest(
+                                evidence.position().userId(),
+                                evidence.instrument().id())
+                        .orElse(null));
         var values = new ArrayList<>(portfolioConstraints.evaluate(context));
         values.addAll(assetDecisions.evaluate(context));
         return List.copyOf(values);
@@ -128,6 +138,7 @@ public final class HoldingAnalysisApplicationService {
             RecommendationCandidate winner,
             java.time.Instant now) {
         var action = winner.action();
+        if (action == RecommendationAction.DEPLOY_DIP_TRANCHE) return dipSize(evidence, state, now);
         if ((!com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
                         && !com.example.portfolio.analysis.decision.RecommendationSizingService.requiresSellSizing(
                                 action))
@@ -166,6 +177,41 @@ public final class HoldingAnalysisApplicationService {
                 !freshness.stale(evidence.riskDataAsOf(), now),
                 evidence.position().classificationConfirmed(),
                 evidence.providerHardError()));
+    }
+
+    private PositionSizing.Result dipSize(HoldingEvidence evidence, AnalysisReadiness state, java.time.Instant now) {
+        var event = dipEvents
+                .latest(evidence.position().userId(), evidence.instrument().id())
+                .orElse(null);
+        var sleeve = allocations.forPosition(
+                evidence.position().userId(),
+                evidence.position().classification(),
+                evidence.instrument().symbol());
+        if (event == null
+                || !event.readyForNextTranche()
+                || sleeve == null
+                || sleeve.gapWeight() == null
+                || sleeve.gapWeight().signum() <= 0
+                || evidence.quote().last() == null
+                || evidence.quote().last().signum() <= 0
+                || evidence.quote().quality() != EvidenceQuality.HEALTHY
+                || evidence.capitalQuality() != EvidenceQuality.HEALTHY
+                || evidence.riskQuality() != EvidenceQuality.HEALTHY
+                || state == AnalysisReadiness.STALE
+                || freshness.stale(evidence.quote().dataAsOf(), now)
+                || freshness.stale(evidence.riskDataAsOf(), now)
+                || !evidence.position().classificationConfirmed()
+                || evidence.providerHardError()) return unavailableSizing();
+        var investable = evidence.portfolioEquity().amount();
+        var deployableCash = evidence.trackedCash()
+                .amount()
+                .subtract(evidence.emergencyCash().amount())
+                .max(BigDecimal.ZERO);
+        var trancheAmount = evidence.tacticalReserve().amount().multiply(event.tranchePct());
+        var capacityAmount = investable.multiply(sleeve.gapWeight());
+        var amount = trancheAmount.min(deployableCash).min(capacityAmount).max(BigDecimal.ZERO);
+        var quantity = amount.divide(evidence.quote().last(), 0, RoundingMode.FLOOR);
+        return new PositionSizing.Result(true, quantity, quantity, null, quantity, quantity, null);
     }
 
     private static PositionSizing.Result unavailableSizing() {

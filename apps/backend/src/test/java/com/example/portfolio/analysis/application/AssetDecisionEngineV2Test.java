@@ -12,6 +12,7 @@ import com.example.portfolio.analysis.decision.RecommendationConflictResolver;
 import com.example.portfolio.analysis.decision.SpeculativeDecisionEngine;
 import com.example.portfolio.analysis.decision.TacticalStockDecisionEngine;
 import com.example.portfolio.analysis.decision.ThematicEtfDecisionEngine;
+import com.example.portfolio.analysis.dip.EtfDipDecisionEvent;
 import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
 import com.example.portfolio.analysis.domain.RecommendationAction;
@@ -19,6 +20,7 @@ import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -159,10 +161,49 @@ class AssetDecisionEngineV2Test {
                         new BigDecimal("0.05"),
                         "QQQM",
                         true,
-                        EvidenceQuality.HEALTHY));
+                        EvidenceQuality.HEALTHY),
+                new EtfDipDecisionEvent(
+                        "READY_FOR_TRANCHE_1",
+                        65,
+                        2,
+                        1,
+                        new BigDecimal("0.20"),
+                        null,
+                        new BigDecimal("10000"),
+                        new BigDecimal("8000"),
+                        EvidenceQuality.HEALTHY,
+                        Instant.parse("2026-08-07T20:00:00Z")));
 
         assertThat(resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context)))
                 .isEqualTo(RecommendationAction.DEPLOY_DIP_TRANCHE);
+    }
+
+    @Test
+    void marketDrivenDrawdownWithoutCanonicalDipEventCannotDeployTranche() {
+        var evidence = withDrawdown(
+                HoldingEvidenceFixtures.evidence("QQQM", "ETF", HoldingClassification.CORE_TECH_ETF),
+                new BigDecimal("0.15"),
+                "ETF_DIP_MARKET_DRIVEN",
+                false);
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                evidence.strategy().techCoreTarget(),
+                evidence.strategy().techCoreTarget(),
+                evidence.strategy().techCoreTarget(),
+                null,
+                new SleeveAllocation(
+                        PortfolioSleeve.TECH_CORE,
+                        BigDecimal.ZERO,
+                        new BigDecimal("0.10"),
+                        new BigDecimal("0.15"),
+                        new BigDecimal("0.05"),
+                        "QQQM",
+                        true,
+                        EvidenceQuality.HEALTHY));
+
+        assertThat(resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.BUY);
     }
 
     @Test

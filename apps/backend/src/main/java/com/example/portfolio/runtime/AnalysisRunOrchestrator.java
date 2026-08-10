@@ -35,8 +35,8 @@ public class AnalysisRunOrchestrator {
             "COMPUTE_DRAWDOWN_SOURCE",
             "RECALCULATE_STOPS",
             "UPDATE_THESES_EVENTS",
-            "COMPUTE_HOLDING_ANALYSIS",
             "UPDATE_DIP_EVENTS",
+            "COMPUTE_HOLDING_ANALYSIS",
             "GENERATE_RECOMMENDATIONS",
             "GENERATE_DAILY_DIGEST");
 

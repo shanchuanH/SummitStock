@@ -25,16 +25,15 @@ public final class CoreEtfDecisionEngine implements AssetDecisionEngine {
                 && sleeve.gapWeight() != null
                 && sleeve.gapWeight().signum() > 0;
         var values = new ArrayList<RecommendationCandidate>();
-        if ("ETF_DIP_MARKET_DRIVEN".equals(e.drawdown().state())
-                && e.emergencyCash().amount().compareTo(e.strategy().emergencyCashFloor()) >= 0
-                && sleeveHasGap) {
+        if (context.dipEvent() != null && context.dipEvent().readyForNextTranche() && sleeveHasGap) {
             values.add(of(
                     RecommendationAction.DEPLOY_DIP_TRANCHE,
                     "NORMAL",
                     10,
                     "CORE_ETF.DIP.TRANCHE",
-                    "Market-driven drawdown and protected reserve permit a qualified ETF dip tranche.",
-                    "The tranche remains manual and setup confirmation can expire."));
+                    "The canonical ETF dip event is ready for tranche "
+                            + context.dipEvent().trancheIndex() + ".",
+                    "The event is evidence-versioned, remains manual, and can expire."));
         } else if (e.regime().available()
                 && ("RED".equals(e.regime().label())
                         || "ORANGE".equals(e.regime().label()))) {
