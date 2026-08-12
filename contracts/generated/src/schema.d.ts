@@ -1470,6 +1470,7 @@ export interface components {
       estimatedAmount?: string;
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
+      riskCalculationReason: string;
       confidence: string;
       reasonsJson: string;
       risksJson: string;
@@ -1638,6 +1639,7 @@ export interface components {
       targetWeightMax?: string;
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
+      riskCalculationReason?: string;
       currentWeight?: string;
       estimatedAmount?: string;
       confidence?: string;

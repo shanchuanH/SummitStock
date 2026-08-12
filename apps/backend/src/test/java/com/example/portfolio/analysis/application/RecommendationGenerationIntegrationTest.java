@@ -21,6 +21,18 @@ class RecommendationGenerationIntegrationTest extends HoldingAnalysisIntegration
                 .query(Integer.class)
                 .single();
         assertThat(evidence).isEqualTo(3);
+        var riskTruth = jdbc.sql(
+                        """
+                        SELECT COUNT(*) FROM recommendation
+                        WHERE user_id=UUID_TO_BIN(:userId)
+                          AND risk_calculation_reason<>'LEGACY_NOT_CALCULATED'
+                          AND (risk_before_fraction IS NOT NULL
+                               OR risk_calculation_reason='PORTFOLIO_RISK_EVIDENCE_UNAVAILABLE')
+                        """)
+                .param("userId", USER_ID.toString())
+                .query(Integer.class)
+                .single();
+        assertThat(riskTruth).isEqualTo(3);
         var narratives = jdbc.sql(
                         """
                         SELECT COUNT(*) FROM decision_narrative n

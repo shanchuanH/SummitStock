@@ -3359,6 +3359,9 @@
           "riskAfterFraction" : {
             "type" : "string"
           },
+          "riskCalculationReason" : {
+            "type" : "string"
+          },
           "confidence" : {
             "type" : "string"
           },
@@ -3380,7 +3383,7 @@
             "format" : "date-time"
           }
         },
-        "required" : [ "action", "changeConditionsJson", "confidence", "dataAsOf", "id", "priority", "reasonsJson", "risksJson", "validUntil" ]
+        "required" : [ "action", "changeConditionsJson", "confidence", "dataAsOf", "id", "priority", "reasonsJson", "riskCalculationReason", "risksJson", "validUntil" ]
       },
       "Capital" : {
         "type" : "object",
@@ -3798,6 +3801,9 @@
             "type" : "string"
           },
           "riskAfterFraction" : {
+            "type" : "string"
+          },
+          "riskCalculationReason" : {
             "type" : "string"
           },
           "currentWeight" : {

@@ -369,3 +369,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The post-earnings path also performs holding analysis only once by using the single-pass recommendation entry point.
 - The real three-position EOD acceptance test proves exactly three run-linked snapshots and three recommendations that reference those same snapshots.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening Recommendation Risk Fields - 2026-08-12
+
+- Recommendation risk is no longer written as two unconditional nulls. `riskBeforeFraction` uses the current persisted portfolio planned-risk fraction when healthy risk evidence exists.
+- Sizing actions project `riskAfterFraction` from the formal stop, current quote, maximum recommended quantity, and investable equity; risk-reduction actions subtract projected risk and new-risk actions add it.
+- Non-sizing actions preserve before/after risk, while unavailable projections remain null with an explicit `riskCalculationReason` such as `PORTFOLIO_RISK_EVIDENCE_UNAVAILABLE` or `PROJECTED_RISK_INPUT_MISSING`.
+- Flyway V35 backfills legacy rows with `LEGACY_NOT_CALCULATED`; both recommendation API representations expose the required reason and the generated client reflects it.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

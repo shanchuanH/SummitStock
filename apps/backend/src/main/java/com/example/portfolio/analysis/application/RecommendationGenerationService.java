@@ -56,16 +56,16 @@ public class RecommendationGenerationService {
 
     private GeneratedRecommendation generate(
             UUID userId, HoldingAnalysisApplicationService.AnalyzedHolding value, java.time.Instant now) {
-        var recommendationId =
-                store.appendRecommendation(userId, value.snapshotId(), value.analysis(), value.resolution(), now);
+        var recommendationId = store.appendRecommendation(
+                userId, value.snapshotId(), value.analysis(), value.resolution(), value.riskProjection(), now);
         narration.generate(recommendationId, value);
         return new GeneratedRecommendation(recommendationId, value);
     }
 
     private GeneratedRecommendation generate(
             UUID userId, HoldingAnalysisStore.PersistedHolding value, java.time.Instant now) {
-        var recommendationId =
-                store.appendRecommendation(userId, value.snapshotId(), value.analysis(), value.resolution(), now);
+        var recommendationId = store.appendRecommendation(
+                userId, value.snapshotId(), value.analysis(), value.resolution(), value.riskProjection(), now);
         narration.generate(recommendationId, value.narrativeInput());
         return new GeneratedRecommendation(recommendationId, null);
     }

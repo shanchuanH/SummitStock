@@ -90,6 +90,7 @@ public final class HoldingAnalysisApplicationService {
                 conflictResolver.resolve(candidates, evidence.strategy().riskPriorityOverTax());
         var sizing = size(evidence, state, policy, resolution.winner(), now);
         var confidence = confidence(evidence, state);
+        var riskProjection = riskProjection(evidence, resolution.winner().action(), sizing);
         var result = new HoldingAnalysisResult(
                 evidence.position().id(),
                 analysisStatus(state),
@@ -119,8 +120,36 @@ public final class HoldingAnalysisApplicationService {
                 now.plus(VALIDITY),
                 AnalysisChecksum.sha256(evidence + ":" + state + ":" + resolution));
         var narrativeInput = narrativeInput(evidence, result, resolution);
-        var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, now);
-        return new AnalyzedHolding(snapshotId, evidence, result, resolution, narrativeInput);
+        var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, riskProjection, now);
+        return new AnalyzedHolding(snapshotId, evidence, result, resolution, narrativeInput, riskProjection);
+    }
+
+    private static RiskProjection riskProjection(
+            HoldingEvidence evidence, RecommendationAction action, PositionSizing.Result sizing) {
+        if (evidence.riskQuality() != EvidenceQuality.HEALTHY || evidence.totalOpenRisk() == null) {
+            return new RiskProjection(null, null, "PORTFOLIO_RISK_EVIDENCE_UNAVAILABLE");
+        }
+        var before = evidence.totalOpenRisk().max(BigDecimal.ZERO);
+        if (!com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
+                && !com.example.portfolio.analysis.decision.RecommendationSizingService.requiresSellSizing(action)) {
+            return new RiskProjection(before, before, "NO_POSITION_SIZE_CHANGE");
+        }
+        if (!sizing.exactQuantityAllowed()
+                || sizing.quantityMax() == null
+                || evidence.stop().formalStop() == null
+                || evidence.quote().last() == null
+                || evidence.portfolioEquity().amount().signum() <= 0) {
+            return new RiskProjection(before, null, "PROJECTED_RISK_INPUT_MISSING");
+        }
+        var riskPerShare =
+                evidence.quote().last().subtract(evidence.stop().formalStop()).abs();
+        var delta = riskPerShare
+                .multiply(sizing.quantityMax())
+                .divide(evidence.portfolioEquity().amount(), 10, RoundingMode.HALF_UP);
+        var after = com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
+                ? before.add(delta)
+                : before.subtract(delta).max(BigDecimal.ZERO);
+        return new RiskProjection(before, after, "PROJECTED_FROM_FORMAL_STOP_AND_MAX_QUANTITY");
     }
 
     private static NarrativeInput narrativeInput(
@@ -410,5 +439,8 @@ public final class HoldingAnalysisApplicationService {
             HoldingEvidence evidence,
             HoldingAnalysisResult analysis,
             RecommendationResolution resolution,
-            NarrativeInput narrativeInput) {}
+            NarrativeInput narrativeInput,
+            RiskProjection riskProjection) {}
+
+    public record RiskProjection(BigDecimal beforeFraction, BigDecimal afterFraction, String reason) {}
 }

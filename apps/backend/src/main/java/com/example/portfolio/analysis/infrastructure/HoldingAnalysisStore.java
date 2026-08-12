@@ -1,5 +1,6 @@
 package com.example.portfolio.analysis.infrastructure;
 
+import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService.RiskProjection;
 import com.example.portfolio.analysis.domain.HoldingAnalysisResult;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
 import com.example.portfolio.analysis.narrative.NarrativeInput;
@@ -31,6 +32,7 @@ public class HoldingAnalysisStore {
             HoldingAnalysisResult value,
             RecommendationResolution resolution,
             NarrativeInput narrativeInput,
+            RiskProjection riskProjection,
             Instant createdAt) {
         var id = UUID.randomUUID();
         jdbc.sql(
@@ -70,7 +72,9 @@ public class HoldingAnalysisStore {
                 .param("evidenceRefs", serialize(value.evidenceRefs()))
                 .param("checksum", value.evidenceChecksum())
                 .param("configHash", value.configHash())
-                .param("decisionPayload", serialize(new PersistedDecision(value, resolution, narrativeInput)))
+                .param(
+                        "decisionPayload",
+                        serialize(new PersistedDecision(value, resolution, narrativeInput, riskProjection)))
                 .param("dataAsOf", value.dataAsOf())
                 .param("validUntil", value.validUntil())
                 .param("createdAt", createdAt)
@@ -104,7 +108,8 @@ public class HoldingAnalysisStore {
                             UUID.fromString(rs.getString("snapshotId")),
                             decision.analysis(),
                             decision.resolution(),
-                            decision.narrativeInput());
+                            decision.narrativeInput(),
+                            decision.riskProjection());
                 })
                 .list();
     }
@@ -126,6 +131,7 @@ public class HoldingAnalysisStore {
             UUID analysisId,
             HoldingAnalysisResult analysis,
             RecommendationResolution resolution,
+            RiskProjection riskProjection,
             Instant createdAt) {
         var id = UUID.randomUUID();
         var recommendationChecksum = checksumMaterial(analysis, resolution);
@@ -134,13 +140,13 @@ public class HoldingAnalysisStore {
                         INSERT INTO recommendation (
                             id, user_id, position_id, holding_analysis_id, strategy_version, action, priority,
                             quantity_min, quantity_max, target_weight_min, target_weight_max,
-                            risk_before_fraction, risk_after_fraction, confidence, reasons, risks,
+                            risk_before_fraction, risk_after_fraction, risk_calculation_reason, confidence, reasons, risks,
                             change_conditions, rule_ids, evidence_refs, evidence_checksum, data_as_of, valid_until, status,
                             winning_rule, suppressed_candidates, resolution_reason, config_hash, created_at
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:userId), UUID_TO_BIN(:positionId), UUID_TO_BIN(:analysisId),
                             :strategyVersion, :action, :priority, :quantityMin, :quantityMax, :targetMin, :targetMax,
-                            NULL, NULL, :confidence, CAST(:reasons AS JSON), CAST(:risks AS JSON),
+                            :riskBefore, :riskAfter, :riskReason, :confidence, CAST(:reasons AS JSON), CAST(:risks AS JSON),
                             CAST(:conditions AS JSON), CAST(:rules AS JSON), CAST(:evidenceRefs AS JSON), :checksum, :dataAsOf, :validUntil,
                             'ACTIVE', :winningRule, CAST(:suppressed AS JSON), :resolutionReason, :configHash, :createdAt
                         ) ON DUPLICATE KEY UPDATE
@@ -157,6 +163,9 @@ public class HoldingAnalysisStore {
                 .param("quantityMax", analysis.recommendedQuantityMax())
                 .param("targetMin", analysis.targetWeightMin())
                 .param("targetMax", analysis.targetWeightMax())
+                .param("riskBefore", riskProjection.beforeFraction())
+                .param("riskAfter", riskProjection.afterFraction())
+                .param("riskReason", riskProjection.reason())
                 .param("confidence", analysis.confidence())
                 .param("reasons", serialize(analysis.reasons()))
                 .param("risks", serialize(analysis.risks()))
@@ -293,11 +302,15 @@ public class HoldingAnalysisStore {
             String narrativeConfidenceExplanation) {}
 
     private record PersistedDecision(
-            HoldingAnalysisResult analysis, RecommendationResolution resolution, NarrativeInput narrativeInput) {}
+            HoldingAnalysisResult analysis,
+            RecommendationResolution resolution,
+            NarrativeInput narrativeInput,
+            RiskProjection riskProjection) {}
 
     public record PersistedHolding(
             UUID snapshotId,
             HoldingAnalysisResult analysis,
             RecommendationResolution resolution,
-            NarrativeInput narrativeInput) {}
+            NarrativeInput narrativeInput,
+            RiskProjection riskProjection) {}
 }
