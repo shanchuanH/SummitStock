@@ -1,11 +1,13 @@
 package com.example.portfolio.analysis.capital;
 
 import com.example.portfolio.analysis.application.PublishedStrategyService;
+import com.example.portfolio.market.provider.TradingCalendar;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
@@ -18,26 +20,46 @@ public final class CapitalBaseService {
 
     private final JdbcClient jdbc;
     private final PublishedStrategyService strategies;
+    private final TradingCalendar calendar;
+    private final Clock clock;
 
-    public CapitalBaseService(JdbcClient jdbc, PublishedStrategyService strategies) {
+    public CapitalBaseService(
+            JdbcClient jdbc, PublishedStrategyService strategies, TradingCalendar calendar, Clock clock) {
         this.jdbc = jdbc;
         this.strategies = strategies;
+        this.calendar = calendar;
+        this.clock = clock;
     }
 
     public CapitalBase calculate(UUID userId) {
         var values = jdbc.sql(
                         """
-                        SELECT COALESCE((SELECT SUM(p.market_value) FROM position p
+                        SELECT COALESCE((SELECT SUM(m.marked_market_value) FROM position p
                                          JOIN investment_account a ON a.id=p.account_id
+                                         JOIN current_position_mark m ON m.position_id=p.id
                                          WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'),0) invested,
                                COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
                                          WHERE c.user_id=UUID_TO_BIN(:userId)),0) trackedCash,
                                COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
                                          WHERE c.user_id=UUID_TO_BIN(:userId) AND c.bucket_type='EMERGENCY'),0) emergencyAllocated,
                                COALESCE((SELECT SUM(h.estimated_value) FROM compensation_holding h
-                                         WHERE h.user_id=UUID_TO_BIN(:userId) AND h.vesting_status='UNVESTED'),0) compensation
+                                         WHERE h.user_id=UUID_TO_BIN(:userId) AND h.vesting_status='UNVESTED'),0) compensation,
+                               (SELECT COUNT(*) FROM position p JOIN investment_account a ON a.id=p.account_id
+                                 WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN') openPositions,
+                               (SELECT COUNT(*) FROM position p JOIN investment_account a ON a.id=p.account_id
+                                 JOIN current_position_mark m ON m.position_id=p.id
+                                 WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN') markCount,
+                               (SELECT COUNT(*) FROM position p JOIN investment_account a ON a.id=p.account_id
+                                 JOIN current_position_mark m ON m.position_id=p.id
+                                 WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                                   AND (m.quality_status<>'HEALTHY' OR m.market_date<>:completedSession)) impairedMarks,
+                               (SELECT COUNT(*) FROM position p JOIN investment_account a ON a.id=p.account_id
+                                 JOIN current_position_mark m ON m.position_id=p.id
+                                 WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                                   AND m.market_date<>:completedSession) staleMarks
                         """)
                 .param("userId", userId.toString())
+                .param("completedSession", calendar.latestCompletedSession(clock.instant()))
                 .query(CapitalRow.class)
                 .single();
         var emergency = values.emergencyAllocated()
@@ -46,7 +68,7 @@ public final class CapitalBaseService {
         var deployable = values.trackedCash().subtract(emergency).max(ZERO);
         var investable = values.invested().add(deployable);
         var totalLiquid = values.invested().add(values.trackedCash());
-        var quality = totalLiquid.signum() == 0 ? EvidenceQuality.MISSING : EvidenceQuality.HEALTHY;
+        var quality = quality(values, totalLiquid);
         return new CapitalBase(
                 values.invested(),
                 values.trackedCash(),
@@ -100,6 +122,23 @@ public final class CapitalBaseService {
         }
     }
 
+    private static EvidenceQuality quality(CapitalRow values, BigDecimal totalLiquid) {
+        if (values.openPositions() == 0) {
+            return totalLiquid.signum() == 0 ? EvidenceQuality.MISSING : EvidenceQuality.HEALTHY;
+        }
+        if (values.markCount() == 0) return EvidenceQuality.MISSING;
+        if (values.markCount() < values.openPositions()) return EvidenceQuality.PARTIAL;
+        if (values.impairedMarks() == 0) return EvidenceQuality.HEALTHY;
+        return values.staleMarks() == values.impairedMarks() ? EvidenceQuality.STALE : EvidenceQuality.PARTIAL;
+    }
+
     record CapitalRow(
-            BigDecimal invested, BigDecimal trackedCash, BigDecimal emergencyAllocated, BigDecimal compensation) {}
+            BigDecimal invested,
+            BigDecimal trackedCash,
+            BigDecimal emergencyAllocated,
+            BigDecimal compensation,
+            long openPositions,
+            long markCount,
+            long impairedMarks,
+            long staleMarks) {}
 }

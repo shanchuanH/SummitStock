@@ -1,7 +1,12 @@
 package com.example.portfolio.runtime;
 
+import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
+import com.example.portfolio.analysis.dip.EtfDipEventService;
+import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.configuration.PortfolioProperties;
+import com.example.portfolio.context.BreadthService;
 import com.example.portfolio.context.MarketContextService;
 import com.example.portfolio.macro.MacroApplicationService;
 import com.example.portfolio.quant.Indicators;
@@ -29,7 +34,12 @@ public class PortfolioAnalysisPipelineService {
     private final MarketContextService contextService;
     private final PortfolioProperties properties;
     private final CapitalBaseService capitalBases;
+    private final PositionMarkService positionMarks;
+    private final PortfolioAllocationService allocations;
+    private final EtfDipEventService dipEvents;
+    private final ClusterRiskService clusterRisks;
     private final MacroApplicationService macro;
+    private final BreadthService breadthService;
     private final Clock clock;
 
     public PortfolioAnalysisPipelineService(
@@ -37,34 +47,40 @@ public class PortfolioAnalysisPipelineService {
             MarketContextService contextService,
             PortfolioProperties properties,
             CapitalBaseService capitalBases,
+            PositionMarkService positionMarks,
+            PortfolioAllocationService allocations,
+            EtfDipEventService dipEvents,
+            ClusterRiskService clusterRisks,
             MacroApplicationService macro,
+            BreadthService breadthService,
             Clock clock) {
         this.jdbc = jdbc;
         this.contextService = contextService;
         this.properties = properties;
         this.capitalBases = capitalBases;
+        this.positionMarks = positionMarks;
+        this.allocations = allocations;
+        this.dipEvents = dipEvents;
+        this.clusterRisks = clusterRisks;
         this.macro = macro;
+        this.breadthService = breadthService;
         this.clock = clock;
     }
 
     public int collectBreadthMacro(LocalDate marketDate) {
-        return jdbc.sql(
-                        """
-                        SELECT COUNT(*) FROM instrument i
-                        WHERE i.active=TRUE AND i.asset_type IN ('EQUITY','ETF')
-                          AND EXISTS (SELECT 1 FROM price_bar p WHERE p.instrument_id=i.id
-                                      AND p.adjusted=TRUE AND p.market_date<=:marketDate)
-                        """)
-                .param("marketDate", marketDate)
-                .query(Integer.class)
-                .single();
+        return breadthService.capture(marketDate).snapshots();
     }
 
     public int computeRegime(LocalDate marketDate) {
         var spy = benchmark("SPY", marketDate);
         var qqq = benchmark("QQQ", marketDate);
-        var breadth = breadth(marketDate);
-        var quality = spy.available() && qqq.available() ? EvidenceQuality.PARTIAL : EvidenceQuality.MISSING;
+        var canonicalBreadth = breadthService.latest(marketDate);
+        var breadth = canonicalBreadth.pctAboveSma50() == null
+                ? 0
+                : canonicalBreadth.pctAboveSma50().doubleValue();
+        var quality = spy.available() && qqq.available() && !"MISSING".equals(canonicalBreadth.quality())
+                ? "HEALTHY".equals(canonicalBreadth.quality()) ? EvidenceQuality.HEALTHY : EvidenceQuality.PARTIAL
+                : EvidenceQuality.MISSING;
         double trend = (score(spy.above200()) + score(qqq.above200())) / 2.0;
         double momentum = qqq.rsi() == null ? 0 : Math.clamp(qqq.rsi() / 100.0, 0, 1);
         var realizedStress = qqq.realizedVolatility() == null
@@ -117,23 +133,35 @@ public class PortfolioAnalysisPipelineService {
                 .param("now", clock.instant())
                 .param("userId", userId.toString())
                 .update();
-        capitalBases.capture(userId, clock.instant());
         return updated;
+    }
+
+    public PositionMarkService.CaptureResult capturePositionMarks(UUID userId) {
+        var result = positionMarks.captureForUser(userId, clock.instant());
+        capitalBases.capture(userId, clock.instant());
+        allocations.capture(userId, clock.instant());
+        return result;
     }
 
     public int computeDrawdown(UUID userId, LocalDate marketDate) {
         var totals = jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(p.market_value),0) invested,
+                        SELECT COALESCE(SUM(m.marked_market_value),0) invested,
                                COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
                                          WHERE c.user_id=UUID_TO_BIN(:userId)),0) cash,
-                               COALESCE(MAX(p.market_value),0) largest
+                               COALESCE(MAX(m.marked_market_value),0) largest,
+                               COUNT(p.id) openPositions,COUNT(m.id) markCount
                         FROM position p JOIN investment_account a ON a.id=p.account_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         """)
                 .param("userId", userId.toString())
                 .query(PortfolioTotals.class)
                 .single();
+        if (totals.markCount() < totals.openPositions()
+                || capitalBases.calculate(userId).quality() != EvidenceQuality.HEALTHY) {
+            return 0;
+        }
         var equity = totals.invested().add(totals.cash());
         if (equity.signum() <= 0) throw new PermanentDataException("NO_PORTFOLIO_EQUITY", "Portfolio has no equity");
         var priorHigh = jdbc.sql(
@@ -147,7 +175,7 @@ public class PortfolioAnalysisPipelineService {
                 priorHigh,
                 returnFromPeak("SPY", marketDate),
                 returnFromPeak("QQQ", marketDate),
-                breadth(marketDate),
+                canonicalBreadth50(marketDate),
                 stressLevel(marketDate),
                 totals.largest().divide(equity, MathContext.DECIMAL64).doubleValue(),
                 largestClusterContribution(userId, equity),
@@ -232,7 +260,9 @@ public class PortfolioAnalysisPipelineService {
                     .param("now", clock.instant())
                     .update();
         }
-        return affected + snapshotPortfolioRisk(userId);
+        var positionRisks = snapshotPortfolioRisk(userId);
+        var clusterRiskSnapshots = clusterRisks.capture(userId, clock.instant());
+        return affected + positionRisks + clusterRiskSnapshots;
     }
 
     private int snapshotPortfolioRisk(UUID userId) {
@@ -243,14 +273,13 @@ public class PortfolioAnalysisPipelineService {
                             id,position_id,strategy_version,current_weight,open_risk_fraction,
                             cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at)
                         WITH evidence AS (
-                            SELECT p.id,p.quantity,p.average_cost,p.market_value,i.asset_type,p.classification,
-                                   (SELECT b.close_price FROM price_bar b WHERE b.instrument_id=p.instrument_id
-                                    AND b.adjusted=TRUE AND b.quality_status='HEALTHY'
-                                    ORDER BY b.market_date DESC,b.created_at DESC LIMIT 1) last_price,
+                            SELECT p.id,p.quantity,p.average_cost,m.marked_market_value market_value,
+                                   i.asset_type,p.classification,m.decision_price last_price,m.quality_status mark_quality,
                                    (SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
                                     ORDER BY s.data_as_of DESC,s.created_at DESC LIMIT 1) live_stop
                             FROM position p JOIN investment_account a ON a.id=p.account_id
                             JOIN instrument i ON i.id=p.instrument_id
+                            LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         ), calculated AS (
                             SELECT e.*,:investable equity,
@@ -261,13 +290,14 @@ public class PortfolioAnalysisPipelineService {
                             FROM evidence e
                         )
                         SELECT UUID_TO_BIN(UUID()),c.id,:strategy,
-                               CASE WHEN c.equity=0 THEN 0 ELSE c.market_value/c.equity END,
+                               CASE WHEN c.equity=0 OR c.market_value IS NULL THEN 0 ELSE c.market_value/c.equity END,
                                CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
-                               CASE WHEN c.equity=0 THEN 0 ELSE c.risk_amount/c.equity END,
+                               0,
                                c.risk_amount,
-                               CASE WHEN c.last_price IS NULL OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
+                               CASE WHEN c.last_price IS NULL OR c.mark_quality<>'HEALTHY'
+                                      OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
                                     THEN 'MISSING' ELSE 'HEALTHY' END,
-                               SHA2(CONCAT(BIN_TO_UUID(c.id),':',c.market_value,':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',:now),256),
+                               SHA2(CONCAT(BIN_TO_UUID(c.id),':',COALESCE(c.market_value,''),':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',:now),256),
                                :now,:now
                         FROM calculated c WHERE c.equity>0
                         """)
@@ -278,7 +308,7 @@ public class PortfolioAnalysisPipelineService {
                 .update();
     }
 
-    public int updateThesesEvents(UUID userId) {
+    public int countActiveTheses(UUID userId) {
         return jdbc.sql(
                         """
                         SELECT COUNT(*) FROM position_thesis t
@@ -292,21 +322,17 @@ public class PortfolioAnalysisPipelineService {
     }
 
     public int updateDipEvents(UUID userId) {
-        return jdbc.sql("SELECT COUNT(*) FROM etf_dip_event WHERE user_id=UUID_TO_BIN(:userId) AND valid_until>=:now")
-                .param("userId", userId.toString())
-                .param("now", clock.instant())
-                .query(Integer.class)
-                .single();
+        return dipEvents.evaluateAndCapture(userId);
     }
 
-    public int dailyDigest(UUID userId) {
+    public int countActiveRecommendations(UUID userId) {
         return jdbc.sql("SELECT COUNT(*) FROM recommendation WHERE user_id=UUID_TO_BIN(:userId) AND status='ACTIVE'")
                 .param("userId", userId.toString())
                 .query(Integer.class)
                 .single();
     }
 
-    public int weeklyMemo() {
+    public int countValidRecommendations() {
         return jdbc.sql(
                         """
                         SELECT COUNT(*) FROM recommendation
@@ -317,7 +343,7 @@ public class PortfolioAnalysisPipelineService {
                 .single();
     }
 
-    public int monthlyReview() {
+    public int countRecentSuccessfulAnalyses() {
         return jdbc.sql(
                         """
                         SELECT COUNT(*) FROM portfolio_analysis_run
@@ -358,24 +384,9 @@ public class PortfolioAnalysisPipelineService {
                 .orElse(new Benchmark(false, false, null, null, null));
     }
 
-    private double breadth(LocalDate date) {
-        return jdbc.sql(
-                        """
-                        WITH ranked AS (
-                            SELECT instrument_id, close_price,
-                                   ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY market_date DESC) rn
-                            FROM price_bar WHERE adjusted=TRUE AND market_date<=:date
-                        ), evidence AS (
-                            SELECT instrument_id,
-                                   MAX(CASE WHEN rn=1 THEN close_price END) latest_close,
-                                   AVG(CASE WHEN rn<=50 THEN close_price END) average_50
-                            FROM ranked GROUP BY instrument_id
-                        )
-                        SELECT COALESCE(AVG(CASE WHEN latest_close>average_50 THEN 1 ELSE 0 END),0) FROM evidence
-                        """)
-                .param("date", date)
-                .query(Double.class)
-                .single();
+    private double canonicalBreadth50(LocalDate date) {
+        var value = breadthService.latest(date).pctAboveSma50();
+        return value == null ? 0 : value.doubleValue();
     }
 
     private double returnFromPeak(String symbol, LocalDate date) {
@@ -408,8 +419,9 @@ public class PortfolioAnalysisPipelineService {
         var value = jdbc.sql(
                         """
                         SELECT COALESCE(MAX(cluster_value),0) FROM (
-                          SELECT SUM(p.market_value) cluster_value FROM risk_cluster_membership m
+                          SELECT SUM(pm.marked_market_value) cluster_value FROM risk_cluster_membership m
                           JOIN risk_cluster c ON c.id=m.risk_cluster_id JOIN position p ON p.id=m.position_id
+                          JOIN current_position_mark pm ON pm.position_id=p.id
                           WHERE c.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN' GROUP BY c.id
                         ) clusters
                         """)
@@ -466,7 +478,8 @@ public class PortfolioAnalysisPipelineService {
         }
     }
 
-    record PortfolioTotals(BigDecimal invested, BigDecimal cash, BigDecimal largest) {}
+    record PortfolioTotals(
+            BigDecimal invested, BigDecimal cash, BigDecimal largest, long openPositions, long markCount) {}
 
     record StopInput(
             UUID positionId,

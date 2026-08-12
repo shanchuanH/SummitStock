@@ -10,6 +10,10 @@ public final class DrawdownEngine {
     private DrawdownEngine() {}
 
     public static Result classify(Input input) {
+        return classify(input, Thresholds.defaults());
+    }
+
+    public static Result classify(Input input, Thresholds thresholds) {
         if (input.currentEquity().signum() < 0 || input.previousHighWaterMark().signum() <= 0) {
             throw new IllegalArgumentException("equity and high-water mark must be valid");
         }
@@ -41,7 +45,7 @@ public final class DrawdownEngine {
                     List.of("Drawdown evidence is incomplete; wait for data."),
                     List.of(RuleIds.DATA_MISSING_WAIT));
         }
-        if (drawdown >= 0.15
+        if (drawdown >= thresholds.marketDrivenEtfDeploymentAt()
                 && (input.quality() == EvidenceQuality.STALE || input.quality() == EvidenceQuality.SUSPECT)) {
             return new Result(
                     highWaterMark,
@@ -56,16 +60,16 @@ public final class DrawdownEngine {
 
         boolean benchmarkStress = Math.min(input.spyReturnFromPeak(), input.qqqReturnFromPeak()) <= -0.10;
         boolean broadStress = input.breadth50() < 0.40 || input.stressLevel() >= 0.65;
-        boolean marketDriven = drawdown >= 0.15 && benchmarkStress && broadStress;
+        boolean marketDriven = drawdown >= thresholds.marketDrivenEtfDeploymentAt() && benchmarkStress && broadStress;
         boolean positionSpecific = input.largestPositionContribution() >= 0.50 && !benchmarkStress;
         boolean clusterSpecific = input.largestClusterContribution() >= 0.50 && !positionSpecific && !benchmarkStress;
         State state = State.NORMAL;
         Source source = Source.MIXED;
-        if (drawdown >= 0.20) {
+        if (drawdown >= thresholds.painLineAt()) {
             state = State.PAIN_LINE;
             rules.add(RuleIds.DRAWDOWN_PAIN_LINE);
             narratives.add("Portfolio drawdown reached the 20% Pain Line; no new risk is allowed.");
-        } else if (drawdown >= 0.15) {
+        } else if (drawdown >= thresholds.marketDrivenEtfDeploymentAt()) {
             if (marketDriven) {
                 state = State.ETF_DIP_MARKET_DRIVEN;
                 source = Source.MARKET_DRIVEN;
@@ -80,15 +84,15 @@ public final class DrawdownEngine {
                 narratives.add(
                         "The 15% drawdown lacks sufficient broad-market confirmation; ETF Dip-Buy is not enabled.");
             }
-        } else if (drawdown >= 0.12) {
+        } else if (drawdown >= thresholds.etfDipSetupAt()) {
             state = State.ETF_DIP_WATCH;
             rules.add(RuleIds.DRAWDOWN_ETF_WATCH);
             narratives.add("Portfolio drawdown reached ETF Dip Watch.");
-        } else if (drawdown >= 0.10) {
+        } else if (drawdown >= thresholds.reduceTacticalCapacityAt()) {
             state = State.REDUCE_TACTICAL;
             rules.add(RuleIds.DRAWDOWN_REDUCE_TACTICAL);
             narratives.add("Portfolio drawdown requires tactical exposure review.");
-        } else if (drawdown >= 0.08) {
+        } else if (drawdown >= thresholds.stopNewSpeculationAt()) {
             state = State.FREEZE_SPECULATION;
             rules.add(RuleIds.DRAWDOWN_FREEZE_SPECULATION);
             narratives.add("Portfolio drawdown freezes new speculative risk.");
@@ -139,6 +143,28 @@ public final class DrawdownEngine {
             double largestPositionContribution,
             double largestClusterContribution,
             EvidenceQuality quality) {}
+
+    public record Thresholds(
+            double stopNewSpeculationAt,
+            double reduceTacticalCapacityAt,
+            double etfDipSetupAt,
+            double marketDrivenEtfDeploymentAt,
+            double painLineAt) {
+        public Thresholds {
+            if (!(0 < stopNewSpeculationAt
+                    && stopNewSpeculationAt < reduceTacticalCapacityAt
+                    && reduceTacticalCapacityAt < etfDipSetupAt
+                    && etfDipSetupAt < marketDrivenEtfDeploymentAt
+                    && marketDrivenEtfDeploymentAt < painLineAt
+                    && painLineAt < 1)) {
+                throw new IllegalArgumentException("Drawdown thresholds must be strictly increasing fractions");
+            }
+        }
+
+        public static Thresholds defaults() {
+            return new Thresholds(0.08, 0.10, 0.12, 0.15, 0.20);
+        }
+    }
 
     public record Result(
             BigDecimal highWaterMark,

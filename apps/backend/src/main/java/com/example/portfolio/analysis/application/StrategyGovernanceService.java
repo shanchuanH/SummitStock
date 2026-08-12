@@ -30,6 +30,13 @@ public class StrategyGovernanceService {
                   AND b.status='SUCCEEDED' AND b.bias_status='CLEAR'
                   AND b.training_through IS NOT NULL AND b.out_of_sample_from IS NOT NULL
                   AND b.training_through < b.out_of_sample_from
+                  AND b.universe_version <> 'LEGACY_UNVERIFIED'
+                  AND b.price_adjustment_version <> 'LEGACY_UNVERIFIED'
+                  AND b.calendar_version <> 'LEGACY_UNVERIFIED'
+                  AND b.cost_model_version <> 'LEGACY_UNVERIFIED'
+                  AND b.feature_cutoff_policy <> 'LEGACY_UNVERIFIED'
+                  AND JSON_EXTRACT(b.bias_proof, '$.verified') = TRUE
+                  AND JSON_LENGTH(JSON_EXTRACT(b.bias_proof, '$.failures')) = 0
                 """)
                 .param("runId", backtestRunId.toString())
                 .param("version", version)
@@ -55,9 +62,22 @@ public class StrategyGovernanceService {
     public void publish(String version) {
         var updated = jdbc.sql(
                         """
-                UPDATE strategy_version SET status='PUBLISHED', published_at=:publishedAt
-                WHERE version_code=:version AND status='DRAFT' AND approved_at IS NOT NULL
-                  AND approved_backtest_run_id IS NOT NULL AND backtest_artifact_checksum IS NOT NULL
+                UPDATE strategy_version s SET status='PUBLISHED', published_at=:publishedAt
+                WHERE s.version_code=:version AND s.status='DRAFT' AND s.approved_at IS NOT NULL
+                  AND s.approved_backtest_run_id IS NOT NULL AND s.backtest_artifact_checksum IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1 FROM backtest_run b WHERE b.id=s.approved_backtest_run_id
+                      AND b.strategy_version=s.version_code AND b.config_checksum=s.config_hash
+                      AND b.status='SUCCEEDED' AND b.bias_status='CLEAR'
+                      AND b.training_through IS NOT NULL AND b.out_of_sample_from IS NOT NULL
+                      AND b.training_through < b.out_of_sample_from
+                      AND b.universe_version <> 'LEGACY_UNVERIFIED'
+                      AND b.price_adjustment_version <> 'LEGACY_UNVERIFIED'
+                      AND b.calendar_version <> 'LEGACY_UNVERIFIED'
+                      AND b.cost_model_version <> 'LEGACY_UNVERIFIED'
+                      AND b.feature_cutoff_policy <> 'LEGACY_UNVERIFIED'
+                      AND JSON_EXTRACT(b.bias_proof, '$.verified') = TRUE
+                      AND JSON_LENGTH(JSON_EXTRACT(b.bias_proof, '$.failures')) = 0)
                 """)
                 .param("publishedAt", Instant.now(clock))
                 .param("version", version)

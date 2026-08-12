@@ -23,7 +23,14 @@ public final class FinancialMetricEngine {
         var quality = required(values)
                 ? com.example.portfolio.market.provider.ProviderModels.QualityStatus.HEALTHY
                 : com.example.portfolio.market.provider.ProviderModels.QualityStatus.PARTIAL;
-        return new MetricResult(Map.copyOf(values), quality);
+        var provenance = new EnumMap<FinancialMetric, FinancialPeriodResolver.MetricProvenance>(FinancialMetric.class);
+        provenance.putAll(current.metricProvenance());
+        for (var metric : values.keySet()) {
+            provenance.putIfAbsent(
+                    metric,
+                    new FinancialPeriodResolver.MetricProvenance(List.of(), "financial-derived-v2", "DERIVED_FORMULA"));
+        }
+        return new MetricResult(Map.copyOf(values), quality, Map.copyOf(provenance));
     }
 
     private static void deriveCurrent(EnumMap<FinancialMetric, BigDecimal> values) {
@@ -67,7 +74,11 @@ public final class FinancialMetricEngine {
             int years) {
         return history.stream()
                 .filter(value -> value.periodType() == current.periodType())
-                .filter(value -> value.endDate().equals(current.endDate().minusYears(years)))
+                .filter(value -> value.fiscalYear() == current.fiscalYear() - years)
+                .filter(value ->
+                        java.util.Objects.equals(value.canonicalFiscalPeriod(), current.canonicalFiscalPeriod()))
+                .sorted(java.util.Comparator.comparing(FinancialPeriodResolver.ResolvedPeriod::filedAt)
+                        .reversed())
                 .findFirst()
                 .map(value -> {
                     var result = new EnumMap<FinancialMetric, BigDecimal>(FinancialMetric.class);
@@ -114,5 +125,12 @@ public final class FinancialMetricEngine {
 
     public record MetricResult(
             Map<FinancialMetric, BigDecimal> values,
-            com.example.portfolio.market.provider.ProviderModels.QualityStatus quality) {}
+            com.example.portfolio.market.provider.ProviderModels.QualityStatus quality,
+            Map<FinancialMetric, FinancialPeriodResolver.MetricProvenance> provenance) {
+        public MetricResult(
+                Map<FinancialMetric, BigDecimal> values,
+                com.example.portfolio.market.provider.ProviderModels.QualityStatus quality) {
+            this(values, quality, Map.of());
+        }
+    }
 }

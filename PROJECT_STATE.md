@@ -2,6 +2,24 @@
 
 ## Current Phase
 
+Hardening Gate 0 completed on 2026-08-10 in commit `449977b`: the reproducible merge gates now include current pinned GitHub Actions, executable Maven wrapper metadata, Spotless UNIX line endings, dependency review, Gitleaks, pnpm audit, Docker build, frontend type/lint/unit/build/API/E2E gates, and a documented branch-protection contract. Local verification passed; remote GitHub branch-protection enforcement remains explicitly unverified because no authenticated GitHub session or CLI credential is available in this environment.
+
+Hardening A1 implements canonical mark-to-market as an append-only `position_mark_snapshot` plus deterministic latest-mark view. Completed adjusted daily closes now drive capital, weights, cluster contribution, drawdown/equity, holding evidence, earnings weights, portfolio APIs, and executive brief metrics; imported broker `market_value` remains provenance evidence only. Missing/stale marks propagate non-healthy capital quality and block exact sizing or drawdown rather than silently falling back. The analysis pipeline captures marks before portfolio-dependent computation. Regression coverage proves price revaluation without re-import, preservation of broker evidence, missing-mark fail-closed behavior, current-weight movement across a hard-cap boundary, and marked portfolio equity.
+
+Hardening A2 replaces global magic-rank conflict selection with explicit `DecisionChannel` and `EvidenceDependency` semantics. Independently established EXIT, REDUCE_HALF, and TRIM candidates resolve in a risk-reduction channel before new-risk eligibility or maintenance candidates; EXIT is strongest, followed by REDUCE_HALF and TRIM. Emergency reserve, pain-line, DO_NOT_ADD, or WAIT_FOR_DATA candidates can block new exposure but cannot suppress an already validated reduction. The seven-case precedence matrix and Quality/Tactical/Speculative integration cases pass.
+
+Hardening A3 makes broad-US and technology core targets aggregate sleeve targets instead of per-instrument targets. `PortfolioAllocationService` computes and snapshots BROAD_CORE, TECH_CORE, QUALITY, THEMATIC, TACTICAL, SPECULATIVE, and CASH_RESERVE allocations from canonical marks and investable capital. Ordinary Core ETF gap filling is restricted to the configured primary instrument (`VOO` or `QQQM`); alternate ETFs contribute to the sleeve but do not independently fill its gap. Tests prove QQQM 8% + VGT 7% and VOO 20% + SPY 15% produce no buy, while a 10% technology sleeve exposes only the primary QQQM to the 5% aggregate gap.
+
+Hardening A4 replaces the placeholder ETF-dip row count with `EtfDipEventService`, which assembles canonical portfolio/benchmark/indicator/reserve evidence, evaluates the shared `EtfDipEngine` using Strategy V2 thresholds and tranches, and appends auditable event snapshots with trigger codes, tranche/cooldown state, reserve projection, quality, strategy hash, rules, and checksum. UPDATE_DIP_EVENTS now runs before holding analysis; the formal Core ETF engine can deploy only from a non-expired `READY_FOR_TRANCHE_n` event and never reimplements drawdown qualification. Dip sizing uses tactical reserve × configured tranche percentage, capped by deployable cash and remaining aggregate sleeve capacity. A drawdown state without a canonical event cannot deploy, and the full real-portfolio pipeline reaches recommendation generation with the new ordering.
+
+Hardening A5 establishes append-only `risk_cluster_snapshot` as the canonical cluster-risk source. `ClusterRiskService` sums each cluster member's latest open-risk amount and divides once by investable assets, preserving member count, evidence quality, strategy version/hash, data-as-of, and checksum. The deprecated per-position `cluster_risk_fraction` is zeroed and no longer consumed. Holding evidence, portfolio constraints, position sizing, Position Report, and Executive Brief now converge on the canonical snapshot; integration coverage proves a 240 + 200 risk cluster over 80,000 investable assets is 440 / 0.55%, and a canonical 1.00% cluster blocks new risk above the 0.75% cap.
+
+Hardening A6 separates descriptive earnings event risk from the resulting policy action end to end. `HoldingEvidence.EarningsEvent` now carries both canonical `eventRisk` and independent `policyAction`; the assembler reads `earnings_risk_snapshot.event_risk` rather than aliasing `action` into the risk namespace. Quality, Tactical, and Speculative engines judge only HIGH/EXTREME event risk, while policy action remains auditable supporting evidence. Unit coverage proves EXTREME plus REDUCE_HALF produces the required Tactical and Speculative reductions and an oversized Quality trim; MySQL integration coverage proves the two database columns retain their distinct meanings.
+
+Hardening B1 completes formal provider coverage for Market Data, SEC Fundamentals, Estimates, Earnings Calendar, and Macro. Alpha Vantage estimates and calendar CSV plus FRED macro observations now normalize into existing provider-neutral contracts; every provider owns explicit URL, credential, rate interval, timeout, and retry configuration. Production startup fails closed for fake/unavailable providers or missing credentials unless `ALLOW_PARTIAL_PRODUCTION=true`, in which case data health explicitly reports PARTIAL. Market, fundamental, estimate, calendar, and macro collection isolate per-instrument failures into affected identifiers and warnings; SPY and QQQ failing together remains a shared critical-dataset failure. Provider-format contracts and isolation/startup tests pass without live credentials.
+
+Hardening B2 replaces portfolio-derived breadth with canonical point-in-time SP500 and NASDAQ100 universes. V26 adds dated constituent membership and append-only breadth snapshots containing 50/200-day participation, advance/decline, member counts, expected-universe coverage, quality, timestamps, and checksums. `BreadthService` refuses to label incomplete constituent coverage healthy, and both market regime and portfolio drawdown consume only the two-universe canonical snapshot. MySQL integration coverage proves an instrument with full price history but expired/non-member status cannot change breadth, while two valid members produce the expected 50% participation independently of current holdings.
+
 Transformation Phases T00-T15 completed on 2026-08-09 from exact audited baseline `f015a3ed665a9bef38fc03beaea255ee2f21b7ea` on branch `transformation/analyst-intelligence-v2`. The Analyst Intelligence V2 transformation playbook is fully implemented in order.
 
 Transformation baseline: the first backend run failed only because Docker Desktop was not running (`ENVIRONMENT`, 40 Testcontainers initialization errors). After Docker was started, the unchanged baseline passed 108 backend tests (8 quant, 23 strategy, 6 backtest, 71 backend), 27 frontend tests, frontend lint, and production build. The existing frontend bundle-size warning remains non-blocking.
@@ -211,3 +229,167 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 ## Next Step
 
 Configure production provider credentials, run the documented deployment smoke checks, and publish a strategy version only after the T14 governance approval flow is satisfied.
+
+## Hardening Gate 0 — 2026-08-10
+
+- Git records `mvnw` as executable so Linux CI can invoke the wrapper directly.
+- GitHub Actions now use the current supported Node 24 action generations: checkout v7, setup-java v5, setup-node v6, pnpm setup v6, dependency review v5, and gitleaks action v3.
+- Spotless explicitly enforces UNIX line endings, making format checks reproducible across Windows workstations and Linux CI.
+- Existing Spotless violations in backtest/core and backend sources were mechanically normalized; no investment behavior or thresholds changed.
+- Main branch protection requirements and an operator verification procedure are documented in `docs/runbooks/branch-protection.md`.
+- Backend verification baseline: 9 quant, 33 strategy, 10 backtest, and 128 backend tests pass.
+- Frontend lint, typecheck, 27 Vitest tests, and production build pass. API generation completed; the first combined gate timed out while Git inspected pre-staged line-ending metadata and is rerun after this Gate 0 commit.
+- The workspace overrides transitive `js-yaml` to patched version 4.3.1; `pnpm audit --audit-level high` reports no known vulnerabilities.
+- Playwright's two browser journeys pass after bringing the stale Executive Brief fixture and acknowledgement interaction in line with the current generated API/UI contract.
+- Compose validation, the backend Docker image build, and a Gitleaks v8.30.1 scan of 25 commits pass with no leaks found.
+- GitHub `main` branch protection remains external-state NOT VERIFIED: this workstation has no `gh` CLI and the available browser session is not authenticated to repository settings. The required settings and verification drill are documented for application once authenticated administration is available.
+
+## Hardening B3 - 2026-08-10
+
+- Removed the decision layer's fixed 36-hour freshness constant. All six thresholds now load from the versioned strategy definition: EOD price sessions, financial-quarter days, estimates days, earnings-calendar days, ETF-profile days, and macro-daily days.
+- Price freshness is evaluated in completed US-equity trading sessions; financials, valuation, estimates, earnings calendars, ETF profiles, stops, market regime, and portfolio risk retain and evaluate their own `data_as_of` values.
+- Readiness now follows classification-specific evidence contracts: Quality requires price/financial health/valuation/revisions/next earnings/portfolio risk; Tactical requires price/stop/thesis/next event/portfolio risk; ETF requires price/fund profile/liquidity/overlap/regime/risk.
+- A fresh quote can no longer conceal a stale fundamental snapshot. The regression case uses a five-minute-old quote and 250-day-old fundamentals against the configured 140-day limit and returns `STALE`, preventing precise new-capital sizing.
+- Integration fixtures were completed with actual revision, risk, regime, and thesis evidence so existing vertical scenarios satisfy the same production rules rather than bypassing them.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 157 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.
+
+## Hardening B4 - 2026-08-10
+
+- SEC company-fact ingestion now preserves provider fiscal year (`fy`) and fiscal period (`fp`) through the provider model, raw financial fact storage, and normalization resolver.
+- Migration V27 adds provider fiscal metadata to `financial_fact_observation` and a comparable-period index to `financial_period`.
+- Canonical periods are explicit `FY`, `Q1`, `Q2`, `Q3`, or `Q4`. Quarterly periods without provider `fp` fail closed instead of inferring a fiscal quarter from the calendar month.
+- YoY and three-year comparisons select the same canonical fiscal period from the required prior fiscal year, not an exact `endDate.minusYears(...)`, so 52/53-week issuers remain comparable.
+- Tests cover a retailer Q1 ending in May, missing fiscal-period metadata, a one-day-shifted 53-week comparison, and official SEC `fy/fp` parsing.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 160 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.
+
+## Hardening B5 - 2026-08-10
+
+- Financial concepts now pass explicit unit and sign contracts before normalization: monetary facts require USD, diluted shares require `shares`, diluted EPS requires `USD/shares`, and balance-sheet values such as debt cannot be negative.
+- SEC ingestion collects all relevant debt concepts. `TOTAL_DEBT` uses a reported aggregate when present and never also sums its components; otherwise it sums distinct short-term, current, and non-current components while treating alternative current-debt concepts as mutually exclusive.
+- Migration V28 adds `source_concepts`, `mapping_version`, and `aggregation_method` to every financial metric snapshot, with safe legacy backfill before enforcing non-null constraints.
+- Raw/derived metric provenance uses versioned identifiers and records `PREFERRED_AGGREGATE`, `SUM_DISTINCT_COMPONENTS`, `SINGLE_CONCEPT`, or `DERIVED_FORMULA` as appropriate.
+- Filing-index rows no longer infer a fiscal quarter from calendar month; later company-fact normalization supplies provider fiscal metadata on duplicate-period reconciliation.
+- Tests prove aggregate debt is not double counted, distinct components are summed once, alternate current components are mutually exclusive, and invalid units/negative debt fail closed. The complete 13-position vertical pipeline remains `ANALYSIS_READY` with correctly typed fixture facts.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 162 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests pass; production build has a clean zero exit code.
+
+## Hardening B6 - 2026-08-10
+
+- A single `TradingCalendar` now owns US-equity session membership, session arithmetic, open/close instants, early closes, completed-session selection, and a versioned calendar identity for XNYS/XNAS semantics.
+- The rules-based calendar covers observed exchange holidays and algorithmic Good Friday without a handwritten annual date list. It also models the day after Thanksgiving, applicable July 3 sessions, and applicable December 24 sessions as 13:00 Eastern early closes.
+- Session boundaries are calculated in `America/New_York`, preserving the exact UTC shift across daylight-saving transitions and preventing an in-progress or holiday bar from being treated as completed.
+- Analysis freshness and ETF dip cooldown/expiry logic now use the same centralized session arithmetic instead of maintaining separate trading-day loops.
+- Earnings reaction windows now discard non-session bars and apply event timing against exchange sessions. `AFTER_CLOSE` correctly uses the event-session close as the pre-event anchor and starts the reaction on the next trading session.
+- Tests cover Good Friday, observed holidays, early-close completion boundaries, daylight-saving UTC offsets, shared session arithmetic, calendar versioning, and an after-close earnings event spanning Good Friday.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 167 backend tests. Frontend ESLint, typecheck, 13 Vitest files / 27 tests, and production build pass.
+
+## Hardening C1 - 2026-08-10
+
+- Formal recommendation generation now fails closed before expiring or inserting recommendations unless the runtime YAML version exists in `strategy_version`, its byte-level config hash matches, and the database release status is `PUBLISHED`.
+- `PORTFOLIO_ALLOW_DRAFT_STRATEGY` defaults to `false`. The explicit override permits a YAML `DRAFT` runtime only when the matching database row is also `DRAFT` with the same hash, or when the local draft has not yet been registered; test fixtures opt in through the test profile.
+- Runtime strategy state is exposed through the version contract with config hash, database publish state, production eligibility, and draft-override status. The generated TypeScript client was refreshed from that contract.
+- Every application route is wrapped by a shared strategy-status banner. A draft override is visibly labelled `DRAFT STRATEGY / NOT PRODUCTION`; an unverified runtime without an override is labelled blocked and states that formal ACTIVE recommendations are disabled.
+- Tests prove missing, DRAFT, hash-mismatched, and exact PUBLISHED release behavior; the existing recommendation integration test proves the explicit test override remains functional. UI tests prove draft warning visibility and suppression for a verified production strategy.
+- Verification: Maven reactor passes 9 quant, 33 strategy, 10 backtest, and 170 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening C2 - 2026-08-10
+
+- `StrategyDefinition` and its loader now retain every decision-affecting V2 YAML leaf, including all five drawdown thresholds, exact-quantity evidence switches, risk-over-tax precedence, tactical-reserve range, manual-execution invariant, benchmark identities, deep-discount starter enablement, speculative averaging policy, and all freshness values.
+- A consumed-key registry covers every decision key while `profile.broker` is the sole explicitly classified non-decision metadata leaf. `StrategyConfigParityTest` compares the exact flattened YAML leaf set to that registry, so an unparsed or unclassified future key fails CI.
+- The formal runtime now passes configured drawdown thresholds into `DrawdownEngine`, configured price/risk requirements into exact sizing, configured risk precedence into conflict resolution, and the configured deep-discount switch into Quality starter decisions.
+- Existing strategy-core callers retain the V2 defaults through compatibility entry points; the backend runtime uses the loaded strategy values. A focused test moves the thresholds away from the defaults and proves classification follows configuration rather than embedded percentages.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 172 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening C3 - 2026-08-10
+
+- Formal `DecisionContext` now carries persisted behavioral evidence: last acknowledged decision/add, averaging-down state, thesis improvement, cost-basis anchoring, holding trading sessions, thesis progress, idea cooldown, and the decision timestamp.
+- A production `BehavioralFirewall` participates in the same candidate set and conflict resolver as portfolio and asset rules. Active cooling, unsubstantiated averaging down, and cost-basis anchoring produce `DO_NOT_ADD`; risk-reduction candidates retain precedence and cannot be suppressed by cooling.
+- Speculative positions now use a versioned 60-trading-session time stop from strategy YAML. Expiry without persisted thesis progress produces a formal `EXIT`, while documented progress prevents it.
+- Migration V29 adds thesis-progress evidence and an `investment_idea` workflow with `idea_created_at`, `cooldown_until`, and constrained `source_type`; social/watchlist ideas cannot enter a buy candidate before cooldown expiry.
+- Recommendation narration rejects cost basis or break-even language as an invalid decision anchor even if the underlying position facts include cost basis.
+- Tests prove all behavioral rules directly and through real MySQL formal recommendation generation, including that an active cooldown cannot suppress a speculative time-stop exit.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 179 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening C4 - 2026-08-10
+
+- Backtest bias status is no longer caller supplied. `BacktestBiasProofEvaluator` derives `CLEAR` or `BLOCKED` from the training/OOS boundary, point-in-time feature timestamps, completed-bar evidence, and versioned universe, price-adjustment, exchange-calendar, cost-model, and feature-cutoff policies.
+- Migration V30 persists those five reproducibility versions plus a machine-readable `bias_proof`; legacy runs are explicitly backfilled as `NOT_EVALUATED` with `LEGACY_UNVERIFIED` provenance and cannot become release evidence.
+- `BacktestReportStore` verifies that persisted training/OOS dates match the proof, stores blocked runs rather than hiding them, and exposes the proof provenance through the read-only API contract.
+- Strategy approval now requires a successful, system-derived, empty-failure proof with non-legacy versions. Publication revalidates the approved run so post-approval tampering or stale legacy evidence fails closed.
+- Tests prove a complete point-in-time proof clears, overlap/future features/incomplete bars block, callers cannot force `CLEAR`, and mutation after human approval prevents publication.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 183 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D1 - 2026-08-10
+
+- Migration V31 adds a unique UUID fencing token to each worker lease and safely returns any in-flight legacy job to `PENDING` during deployment.
+- Claiming a job atomically installs a new owner, token, expiry, and attempt. Heartbeat, success, retry, and permanent failure writes require the same running job, owner, token, and an unexpired lease; a stale writer raises `LeaseLostException` and its transaction is rolled back.
+- The worker coordinator renews active leases every 30 seconds against a five-minute lease, cancels the heartbeat when execution finishes, and never publishes orchestration success/failure from a fenced worker.
+- Expired-lease recovery marks the abandoned attempt `FAILED/LEASE_EXPIRED` before making the job claimable, preserving an auditable attempt history.
+- The required A/B race test proves that after A expires and B reclaims, A cannot heartbeat or complete, B exclusively owns the final result, and A's attempt remains closed as expired.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 184 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D2 - 2026-08-12
+
+- Quote scheduling now uses the canonical exchange calendar and runs at one-minute slots only during the regular XNYS/XNAS session; weekends, holidays, pre-market, and post-market enqueue no polling jobs.
+- Market polling no longer scans every historically active instrument. The canonical tracked set is limited to open positions, benchmark metadata, and explicitly active `WATCHLIST` ideas. Migration V32 separates watchlist activity from behavioral cooldown semantics.
+- `ProviderExecutionPolicy` is now the single execution boundary for every production provider HTTP request. It centralizes minimum interval enforcement, bounded retry/backoff, the existing daily quota gate, and durable request journaling.
+- Alpha Vantage market/estimate/earnings clients, SEC, and FRED receive distinct policy identities and usage records. Request journal context stores only host and path, so API keys and query secrets are not persisted.
+- Tests prove 429 retry through the central policy, quota/journal accounting, secret redaction, production provider contracts, regular-session-only scheduling, exclusion of untracked historical instruments, and inclusion of benchmarks plus active watchlist ideas.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 187 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D3 - 2026-08-12
+
+- A production-only startup gate rejects blank credentials and all documented placeholder values (`change-before-use`, `change-local-app-password`, and `change-local-root-password`) before the application can serve traffic.
+- Production startup also fails when Secure session cookies or forwarded-header handling are disabled, when `local-fixture` is co-activated, or when a fake market/fundamentals provider is selected. The production profile defaults to Secure cookies and framework proxy-header processing.
+- Deployment configuration is split into `infra/compose.local.yaml` and `infra/compose.prod.yaml`. Local fixtures and published development ports exist only in the local file.
+- Production Compose requires an immutable image reference and explicit secrets, exposes MySQL only on an internal network, publishes no database or backend host port, gives the backend only the application database credential, and makes the API reachable solely through an external reverse-proxy network.
+- Local/production runbooks, CI Compose validation, and backup/restore scripts now reference the correct environment-specific Compose file. Both Compose models pass `docker compose config --quiet` with their documented inputs.
+- Verification: production security/provider gates pass 9 focused tests; real MySQL session, CSRF, login, and throttling smoke tests pass. Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 190 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D4 - 2026-08-12
+
+- `ExecutiveBrief.confirmedNoAction` is now the backend-owned canonical no-action fact and is required in the OpenAPI contract and generated TypeScript client.
+- The flag is true only for `ANALYSIS_READY` with empty must-act, do-not, watch, and blocked queues, healthy full market/fundamental coverage, and no stale, missing, or failed evidence.
+- The dashboard no longer derives a calm state from empty arrays. It displays `ANALYSIS PARTIAL`, `WAITING FOR DATA`, or `BLOCKED` for incomplete, waiting, stale, blocked, and failed analysis instead of implying that no action is required.
+- Contract tests prove that empty/no-portfolio and ready-with-action responses remain unconfirmed, while a fully covered ready portfolio with every action queue empty is explicitly confirmed.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 191 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D5 - 2026-08-12
+
+- Pipeline and scheduler names now state their real behavior: thesis inspection is `CHECK_ACTIVE_THESES`; daily recommendation inspection is `COUNT_ACTIVE_RECOMMENDATIONS`; scheduled weekly/monthly counts are `COUNT_VALID_RECOMMENDATIONS` and `COUNT_RECENT_SUCCESSFUL_ANALYSES`.
+- `UPDATE_DIP_EVENTS` remains unchanged because it performs the claimed durable dip-event capture side effect.
+- Flyway V33 migrates historical analysis-step dependencies and durable job types to the honest names, preserving existing audit records and run topology.
+- A semantic contract test prevents the misleading update/generate names from returning, while scheduler tests prove the periodic jobs enqueue the renamed read-only operations.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D6 - 2026-08-12
+
+- Flyway V34 links each holding-analysis snapshot to its owning `portfolio_analysis_run`, enforces one canonical snapshot per run/position, and preserves snapshots if an old run is deleted.
+- The compute step persists the complete resolved decision and deterministic narrative input as an auditable JSON payload alongside the normalized snapshot columns.
+- `GENERATE_RECOMMENDATIONS` now loads the exact snapshots for its run and creates recommendations/narratives from their persisted decisions; it never invokes `analyzeAll()`.
+- The post-earnings path also performs holding analysis only once by using the single-pass recommendation entry point.
+- The real three-position EOD acceptance test proves exactly three run-linked snapshots and three recommendations that reference those same snapshots.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening Recommendation Risk Fields - 2026-08-12
+
+- Recommendation risk is no longer written as two unconditional nulls. `riskBeforeFraction` uses the current persisted portfolio planned-risk fraction when healthy risk evidence exists.
+- Sizing actions project `riskAfterFraction` from the formal stop, current quote, maximum recommended quantity, and investable equity; risk-reduction actions subtract projected risk and new-risk actions add it.
+- Non-sizing actions preserve before/after risk, while unavailable projections remain null with an explicit `riskCalculationReason` such as `PORTFOLIO_RISK_EVIDENCE_UNAVAILABLE` or `PROJECTED_RISK_INPUT_MISSING`.
+- Flyway V35 backfills legacy rows with `LEGACY_NOT_CALCULATED`; both recommendation API representations expose the required reason and the generated client reflects it.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening Tax-Lot Scope - 2026-08-12
+
+- Recommendation APIs now expose a required `taxLotStatus`; no UI or API contract implies that a total-quantity recommendation has been tax optimized.
+- Sell-sizing decisions return `TAX_DATA_MISSING` unless persisted tax lots cover the recommended maximum quantity. Covered decisions return `TAX_LOTS_AVAILABLE_NOT_OPTIMIZED`, explicitly preserving the distinction between data availability and optimization.
+- Non-sell actions return `NOT_APPLICABLE`; Flyway V36 labels historical recommendations `LEGACY_UNKNOWN` rather than inventing tax evidence.
+- Total recommended quantities remain available independently of lot selection, matching the intentionally limited scope of this hardening pass.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening Position Bucket Consistency - 2026-08-12
+
+- `position.bucket` is confirmed as the strategy sleeve, not an independent user label. Classification confirmation now updates classification and sleeve atomically under the same optimistic version check.
+- `CORE_BROAD_ETF`, `CORE_TECH_ETF`, and `CASH_EQUIVALENT` map to `CORE`; quality, thematic, tactical, turnaround, and speculative classifications map to `TACTICAL_OVERLAY`.
+- Flyway V37 applies the same deterministic mapping to every existing confirmed position, eliminating historical classification/bucket disagreement.
+- API integration tests prove both core and quality classification paths return the synchronized bucket; the complete real-portfolio vertical scenario remains green.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 194 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

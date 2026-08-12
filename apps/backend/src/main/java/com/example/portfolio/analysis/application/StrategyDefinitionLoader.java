@@ -12,12 +12,76 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class StrategyDefinitionLoader {
+    private static final Set<String> CONSUMED_STRATEGY_KEYS = Set.of(
+            "strategyVersion",
+            "publishState",
+            "profile.manualExecutionOnly",
+            "profile.benchmarks.primaryGrowth",
+            "profile.benchmarks.broadMarket",
+            "capital.emergencyFloorUsd",
+            "capital.emergencyExcludedFromInvestableAssets",
+            "capital.tacticalReserveTargetPct",
+            "drawdown.stopNewSpeculationAt",
+            "drawdown.reduceTacticalCapacityAt",
+            "drawdown.etfDipSetupAt",
+            "drawdown.marketDrivenEtfDeploymentAt",
+            "drawdown.painLineAt",
+            "decision.maxDailyMustAct",
+            "decision.exactQuantityRequiresHealthyPrice",
+            "decision.exactQuantityRequiresReadyRisk",
+            "decision.riskPriorityOverTax",
+            "decision.underweightAloneCanTriggerAdd",
+            "risk.absoluteSingleTradeMax",
+            "risk.totalOpenStockRiskMax",
+            "risk.clusterOpenRiskMax",
+            "risk.socialMediaCoolingHours",
+            "allocation.broadUsCore",
+            "allocation.techCore",
+            "allocation.broadUsCorePrimary",
+            "allocation.techCorePrimary",
+            "qualityStock.targetPct",
+            "qualityStock.normalMaxPct",
+            "qualityStock.hardMaxPct",
+            "qualityStock.tradeRiskPct",
+            "qualityStock.starterFractionOfTarget",
+            "qualityStock.deepDiscountStarterEnabled",
+            "thematicEtf.targetPct",
+            "thematicEtf.hardMaxPct",
+            "thematicEtf.tradeRiskPct",
+            "tacticalStock.targetPct",
+            "tacticalStock.hardMaxPct",
+            "tacticalStock.tradeRiskPct",
+            "speculative.targetPct",
+            "speculative.hardMaxPct",
+            "speculative.tradeRiskPct",
+            "speculative.averageDownAllowed",
+            "speculative.timeStopTradingDays",
+            "etfDip.setupScoreMin",
+            "etfDip.requiredReversalSignals",
+            "etfDip.tranchePctOfReserve",
+            "etfDip.cooldownTradingDays",
+            "etfDip.requiresMarketDrivenDrawdown",
+            "freshness.eodPriceTradingSessions",
+            "freshness.financialQuarterDays",
+            "freshness.estimatesDays",
+            "freshness.earningsCalendarDays",
+            "freshness.etfProfileDays",
+            "freshness.macroDailyDays",
+            "financialHealth.revenueGrowthStrong",
+            "financialHealth.revenueGrowthHealthy",
+            "financialHealth.marginDeteriorationWarningPctPoints",
+            "financialHealth.fcfMarginHealthy",
+            "financialHealth.dilutionWarning",
+            "financialHealth.netDebtToFcfWarning");
+    private static final Set<String> NON_DECISION_METADATA_KEYS = Set.of("profile.broker");
+
     private final ResourceLoader resources;
 
     public StrategyDefinitionLoader(ResourceLoader resources) {
@@ -45,6 +109,8 @@ public final class StrategyDefinitionLoader {
                     decimal(values, "qualityStock.starterFractionOfTarget"),
                     decimal(values, "allocation.broadUsCore"),
                     decimal(values, "allocation.techCore"),
+                    required(values, "allocation.broadUsCorePrimary"),
+                    required(values, "allocation.techCorePrimary"),
                     policy(
                             values,
                             "qualityStock.targetPct",
@@ -75,16 +141,54 @@ public final class StrategyDefinitionLoader {
                             decimals(values, "etfDip.tranchePctOfReserve"),
                             integer(values, "etfDip.cooldownTradingDays"),
                             bool(values, "etfDip.requiresMarketDrivenDrawdown")),
+                    new StrategyDefinition.FreshnessPolicy(
+                            integer(values, "freshness.eodPriceTradingSessions"),
+                            integer(values, "freshness.financialQuarterDays"),
+                            integer(values, "freshness.estimatesDays"),
+                            integer(values, "freshness.earningsCalendarDays"),
+                            integer(values, "freshness.etfProfileDays"),
+                            integer(values, "freshness.macroDailyDays")),
                     new StrategyDefinition.FinancialHealthPolicy(
                             decimal(values, "financialHealth.revenueGrowthStrong"),
                             decimal(values, "financialHealth.revenueGrowthHealthy"),
                             decimal(values, "financialHealth.marginDeteriorationWarningPctPoints"),
                             decimal(values, "financialHealth.fcfMarginHealthy"),
                             decimal(values, "financialHealth.dilutionWarning"),
-                            decimal(values, "financialHealth.netDebtToFcfWarning")));
+                            decimal(values, "financialHealth.netDebtToFcfWarning")),
+                    bool(values, "profile.manualExecutionOnly"),
+                    required(values, "profile.benchmarks.primaryGrowth"),
+                    required(values, "profile.benchmarks.broadMarket"),
+                    decimals(values, "capital.tacticalReserveTargetPct"),
+                    decimal(values, "drawdown.stopNewSpeculationAt"),
+                    decimal(values, "drawdown.reduceTacticalCapacityAt"),
+                    decimal(values, "drawdown.etfDipSetupAt"),
+                    decimal(values, "drawdown.marketDrivenEtfDeploymentAt"),
+                    bool(values, "decision.exactQuantityRequiresHealthyPrice"),
+                    bool(values, "decision.exactQuantityRequiresReadyRisk"),
+                    bool(values, "decision.riskPriorityOverTax"),
+                    bool(values, "qualityStock.deepDiscountStarterEnabled"),
+                    bool(values, "speculative.averageDownAllowed"),
+                    integer(values, "speculative.timeStopTradingDays"));
         } catch (IOException exception) {
             throw new IllegalStateException("Published strategy configuration is unavailable", exception);
         }
+    }
+
+    Set<String> configuredKeys(String configuredPath) {
+        try {
+            var bytes = resource(configuredPath).getInputStream().readAllBytes();
+            return Set.copyOf(flatten(new String(bytes, StandardCharsets.UTF_8)).keySet());
+        } catch (IOException exception) {
+            throw new IllegalStateException("Strategy configuration is unavailable", exception);
+        }
+    }
+
+    static Set<String> consumedStrategyKeys() {
+        return CONSUMED_STRATEGY_KEYS;
+    }
+
+    static Set<String> nonDecisionMetadataKeys() {
+        return NON_DECISION_METADATA_KEYS;
     }
 
     private Resource resource(String configuredPath) {

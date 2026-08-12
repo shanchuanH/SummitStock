@@ -9,7 +9,8 @@ public final class LookaheadGuard {
         Objects.requireNonNull(evidence);
         Objects.requireNonNull(decisionAt);
         if (evidence.availableAt().isAfter(decisionAt)) {
-            throw new IllegalArgumentException("BACKTEST_LOOKAHEAD_" + evidence.kind().name());
+            throw new IllegalArgumentException(
+                    "BACKTEST_LOOKAHEAD_" + evidence.kind().name());
         }
     }
 

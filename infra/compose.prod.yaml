@@ -1,0 +1,86 @@
+name: portfolio-engine-prod
+
+services:
+  mysql:
+    image: mysql:8.4.6
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00
+      - --sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
+      MYSQL_USER: ${MYSQL_APP_USER:?MYSQL_APP_USER is required}
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?MYSQL_APP_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      TZ: UTC
+    expose: ["3306"]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - mysql_prod_data:/var/lib/mysql
+    networks: [portfolio_private]
+    restart: unless-stopped
+
+  backend-api:
+    image: ${PORTFOLIO_IMAGE:?PORTFOLIO_IMAGE immutable digest is required}
+    environment: &backend-environment
+      SPRING_PROFILES_ACTIVE: production
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
+      PORTFOLIO_SECURITY_DEV_USER: ${PORTFOLIO_SECURITY_USER:?PORTFOLIO_SECURITY_USER is required}
+      PORTFOLIO_SECURITY_DEV_PASSWORD: ${PORTFOLIO_SECURITY_PASSWORD:?PORTFOLIO_SECURITY_PASSWORD is required}
+      SESSION_COOKIE_SECURE: "true"
+      PORTFOLIO_MARKET_PROVIDER: ${PORTFOLIO_MARKET_PROVIDER:?real market provider is required}
+      PORTFOLIO_MARKET_API_KEY: ${PORTFOLIO_MARKET_API_KEY:?market API key is required}
+      PORTFOLIO_FUNDAMENTALS_PROVIDER: ${PORTFOLIO_FUNDAMENTALS_PROVIDER:?real fundamentals provider is required}
+      SEC_USER_AGENT: ${SEC_USER_AGENT:?SEC_USER_AGENT is required}
+      PORTFOLIO_ESTIMATES_PROVIDER: ${PORTFOLIO_ESTIMATES_PROVIDER:?real estimates provider is required}
+      PORTFOLIO_ESTIMATES_API_KEY: ${PORTFOLIO_ESTIMATES_API_KEY:?estimates API key is required}
+      PORTFOLIO_EARNINGS_CALENDAR_PROVIDER: ${PORTFOLIO_EARNINGS_CALENDAR_PROVIDER:?real earnings provider is required}
+      PORTFOLIO_EARNINGS_CALENDAR_API_KEY: ${PORTFOLIO_EARNINGS_CALENDAR_API_KEY:?earnings API key is required}
+      PORTFOLIO_MACRO_PROVIDER: ${PORTFOLIO_MACRO_PROVIDER:?real macro provider is required}
+      PORTFOLIO_MACRO_API_KEY: ${PORTFOLIO_MACRO_API_KEY:?macro API key is required}
+      ALLOW_PARTIAL_PRODUCTION: "false"
+      PORTFOLIO_ALLOW_DRAFT_STRATEGY: "false"
+    expose: ["8080"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [portfolio_private, reverse_proxy]
+    restart: unless-stopped
+
+  backend-worker:
+    image: ${PORTFOLIO_IMAGE}
+    environment:
+      <<: *backend-environment
+      PORTFOLIO_RUNTIME_MODE: worker
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [portfolio_private]
+    restart: unless-stopped
+
+  migration:
+    profiles: ["ops"]
+    image: ${PORTFOLIO_IMAGE}
+    environment:
+      <<: *backend-environment
+      PORTFOLIO_RUNTIME_MODE: migration
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [portfolio_private]
+
+volumes:
+  mysql_prod_data:
+
+networks:
+  portfolio_private:
+    internal: true
+  reverse_proxy:
+    external: true

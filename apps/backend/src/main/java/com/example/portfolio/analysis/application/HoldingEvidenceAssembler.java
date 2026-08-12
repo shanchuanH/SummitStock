@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
+import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
@@ -20,12 +21,17 @@ public final class HoldingEvidenceAssembler {
     private final JdbcClient jdbc;
     private final PublishedStrategyService strategies;
     private final CapitalBaseService capitalBases;
+    private final ClusterRiskService clusterRisks;
 
     public HoldingEvidenceAssembler(
-            JdbcClient jdbc, PublishedStrategyService strategies, CapitalBaseService capitalBases) {
+            JdbcClient jdbc,
+            PublishedStrategyService strategies,
+            CapitalBaseService capitalBases,
+            ClusterRiskService clusterRisks) {
         this.jdbc = jdbc;
         this.strategies = strategies;
         this.capitalBases = capitalBases;
+        this.clusterRisks = clusterRisks;
     }
 
     public List<HoldingEvidence> assembleAll(UUID userId) {
@@ -49,6 +55,7 @@ public final class HoldingEvidenceAssembler {
                 ? BigDecimal.ZERO
                 : position.marketValue().divide(investable, MathContext.DECIMAL64);
         var cluster = cluster(position.positionId(), investable);
+        var clusterRisk = clusterRisks.forPosition(position.positionId());
         var quote = quote(position.instrumentId());
         var bars = bars(position.instrumentId());
         var indicators = indicators(position.instrumentId(), bars);
@@ -90,7 +97,7 @@ public final class HoldingEvidenceAssembler {
                 money(totals.tactical()),
                 currentWeight,
                 cluster.weight(),
-                cluster.risk(),
+                clusterRisk.openRiskFraction(),
                 totals.openRisk(),
                 quote,
                 bars,
@@ -126,9 +133,11 @@ public final class HoldingEvidenceAssembler {
                         SELECT BIN_TO_UUID(p.id) positionId, BIN_TO_UUID(a.user_id) userId,
                                BIN_TO_UUID(i.id) instrumentId, i.symbol, i.asset_type assetType, i.active,
                                p.classification, p.classification_confirmed classificationConfirmed,
-                               p.quantity, p.average_cost averageCost, p.market_value marketValue
+                               p.quantity, p.average_cost averageCost,
+                               COALESCE(m.marked_market_value,0) marketValue
                         FROM position p JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         ORDER BY i.symbol, p.id
                         """)
@@ -157,15 +166,12 @@ public final class HoldingEvidenceAssembler {
     private ClusterEvidence cluster(UUID positionId, BigDecimal liquid) {
         var value = jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(other.market_value*m.contribution_weight),0) clusterValue,
-                               COALESCE(MAX(r.cluster_risk_fraction),0) clusterRisk
+                        SELECT COALESCE(SUM(marked.marked_market_value*m.contribution_weight),0) clusterValue
                         FROM risk_cluster_membership own
                         JOIN risk_cluster c ON c.id=own.risk_cluster_id
                         JOIN risk_cluster_membership m ON m.risk_cluster_id=c.id
                         JOIN position other ON other.id=m.position_id AND other.status='OPEN'
-                        LEFT JOIN position_risk_snapshot r ON r.position_id=other.id
-                          AND r.data_as_of=(SELECT MAX(x.data_as_of) FROM position_risk_snapshot x
-                                            WHERE x.position_id=other.id)
+                        LEFT JOIN current_position_mark marked ON marked.position_id=other.id
                         WHERE own.position_id=UUID_TO_BIN(:positionId)
                         """)
                 .param("positionId", positionId.toString())
@@ -173,7 +179,7 @@ public final class HoldingEvidenceAssembler {
                 .single();
         var weight =
                 liquid.signum() == 0 ? BigDecimal.ZERO : value.clusterValue().divide(liquid, MathContext.DECIMAL64);
-        return new ClusterEvidence(weight, value.clusterRisk());
+        return new ClusterEvidence(weight);
     }
 
     private RiskEvidence riskEvidence(UUID userId) {
@@ -322,7 +328,8 @@ public final class HoldingEvidenceAssembler {
                         financials.dataAsOf(),
                         financials.financialHealth(),
                         revision.revision(),
-                        quality(revision.quality())))
+                        quality(revision.quality()),
+                        instant(revision.dataAsOf())))
                 .orElse(financials);
     }
 
@@ -374,7 +381,7 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.EarningsEvent event(UUID positionId, UUID instrumentId) {
         var risk = jdbc.sql(
                         """
-                        SELECT next_event_at eventAt, action riskLevel FROM earnings_risk_snapshot
+                        SELECT next_event_at eventAt,event_risk eventRisk,action policyAction,data_as_of dataAsOf FROM earnings_risk_snapshot
                         WHERE position_id=UUID_TO_BIN(:id) AND valid_until>=UTC_TIMESTAMP(6)
                         ORDER BY data_as_of DESC LIMIT 1
                         """)
@@ -384,19 +391,28 @@ public final class HoldingEvidenceAssembler {
         if (risk.isPresent()) {
             var value = risk.orElseThrow();
             return new HoldingEvidence.EarningsEvent(
-                    value.eventAt() != null, instant(value.eventAt()), value.riskLevel());
+                    value.eventAt() != null,
+                    instant(value.eventAt()),
+                    value.eventRisk(),
+                    value.policyAction(),
+                    instant(value.dataAsOf()));
         }
         return jdbc.sql(
                         """
-                        SELECT event_at eventAt, event_type riskLevel FROM company_event
+                        SELECT event_at eventAt,NULL eventRisk,NULL policyAction,data_as_of dataAsOf FROM company_event
                         WHERE instrument_id=UUID_TO_BIN(:id) AND event_at>=UTC_TIMESTAMP(6)
                         ORDER BY event_at LIMIT 1
                         """)
                 .param("id", instrumentId.toString())
                 .query(EventRow.class)
                 .optional()
-                .map(value -> new HoldingEvidence.EarningsEvent(true, instant(value.eventAt()), value.riskLevel()))
-                .orElse(new HoldingEvidence.EarningsEvent(false, null, null));
+                .map(value -> new HoldingEvidence.EarningsEvent(
+                        true,
+                        instant(value.eventAt()),
+                        value.eventRisk(),
+                        value.policyAction(),
+                        instant(value.dataAsOf())))
+                .orElse(new HoldingEvidence.EarningsEvent(false, null, null, null));
     }
 
     private HoldingEvidence.Thesis thesis(UUID positionId) {
@@ -438,7 +454,7 @@ public final class HoldingEvidenceAssembler {
     private HoldingEvidence.StopEvidence stop(UUID positionId) {
         return jdbc.sql(
                         """
-                        SELECT initial_stop formalStop, live_stop liveStop, close_confirmed closeConfirmed,
+                        SELECT initial_stop formalStop, live_stop liveStop, close_confirmed closeConfirmed,data_as_of dataAsOf,
                                EXISTS(SELECT 1 FROM stop_alert a WHERE a.stop_snapshot_id=s.id
                                       AND a.event_type='CATASTROPHIC') catastrophic
                         FROM stop_snapshot s WHERE position_id=UUID_TO_BIN(:id)
@@ -448,7 +464,11 @@ public final class HoldingEvidenceAssembler {
                 .query(StopRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.StopEvidence(
-                        value.formalStop(), value.liveStop(), value.closeConfirmed(), value.catastrophic()))
+                        value.formalStop(),
+                        value.liveStop(),
+                        value.closeConfirmed(),
+                        value.catastrophic(),
+                        instant(value.dataAsOf())))
                 .orElse(new HoldingEvidence.StopEvidence(null, null, false, false));
     }
 
@@ -458,7 +478,7 @@ public final class HoldingEvidenceAssembler {
                         SELECT fund_profile_available fundProfileAvailable, thematic,
                                top_holding_concentration topHoldingConcentration,
                                fund_liquidity_status liquidityStatus,
-                               portfolio_overlap_fraction portfolioOverlap
+                               portfolio_overlap_fraction portfolioOverlap,data_as_of dataAsOf
                         FROM instrument_analysis_profile WHERE instrument_id=UUID_TO_BIN(:id)
                         ORDER BY data_as_of DESC LIMIT 1
                         """)
@@ -470,7 +490,8 @@ public final class HoldingEvidenceAssembler {
                         value.thematic(),
                         value.topHoldingConcentration(),
                         value.liquidityStatus(),
-                        value.portfolioOverlap()))
+                        value.portfolioOverlap(),
+                        instant(value.dataAsOf())))
                 .orElse(new HoldingEvidence.AnalysisProfile(false, false, null, null, null));
     }
 
@@ -532,9 +553,9 @@ public final class HoldingEvidenceAssembler {
 
     record PortfolioTotals(BigDecimal tactical, BigDecimal openRisk) {}
 
-    record ClusterRow(BigDecimal clusterValue, BigDecimal clusterRisk) {}
+    record ClusterRow(BigDecimal clusterValue) {}
 
-    record ClusterEvidence(BigDecimal weight, BigDecimal risk) {}
+    record ClusterEvidence(BigDecimal weight) {}
 
     record RiskRow(long snapshotCount, long impairedCount, LocalDateTime dataAsOf) {}
 
@@ -555,7 +576,7 @@ public final class HoldingEvidenceAssembler {
 
     record StarterStatusRow(int priorCount, boolean confirmed) {}
 
-    record EventRow(LocalDateTime eventAt, String riskLevel) {}
+    record EventRow(LocalDateTime eventAt, String eventRisk, String policyAction, LocalDateTime dataAsOf) {}
 
     record ThesisRow(String status, LocalDateTime expiresAt) {}
 
@@ -563,12 +584,18 @@ public final class HoldingEvidenceAssembler {
 
     record DrawdownRow(boolean available, BigDecimal fraction, String state, LocalDateTime dataAsOf) {}
 
-    record StopRow(BigDecimal formalStop, BigDecimal liveStop, boolean closeConfirmed, boolean catastrophic) {}
+    record StopRow(
+            BigDecimal formalStop,
+            BigDecimal liveStop,
+            boolean closeConfirmed,
+            boolean catastrophic,
+            LocalDateTime dataAsOf) {}
 
     record ProfileRow(
             boolean fundProfileAvailable,
             boolean thematic,
             BigDecimal topHoldingConcentration,
             String liquidityStatus,
-            BigDecimal portfolioOverlap) {}
+            BigDecimal portfolioOverlap,
+            LocalDateTime dataAsOf) {}
 }

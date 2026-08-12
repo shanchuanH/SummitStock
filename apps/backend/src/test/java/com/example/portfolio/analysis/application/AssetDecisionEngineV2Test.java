@@ -2,13 +2,17 @@ package com.example.portfolio.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.portfolio.analysis.allocation.PortfolioSleeve;
+import com.example.portfolio.analysis.allocation.SleeveAllocation;
 import com.example.portfolio.analysis.decision.CoreEtfDecisionEngine;
 import com.example.portfolio.analysis.decision.DecisionContext;
 import com.example.portfolio.analysis.decision.PortfolioConstraintEngine;
 import com.example.portfolio.analysis.decision.QualityStockDecisionEngine;
 import com.example.portfolio.analysis.decision.RecommendationConflictResolver;
 import com.example.portfolio.analysis.decision.SpeculativeDecisionEngine;
+import com.example.portfolio.analysis.decision.TacticalStockDecisionEngine;
 import com.example.portfolio.analysis.decision.ThematicEtfDecisionEngine;
+import com.example.portfolio.analysis.dip.EtfDipDecisionEvent;
 import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
 import com.example.portfolio.analysis.domain.RecommendationAction;
@@ -16,6 +20,7 @@ import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -60,8 +65,7 @@ class AssetDecisionEngineV2Test {
                 new BigDecimal("0.12"),
                 new BigDecimal("0.15"));
 
-        assertThat(resolve(evidence, context, quality.evaluate(context)))
-                .isEqualTo(RecommendationAction.DO_NOT_ADD);
+        assertThat(resolve(evidence, context, quality.evaluate(context))).isEqualTo(RecommendationAction.DO_NOT_ADD);
     }
 
     @Test
@@ -82,8 +86,7 @@ class AssetDecisionEngineV2Test {
 
     @Test
     void cheapButWeakeningWithStronglyNegativeRevisionsDoesNotAdd() {
-        var evidence = qualityEvidence(
-                "WEAKENING", "DEEP_DISCOUNT", "STRONGLY_NEGATIVE", "REVERSAL_CONFIRMED", "0.01");
+        var evidence = qualityEvidence("WEAKENING", "DEEP_DISCOUNT", "STRONGLY_NEGATIVE", "REVERSAL_CONFIRMED", "0.01");
 
         assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
                 .isEqualTo(RecommendationAction.DO_NOT_ADD);
@@ -97,12 +100,7 @@ class AssetDecisionEngineV2Test {
                 base.currentWeight(),
                 base.indicators(),
                 new HoldingEvidence.FundamentalSnapshot(
-                        true,
-                        EvidenceQuality.HEALTHY,
-                        base.dataAsOf(),
-                        "STRONG",
-                        "MISSING",
-                        EvidenceQuality.MISSING),
+                        true, EvidenceQuality.HEALTHY, base.dataAsOf(), "STRONG", "MISSING", EvidenceQuality.MISSING),
                 base.valuation(),
                 base.nextEvent(),
                 base.drawdown(),
@@ -110,7 +108,8 @@ class AssetDecisionEngineV2Test {
         var action = resolve(evidence, context(evidence), quality.evaluate(context(evidence)));
 
         assertThat(action).isEqualTo(RecommendationAction.DO_NOT_ADD);
-        assertThat(PositionSizing.calculate(PositionSizingV2Fixtures.valid(action)).exactQuantityAllowed())
+        assertThat(PositionSizing.calculate(PositionSizingV2Fixtures.valid(action))
+                        .exactQuantityAllowed())
                 .isFalse();
     }
 
@@ -141,6 +140,59 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void canonicalClusterRiskAboveCapBlocksNewRisk() {
+        var evidence = withClusterRisk(
+                qualityEvidence("STRONG", "ATTRACTIVE", "POSITIVE", "UPTREND", "0.01"), new BigDecimal("0.0100"));
+        var context = context(evidence);
+        var candidates = new ArrayList<>(constraints.evaluate(context));
+        candidates.addAll(quality.evaluate(context));
+
+        assertThat(resolve(evidence, context, candidates)).isEqualTo(RecommendationAction.DO_NOT_ADD);
+    }
+
+    @Test
+    void extremeEventRiskAndReducePolicyProduceTacticalReduction() {
+        var evidence = withEventRisk(
+                HoldingEvidenceFixtures.evidence("NOK", "EQUITY", HoldingClassification.TACTICAL_STOCK),
+                "EXTREME",
+                "REDUCE_HALF");
+        var context = context(evidence);
+
+        assertThat(resolve(evidence, context, new TacticalStockDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.REDUCE_HALF);
+    }
+
+    @Test
+    void extremeEventRiskAndReducePolicyProduceSpeculativeReduction() {
+        var evidence = withEventRisk(
+                HoldingEvidenceFixtures.evidence("DXYZ", "EQUITY", HoldingClassification.SPECULATIVE),
+                "EXTREME",
+                "REDUCE_HALF");
+        var policy = evidence.strategy().speculative();
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+
+        assertThat(resolve(evidence, context, new SpeculativeDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.REDUCE_HALF);
+    }
+
+    @Test
+    void extremeEventRiskProducesQualityOversizedTrimCandidate() {
+        var evidence = withEventRisk(
+                qualityEvidence("STRONG", "FAIR", "POSITIVE", "UPTREND", "0.15"), "EXTREME", "REDUCE_HALF");
+        var context = context(evidence);
+
+        assertThat(quality.evaluate(context))
+                .anyMatch(candidate -> candidate.action() == RecommendationAction.TRIM
+                        && candidate.ruleId().equals("QUALITY.EVENT.OVERSIZED"));
+    }
+
+    @Test
     void marketDrivenFifteenPercentCanDeployCoreEtfDip() {
         var evidence = withDrawdown(
                 HoldingEvidenceFixtures.evidence("QQQM", "ETF", HoldingClassification.CORE_TECH_ETF),
@@ -153,10 +205,82 @@ class AssetDecisionEngineV2Test {
                 evidence.strategy().broadCoreTarget(),
                 evidence.strategy().broadCoreTarget(),
                 evidence.strategy().broadCoreTarget(),
-                null);
+                null,
+                new SleeveAllocation(
+                        PortfolioSleeve.TECH_CORE,
+                        BigDecimal.ZERO,
+                        new BigDecimal("0.10"),
+                        new BigDecimal("0.15"),
+                        new BigDecimal("0.05"),
+                        "QQQM",
+                        true,
+                        EvidenceQuality.HEALTHY),
+                new EtfDipDecisionEvent(
+                        "READY_FOR_TRANCHE_1",
+                        65,
+                        2,
+                        1,
+                        new BigDecimal("0.20"),
+                        null,
+                        new BigDecimal("10000"),
+                        new BigDecimal("8000"),
+                        EvidenceQuality.HEALTHY,
+                        Instant.parse("2026-08-07T20:00:00Z")));
 
         assertThat(resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context)))
                 .isEqualTo(RecommendationAction.DEPLOY_DIP_TRANCHE);
+    }
+
+    @Test
+    void marketDrivenDrawdownWithoutCanonicalDipEventCannotDeployTranche() {
+        var evidence = withDrawdown(
+                HoldingEvidenceFixtures.evidence("QQQM", "ETF", HoldingClassification.CORE_TECH_ETF),
+                new BigDecimal("0.15"),
+                "ETF_DIP_MARKET_DRIVEN",
+                false);
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                evidence.strategy().techCoreTarget(),
+                evidence.strategy().techCoreTarget(),
+                evidence.strategy().techCoreTarget(),
+                null,
+                new SleeveAllocation(
+                        PortfolioSleeve.TECH_CORE,
+                        BigDecimal.ZERO,
+                        new BigDecimal("0.10"),
+                        new BigDecimal("0.15"),
+                        new BigDecimal("0.05"),
+                        "QQQM",
+                        true,
+                        EvidenceQuality.HEALTHY));
+
+        assertThat(resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.BUY);
+    }
+
+    @Test
+    void satisfiedTechSleeveDoesNotBuyEitherConstituent() {
+        assertThat(coreEtfAction("QQQM", HoldingClassification.CORE_TECH_ETF, "0.15", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(coreEtfAction("VGT", HoldingClassification.CORE_TECH_ETF, "0.15", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void techSleeveGapIsAssignedOnlyToConfiguredPrimary() {
+        assertThat(coreEtfAction("QQQM", HoldingClassification.CORE_TECH_ETF, "0.10", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.BUY);
+        assertThat(coreEtfAction("VGT", HoldingClassification.CORE_TECH_ETF, "0.10", "0.15", "QQQM"))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void aggregateBroadSleeveAtTargetDoesNotBuy() {
+        assertThat(coreEtfAction("VOO", HoldingClassification.CORE_BROAD_ETF, "0.35", "0.35", "VOO"))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(coreEtfAction("SPY", HoldingClassification.CORE_BROAD_ETF, "0.35", "0.35", "VOO"))
+                .isEqualTo(RecommendationAction.HOLD);
     }
 
     @Test
@@ -167,6 +291,60 @@ class AssetDecisionEngineV2Test {
         var context = new DecisionContext(
                 evidence,
                 AnalysisReadiness.PARTIAL,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+
+        assertThat(resolve(evidence, context, new SpeculativeDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.EXIT);
+    }
+
+    @Test
+    void qualityBrokenThesisExitBeatsPainLinePause() {
+        var evidence = withDrawdown(
+                qualityEvidence("BROKEN", "RICH", "MISSING", "DOWNTREND", "0.01"),
+                new BigDecimal("0.20"),
+                "PAIN_LINE",
+                true);
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.EXIT);
+    }
+
+    @Test
+    void tacticalStopExitBeatsPainLinePause() {
+        var evidence = withDrawdown(
+                withStop(
+                        HoldingEvidenceFixtures.evidence("NOK", "EQUITY", HoldingClassification.TURNAROUND_TACTICAL),
+                        true),
+                new BigDecimal("0.20"),
+                "PAIN_LINE",
+                true);
+        var policy = evidence.strategy().tactical();
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+
+        assertThat(resolve(evidence, context, new TacticalStockDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.EXIT);
+    }
+
+    @Test
+    void speculativeStopExitBeatsPainLinePause() {
+        var evidence = withDrawdown(
+                withStop(HoldingEvidenceFixtures.evidence("DXYZ", "EQUITY", HoldingClassification.SPECULATIVE), true),
+                new BigDecimal("0.20"),
+                "PAIN_LINE",
+                true);
+        var policy = evidence.strategy().speculative();
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
                 policy.targetMin(),
                 policy.targetMax(),
                 policy.normalMax(),
@@ -201,6 +379,31 @@ class AssetDecisionEngineV2Test {
         var candidates = new ArrayList<>(constraints.evaluate(context));
         candidates.addAll(assetCandidates);
         return resolver.resolve(candidates).winner().action();
+    }
+
+    private RecommendationAction coreEtfAction(
+            String symbol, HoldingClassification classification, String sleeveWeight, String target, String primary) {
+        var evidence = HoldingEvidenceFixtures.evidence(symbol, "ETF", classification);
+        var sleeve = new SleeveAllocation(
+                classification == HoldingClassification.CORE_TECH_ETF
+                        ? PortfolioSleeve.TECH_CORE
+                        : PortfolioSleeve.BROAD_CORE,
+                BigDecimal.ZERO,
+                new BigDecimal(sleeveWeight),
+                new BigDecimal(target),
+                new BigDecimal(target).subtract(new BigDecimal(sleeveWeight)).max(BigDecimal.ZERO),
+                primary,
+                symbol.equals(primary),
+                EvidenceQuality.HEALTHY);
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.READY,
+                new BigDecimal(target),
+                new BigDecimal(target),
+                new BigDecimal(target),
+                null,
+                sleeve);
+        return resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context));
     }
 
     private static DecisionContext context(HoldingEvidence evidence) {
@@ -256,15 +459,51 @@ class AssetDecisionEngineV2Test {
     }
 
     private static HoldingEvidence withEventRisk(HoldingEvidence value, String risk) {
+        return withEventRisk(value, risk, null);
+    }
+
+    private static HoldingEvidence withEventRisk(HoldingEvidence value, String risk, String policyAction) {
         return copy(
                 value,
                 value.currentWeight(),
                 value.indicators(),
                 value.fundamentals(),
                 value.valuation(),
-                new HoldingEvidence.EarningsEvent(true, value.nextEvent().eventAt(), risk),
+                new HoldingEvidence.EarningsEvent(true, value.nextEvent().eventAt(), risk, policyAction),
                 value.drawdown(),
                 value.stop());
+    }
+
+    private static HoldingEvidence withClusterRisk(HoldingEvidence value, BigDecimal clusterRisk) {
+        return new HoldingEvidence(
+                value.position(),
+                value.instrument(),
+                value.portfolioEquity(),
+                value.trackedCash(),
+                value.emergencyCash(),
+                value.tacticalReserve(),
+                value.currentWeight(),
+                value.clusterWeight(),
+                clusterRisk,
+                value.totalOpenRisk(),
+                value.quote(),
+                value.completedBars(),
+                value.indicators(),
+                value.fundamentals(),
+                value.valuation(),
+                value.nextEvent(),
+                value.thesis(),
+                value.regime(),
+                value.drawdown(),
+                value.stop(),
+                value.profile(),
+                value.capitalQuality(),
+                value.riskQuality(),
+                value.riskDataAsOf(),
+                value.providerHardError(),
+                value.quality(),
+                value.strategy(),
+                value.dataAsOf());
     }
 
     private static HoldingEvidence copy(

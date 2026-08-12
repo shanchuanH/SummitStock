@@ -99,6 +99,7 @@
         <artifactId>spotless-maven-plugin</artifactId>
         <version>${spotless.version}</version>
         <configuration>
+          <lineEndings>UNIX</lineEndings>
           <java>
             <palantirJavaFormat>
               <version>2.74.0</version>

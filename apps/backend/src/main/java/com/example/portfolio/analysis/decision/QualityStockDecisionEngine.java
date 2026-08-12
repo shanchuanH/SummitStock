@@ -44,7 +44,7 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
                     "A confirmed stop aligns with structural deterioration.",
                     "Delay can exceed the planned risk budget."));
         }
-        if ("EXTREME".equals(e.nextEvent().riskLevel())
+        if ("EXTREME".equals(e.nextEvent().eventRisk())
                 && context.hardMax() != null
                 && e.currentWeight().compareTo(context.hardMax()) >= 0) {
             values.add(of(
@@ -71,6 +71,7 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
             values.add(block("QUALITY.NEW_CAPITAL.DATA", "Evidence confidence is insufficient for new capital."));
         }
         if (healthy(health)
+                && e.strategy().deepDiscountStarterEnabled()
                 && !"STRONGLY_NEGATIVE".equals(e.fundamentals().estimateRevision())
                 && "DEEP_DISCOUNT".equals(e.valuation().state())
                 && belowNormal(context)) {

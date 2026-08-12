@@ -55,7 +55,7 @@ public class FinancialEvidenceStore {
                     .param("id", UUID.randomUUID().toString())
                     .param("instrumentId", instrumentId.toString())
                     .param("year", filing.periodEnd().getYear())
-                    .param("quarter", type.equals("ANNUAL") ? null : quarter(filing.periodEnd()))
+                    .param("quarter", null)
                     .param("type", type)
                     .param("endDate", filing.periodEnd())
                     .param("filedAt", filing.filingDate())
@@ -112,10 +112,12 @@ public class FinancialEvidenceStore {
                             INSERT IGNORE INTO financial_fact_observation (
                                 id, instrument_id, canonical_metric, taxonomy, concept, unit, value_decimal,
                                 period_start, period_end, filed_at, accession_number, form_type, source,
+                                provider_fiscal_year, provider_fiscal_period,
                                 provider, quality, checksum, data_as_of, created_at
                             ) VALUES (
                                 UUID_TO_BIN(:id), UUID_TO_BIN(:instrumentId), :metric, :taxonomy, :concept, :unit, :value,
                                 :periodStart, :periodEnd, :filedAt, :accession, :form, :source,
+                                :fiscalYear, :fiscalPeriod,
                                 :provider, :quality, :checksum, :dataAsOf, :now
                             )
                             """)
@@ -132,6 +134,8 @@ public class FinancialEvidenceStore {
                     .param("accession", fact.accessionNumber())
                     .param("form", fact.form())
                     .param("source", fact.sourceUri())
+                    .param("fiscalYear", fact.fiscalYear())
+                    .param("fiscalPeriod", fact.fiscalPeriod())
                     .param("provider", result.provenance().provider())
                     .param("quality", result.provenance().qualityStatus().name())
                     .param("checksum", checksum)
@@ -147,7 +151,8 @@ public class FinancialEvidenceStore {
                         """
                         SELECT canonical_metric businessMetric, taxonomy, concept, unit, value_decimal value,
                                period_start periodStart, period_end periodEnd, filed_at filingDate,
-                               accession_number accessionNumber, form_type form, source sourceUri
+                               accession_number accessionNumber, form_type form, source sourceUri,
+                               provider_fiscal_year fiscalYear, provider_fiscal_period fiscalPeriod
                         FROM financial_fact_observation
                         WHERE instrument_id=UUID_TO_BIN(:instrumentId)
                         ORDER BY period_end, filed_at
@@ -168,6 +173,7 @@ public class FinancialEvidenceStore {
                             UUID_TO_BIN(:id), UUID_TO_BIN(:instrumentId), :year, :quarter, :type, :startDate,
                             :endDate, :filedAt, :accession, :form, :source, :quality, :now
                         ) ON DUPLICATE KEY UPDATE
+                            fiscal_year=VALUES(fiscal_year), fiscal_quarter=VALUES(fiscal_quarter),
                             start_date=COALESCE(VALUES(start_date), start_date), filed_at=VALUES(filed_at),
                             source=VALUES(source), quality=VALUES(quality)
                         """)
@@ -209,14 +215,21 @@ public class FinancialEvidenceStore {
                 .collect(java.util.stream.Collectors.joining("|")));
         for (var metric : result.values().entrySet()) {
             var unit = unit(metric.getKey());
+            var provenance = result.provenance()
+                    .getOrDefault(
+                            metric.getKey(),
+                            new FinancialPeriodResolver.MetricProvenance(
+                                    java.util.List.of(), "financial-derived-v2", "DERIVED_FORMULA"));
             inserted += jdbc.sql(
                             """
                             INSERT IGNORE INTO financial_metric_snapshot (
                                 id, instrument_id, period_id, metric_code, value_decimal, unit,
-                                calculation_version, quality, evidence_checksum, data_as_of, created_at
+                                calculation_version, source_concepts, mapping_version, aggregation_method,
+                                quality, evidence_checksum, data_as_of, created_at
                             ) VALUES (
                                 UUID_TO_BIN(:id), UUID_TO_BIN(:instrumentId), UUID_TO_BIN(:periodId), :metric, :value, :unit,
-                                'financial-v2', :quality, :checksum, :dataAsOf, :now
+                                'financial-v2', CAST(:sourceConcepts AS JSON), :mappingVersion, :aggregationMethod,
+                                :quality, :checksum, :dataAsOf, :now
                             )
                             """)
                     .param("id", UUID.randomUUID().toString())
@@ -225,6 +238,9 @@ public class FinancialEvidenceStore {
                     .param("metric", metric.getKey().name())
                     .param("value", metric.getValue())
                     .param("unit", unit)
+                    .param("sourceConcepts", json.writeValueAsString(provenance.sourceConcepts()))
+                    .param("mappingVersion", provenance.mappingVersion())
+                    .param("aggregationMethod", provenance.aggregationMethod())
                     .param("quality", result.quality().name())
                     .param("checksum", sha256(evidence + "|" + metric.getKey()))
                     .param("dataAsOf", filedAt.atStartOfDay().toInstant(ZoneOffset.UTC))
@@ -305,10 +321,6 @@ public class FinancialEvidenceStore {
             return "ANNUAL";
         }
         return normalized.startsWith("10-Q") ? "QUARTERLY" : null;
-    }
-
-    private static int quarter(LocalDate date) {
-        return ((date.getMonthValue() - 1) / 3) + 1;
     }
 
     private static boolean isRatio(FinancialMetric metric) {

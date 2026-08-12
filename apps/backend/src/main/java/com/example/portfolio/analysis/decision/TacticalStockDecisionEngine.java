@@ -34,8 +34,8 @@ public final class TacticalStockDecisionEngine implements AssetDecisionEngine {
                     "Waiting can exceed the planned risk."));
         }
         if (e.nextEvent().available()
-                && ("HIGH".equals(e.nextEvent().riskLevel())
-                        || "EXTREME".equals(e.nextEvent().riskLevel()))) {
+                && ("HIGH".equals(e.nextEvent().eventRisk())
+                        || "EXTREME".equals(e.nextEvent().eventRisk()))) {
             values.add(of(
                     RecommendationAction.REDUCE_HALF,
                     "MUST_ACT",

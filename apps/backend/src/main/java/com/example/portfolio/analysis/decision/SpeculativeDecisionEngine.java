@@ -31,8 +31,8 @@ public final class SpeculativeDecisionEngine implements AssetDecisionEngine {
                     "There is no wait-for-recovery exception."));
         }
         if (e.nextEvent().available()
-                && ("HIGH".equals(e.nextEvent().riskLevel())
-                        || "EXTREME".equals(e.nextEvent().riskLevel()))) {
+                && ("HIGH".equals(e.nextEvent().eventRisk())
+                        || "EXTREME".equals(e.nextEvent().eventRisk()))) {
             values.add(of(
                     RecommendationAction.REDUCE_HALF,
                     "MUST_ACT",

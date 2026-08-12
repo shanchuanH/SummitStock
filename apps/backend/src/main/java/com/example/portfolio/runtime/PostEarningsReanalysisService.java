@@ -1,6 +1,5 @@
 package com.example.portfolio.runtime;
 
-import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService;
 import com.example.portfolio.analysis.application.RecommendationGenerationService;
 import com.example.portfolio.earnings.EarningsIntelligenceApplicationService;
 import com.example.portfolio.estimates.EstimateCollectionService;
@@ -26,7 +25,6 @@ public class PostEarningsReanalysisService {
     private final EarningsIntelligenceApplicationService earnings;
     private final PortfolioAnalysisPipelineService portfolio;
     private final ValuationApplicationService valuation;
-    private final HoldingAnalysisApplicationService holdingAnalysis;
     private final RecommendationGenerationService recommendations;
 
     public PostEarningsReanalysisService(
@@ -38,7 +36,6 @@ public class PostEarningsReanalysisService {
             EarningsIntelligenceApplicationService earnings,
             PortfolioAnalysisPipelineService portfolio,
             ValuationApplicationService valuation,
-            HoldingAnalysisApplicationService holdingAnalysis,
             RecommendationGenerationService recommendations) {
         this.fundamentals = fundamentals;
         this.normalization = normalization;
@@ -48,7 +45,6 @@ public class PostEarningsReanalysisService {
         this.earnings = earnings;
         this.portfolio = portfolio;
         this.valuation = valuation;
-        this.holdingAnalysis = holdingAnalysis;
         this.recommendations = recommendations;
     }
 
@@ -59,10 +55,9 @@ public class PostEarningsReanalysisService {
         affected += estimates.collectAll().affected();
         affected += revisions.computeAll();
         affected += earnings.computeReactions();
-        affected += portfolio.updateThesesEvents(userId);
+        affected += portfolio.countActiveTheses(userId);
         affected += valuation.computeAll();
         affected += earnings.computeRisk();
-        affected += holdingAnalysis.analyzeAll(userId).size();
         affected += recommendations.generateAll(userId).size();
         return affected;
     }

@@ -1,14 +1,36 @@
 package com.example.portfolio.analysis.application;
 
-import java.time.Duration;
+import com.example.portfolio.analysis.domain.StrategyDefinition;
+import com.example.portfolio.market.provider.TradingCalendar;
+import com.example.portfolio.market.provider.UsEquityTradingCalendar;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class AnalysisFreshnessPolicy {
-    private static final Duration MAX_MARKET_AGE = Duration.ofHours(36);
+    private final TradingCalendar calendar;
 
-    public boolean stale(Instant dataAsOf, Instant now) {
-        return dataAsOf == null || dataAsOf.isBefore(now.minus(MAX_MARKET_AGE));
+    public AnalysisFreshnessPolicy() {
+        this(new UsEquityTradingCalendar());
+    }
+
+    @Autowired
+    public AnalysisFreshnessPolicy(TradingCalendar calendar) {
+        this.calendar = calendar;
+    }
+
+    public boolean stalePrice(LocalDate marketDate, Instant now, StrategyDefinition.FreshnessPolicy policy) {
+        if (marketDate == null) return true;
+        LocalDate latest = calendar.latestCompletedSession(now);
+        if (marketDate.isAfter(latest)) return false;
+        int elapsedSessions = calendar.sessionsBetween(marketDate, latest);
+        return elapsedSessions > policy.eodPriceTradingSessions();
+    }
+
+    public boolean staleDays(Instant dataAsOf, Instant now, int maximumAgeDays) {
+        return dataAsOf == null || dataAsOf.isBefore(now.minus(maximumAgeDays, ChronoUnit.DAYS));
     }
 }

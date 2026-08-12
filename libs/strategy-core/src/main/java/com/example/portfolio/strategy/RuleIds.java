@@ -24,6 +24,7 @@ public final class RuleIds {
     public static final String RISK_COOLING_PERIOD = "RISK.COOLING.001";
     public static final String RISK_INVALID_AVERAGING = "RISK.AVERAGING.001";
     public static final String RISK_ANCHORING = "RISK.ANCHORING.001";
+    public static final String SPECULATIVE_TIME_STOP = "SPECULATIVE.TIME_STOP.001";
     public static final String DATA_STALE_QUANTITY_BLOCK = "DATA.STALE.002";
     public static final String STOP_CORE_ETF_EXEMPT = "STOP.CORE_ETF.001";
     public static final String STOP_INITIAL = "STOP.INITIAL.001";

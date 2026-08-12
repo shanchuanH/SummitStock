@@ -983,6 +983,10 @@ export interface components {
     VersionResponse: {
       version?: string;
       strategyVersion?: string;
+      strategyConfigHash?: string;
+      strategyPublishState?: string;
+      productionStrategy?: boolean;
+      draftStrategyOverride?: boolean;
       runtimeMode?: string;
       /** Format: date-time */
       dataAsOf?: string;
@@ -1466,6 +1470,8 @@ export interface components {
       estimatedAmount?: string;
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
+      riskCalculationReason: string;
+      taxLotStatus: string;
       confidence: string;
       reasonsJson: string;
       risksJson: string;
@@ -1508,6 +1514,7 @@ export interface components {
         | "STALE"
         | "BLOCKED"
         | "FAILED";
+      confirmedNoAction: boolean;
       headline: string;
       summary: components["schemas"]["PortfolioSummary"];
       market: components["schemas"]["Market"];
@@ -1598,6 +1605,12 @@ export interface components {
       outOfSampleFrom?: string;
       status?: string;
       biasStatus?: string;
+      universeVersion?: string;
+      priceAdjustmentVersion?: string;
+      calendarVersion?: string;
+      costModelVersion?: string;
+      featureCutoffPolicy?: string;
+      biasProof?: string;
       summaryJson?: string;
       /** Format: date-time */
       completedAt?: string;
@@ -1627,6 +1640,8 @@ export interface components {
       targetWeightMax?: string;
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
+      riskCalculationReason?: string;
+      taxLotStatus?: string;
       currentWeight?: string;
       estimatedAmount?: string;
       confidence?: string;

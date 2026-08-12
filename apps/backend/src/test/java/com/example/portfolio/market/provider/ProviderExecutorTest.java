@@ -11,14 +11,14 @@ import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-class ProviderExecutorTest {
+class ProviderExecutionPolicyTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-01-10T12:00:00Z"), ZoneOffset.UTC);
 
     @Test
     void retriesTransientFailuresWithBackoff() {
         var attempts = new AtomicInteger();
         var sleeps = new ArrayList<Duration>();
-        var executor = new ProviderExecutor(CLOCK, sleeps::add, 3, Duration.ofSeconds(2), Duration.ZERO);
+        var executor = new ProviderExecutionPolicy(CLOCK, sleeps::add, 3, Duration.ofSeconds(2), Duration.ZERO);
 
         var value = executor.execute(() -> {
             if (attempts.incrementAndGet() < 3) {
@@ -35,7 +35,7 @@ class ProviderExecutorTest {
     @Test
     void doesNotRetryMalformedPayloads() {
         var attempts = new AtomicInteger();
-        var executor = new ProviderExecutor(CLOCK, ignored -> {}, 3, Duration.ofSeconds(1), Duration.ZERO);
+        var executor = new ProviderExecutionPolicy(CLOCK, ignored -> {}, 3, Duration.ofSeconds(1), Duration.ZERO);
 
         assertThatThrownBy(() -> executor.execute(() -> {
                     attempts.incrementAndGet();
@@ -49,7 +49,7 @@ class ProviderExecutorTest {
     @Test
     void rateLimitsCallsAndProvenanceExposesFreshness() {
         var sleeps = new ArrayList<Duration>();
-        var executor = new ProviderExecutor(CLOCK, sleeps::add, 1, Duration.ZERO, Duration.ofSeconds(5));
+        var executor = new ProviderExecutionPolicy(CLOCK, sleeps::add, 1, Duration.ZERO, Duration.ofSeconds(5));
 
         executor.execute(() -> "first");
         executor.execute(() -> "second");

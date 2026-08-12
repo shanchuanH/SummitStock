@@ -14,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 class BacktestReportStore {
     private final JdbcClient jdbc;
+    private final BacktestBiasProofEvaluator biasProofEvaluator;
 
-    BacktestReportStore(JdbcClient jdbc) {
+    BacktestReportStore(JdbcClient jdbc, BacktestBiasProofEvaluator biasProofEvaluator) {
         this.jdbc = jdbc;
+        this.biasProofEvaluator = biasProofEvaluator;
     }
 
     Optional<RunView> latest(String username) {
@@ -50,14 +52,24 @@ class BacktestReportStore {
             String configChecksum,
             String summaryJson,
             List<Metric> metrics,
-            Instant completedAt) {
+            Instant completedAt,
+            BacktestBiasProofEvaluator.Proof proof) {
+        if (!java.util.Objects.equals(trainingThrough, proof.trainingEnd())
+                || !java.util.Objects.equals(outOfSampleFrom, proof.outOfSampleStart())) {
+            throw new IllegalArgumentException("BACKTEST_PROOF_PERIOD_MISMATCH");
+        }
+        var evaluation = biasProofEvaluator.evaluate(proof);
+        var proofJson = proofJson(evaluation);
         var inserted = jdbc.sql(
                         """
                 INSERT IGNORE INTO backtest_run (id, user_id, idempotency_key, strategy_version, period_start,
-                  period_end, training_through, out_of_sample_from, universe_checksum, config_checksum, status,
-                  bias_status, summary_json, started_at, completed_at, created_at)
-                SELECT UUID_TO_BIN(:id), u.id, :key, :version, :start, :end, :training, :oos, :universe, :config,
-                  'SUCCEEDED', 'CLEAR', CAST(:summary AS JSON), :completed, :completed, :completed
+                  period_end, training_through, out_of_sample_from, universe_checksum, universe_version,
+                  price_adjustment_version, calendar_version, cost_model_version, feature_cutoff_policy,
+                  config_checksum, status, bias_status, bias_proof, summary_json, started_at, completed_at, created_at)
+                SELECT UUID_TO_BIN(:id), u.id, :key, :version, :start, :end, :training, :oos, :universe,
+                  :universeVersion, :priceAdjustmentVersion, :calendarVersion, :costModelVersion,
+                  :featureCutoffPolicy, :config, 'SUCCEEDED', :biasStatus, CAST(:biasProof AS JSON), CAST(:summary AS JSON),
+                  :completed, :completed, :completed
                 FROM app_user u WHERE u.email=:username
                 """)
                 .param("id", id.toString())
@@ -69,6 +81,13 @@ class BacktestReportStore {
                 .param("oos", outOfSampleFrom)
                 .param("universe", universeChecksum)
                 .param("config", configChecksum)
+                .param("universeVersion", proof.universeVersion())
+                .param("priceAdjustmentVersion", proof.priceAdjustmentVersion())
+                .param("calendarVersion", proof.calendarVersion())
+                .param("costModelVersion", proof.costModelVersion())
+                .param("featureCutoffPolicy", proof.featureCutoffPolicy())
+                .param("biasStatus", evaluation.status())
+                .param("biasProof", proofJson)
                 .param("summary", summaryJson)
                 .param("completed", completedAt)
                 .param("username", username)
@@ -112,6 +131,12 @@ class BacktestReportStore {
                 row.outOfSampleFrom(),
                 row.status(),
                 row.biasStatus(),
+                row.universeVersion(),
+                row.priceAdjustmentVersion(),
+                row.calendarVersion(),
+                row.costModelVersion(),
+                row.featureCutoffPolicy(),
+                row.biasProof(),
                 row.summaryJson(),
                 instant(row.completedAt()),
                 metrics);
@@ -121,11 +146,25 @@ class BacktestReportStore {
         return value == null ? null : value.toInstant(ZoneOffset.UTC);
     }
 
+    private static String proofJson(BacktestBiasProofEvaluator.Result evaluation) {
+        var failures =
+                evaluation.failures().stream().map(value -> "\"" + value + "\"").toList();
+        return "{\"verified\":"
+                + evaluation.failures().isEmpty()
+                + ",\"failures\":["
+                + String.join(",", failures)
+                + "]}";
+    }
+
     private static final String RUN_SELECT =
             """
             SELECT BIN_TO_UUID(r.id) id, r.strategy_version strategyVersion, r.period_start periodStart,
               r.period_end periodEnd, r.training_through trainingThrough, r.out_of_sample_from outOfSampleFrom,
-              r.status, r.bias_status biasStatus, CAST(r.summary_json AS CHAR) summaryJson, r.completed_at completedAt
+              r.status, r.bias_status biasStatus, r.universe_version universeVersion,
+              r.price_adjustment_version priceAdjustmentVersion, r.calendar_version calendarVersion,
+              r.cost_model_version costModelVersion, r.feature_cutoff_policy featureCutoffPolicy,
+              CAST(r.bias_proof AS CHAR) biasProof, CAST(r.summary_json AS CHAR) summaryJson,
+              r.completed_at completedAt
             FROM backtest_run r JOIN app_user u ON u.id=r.user_id
             WHERE u.email=:username AND r.status='SUCCEEDED'
             """;
@@ -139,6 +178,12 @@ class BacktestReportStore {
             LocalDate outOfSampleFrom,
             String status,
             String biasStatus,
+            String universeVersion,
+            String priceAdjustmentVersion,
+            String calendarVersion,
+            String costModelVersion,
+            String featureCutoffPolicy,
+            String biasProof,
             String summaryJson,
             LocalDateTime completedAt) {}
 
@@ -151,6 +196,12 @@ class BacktestReportStore {
             LocalDate outOfSampleFrom,
             String status,
             String biasStatus,
+            String universeVersion,
+            String priceAdjustmentVersion,
+            String calendarVersion,
+            String costModelVersion,
+            String featureCutoffPolicy,
+            String biasProof,
             String summaryJson,
             Instant completedAt,
             List<Metric> metrics) {}

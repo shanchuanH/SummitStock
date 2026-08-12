@@ -57,6 +57,8 @@ class SecProviderContractTest {
                 assertThat(fact.unit()).isNotBlank();
                 assertThat(fact.accessionNumber()).isEqualTo("0000789019-26-000001");
                 assertThat(fact.sourceUri()).contains("sec.gov/Archives/edgar");
+                assertThat(fact.fiscalYear()).isEqualTo(2026);
+                assertThat(fact.fiscalPeriod()).isEqualTo("Q4");
             });
             assertThat(facts.provenance().qualityStatus()).isEqualTo(ProviderModels.QualityStatus.PARTIAL);
             assertThat(facts.provenance().warnings())
@@ -84,7 +86,7 @@ class SecProviderContractTest {
                         ProviderProperties.FundamentalsType.SEC, baseUrl, "SummitStock test@example.test"),
                 new ProviderProperties.Execution(
                         1, Duration.ZERO, Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(2)));
-        var executor = new ProviderExecutor(CLOCK, ignored -> {}, 1, Duration.ZERO, Duration.ZERO);
+        var executor = new ProviderExecutionPolicy(CLOCK, ignored -> {}, 1, Duration.ZERO, Duration.ZERO);
         var http =
                 new ProviderHttpClient(HttpClient.newHttpClient(), executor, Duration.ofSeconds(2), new ObjectMapper());
         return new SecFundamentalsProvider(http, properties, CLOCK);
@@ -126,6 +128,7 @@ class SecProviderContractTest {
     private static String concept(String name, String unit, String value) {
         return "\"" + name + "\":{\"units\":{\"" + unit + "\":[{"
                 + "\"val\":" + value + ",\"start\":\"2026-04-01\",\"end\":\"2026-06-30\","
-                + "\"filed\":\"2026-08-01\",\"accn\":\"0000789019-26-000001\",\"form\":\"10-Q\"}]}}";
+                + "\"filed\":\"2026-08-01\",\"accn\":\"0000789019-26-000001\",\"form\":\"10-Q\","
+                + "\"fy\":2026,\"fp\":\"Q4\"}]}}";
     }
 }

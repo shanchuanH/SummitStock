@@ -1,8 +1,8 @@
 package com.example.portfolio.market.provider;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,9 +36,7 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
         if (!completeFixtures) return new ProviderModels.FilingIndexResult(cik, List.of(), provenance(cik));
         var latest = latestPeriodEnd();
         return new ProviderModels.FilingIndexResult(
-                cik,
-                List.of(filing(cik, latest.minusYears(1)), filing(cik, latest)),
-                provenance(cik + "-filings"));
+                cik, List.of(filing(cik, latest.minusYears(1)), filing(cik, latest)), provenance(cik + "-filings"));
     }
 
     @Override
@@ -83,15 +81,25 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
                     value.businessMetric(),
                     "us-gaap",
                     value.concept(),
-                    value.businessMetric().equals("DILUTED_EPS") ? "USD/shares" : "USD",
+                    unit(value.businessMetric()),
                     value.value(),
                     end.minusYears(1),
                     end,
                     end.plusMonths(2),
                     accession,
                     "10-K",
-                    "https://fixture.sec/" + accession));
+                    "https://fixture.sec/" + accession,
+                    end.getYear(),
+                    "FY"));
         }
+    }
+
+    private static String unit(String businessMetric) {
+        return switch (businessMetric) {
+            case "DILUTED_EPS" -> "USD/shares";
+            case "DILUTED_SHARES" -> "shares";
+            default -> "USD";
+        };
     }
 
     private static FixtureMetric metric(String businessMetric, String concept, String value) {

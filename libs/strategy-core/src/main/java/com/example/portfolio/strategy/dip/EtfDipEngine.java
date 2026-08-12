@@ -12,6 +12,10 @@ public final class EtfDipEngine {
     private EtfDipEngine() {}
 
     public static Result evaluate(Input input) {
+        return evaluate(input, new Policy(60, 2, TRANCHES, 5));
+    }
+
+    public static Result evaluate(Input input, Policy policy) {
         var rules = new ArrayList<String>();
         var score = input.drawdownScore() * 30
                 + input.vixPercentileScore() * 20
@@ -28,14 +32,14 @@ public final class EtfDipEngine {
                 || input.portfolioDrawdown().compareTo(new BigDecimal("0.15")) < 0
                 || !input.emergencyCashProtected())
             return new Result("WATCH", score, triggerCount(input), null, null, List.of(RuleIds.DIP_MARKET_DRIVEN));
-        if (score < 60)
+        if (score < policy.setupScoreMin())
             return new Result(
                     "WAIT_FOR_SETUP", score, triggerCount(input), null, null, List.of(RuleIds.DIP_SETUP_SCORE));
         var triggers = triggerCount(input);
-        if (triggers < 2)
+        if (triggers < policy.requiredReversalSignals())
             return new Result("WAIT_FOR_CONFIRMATION", score, triggers, null, null, List.of(RuleIds.DIP_TRIGGER_COUNT));
         int next = input.completedTranches() + 1;
-        if (next > 4)
+        if (next > policy.tranches().size())
             return new Result(
                     "HOLD_CORE_RECOVERY_TACTICAL_ONLY",
                     score,
@@ -43,11 +47,13 @@ public final class EtfDipEngine {
                     null,
                     null,
                     List.of(RuleIds.DIP_RECOVERY_TACTICAL_ONLY));
-        if (input.completedTranches() > 0 && input.tradingDaysSinceLastTranche() < 5) rules.add(RuleIds.DIP_COOLDOWN);
+        if (input.completedTranches() > 0 && input.tradingDaysSinceLastTranche() < policy.cooldownTradingDays())
+            rules.add(RuleIds.DIP_COOLDOWN);
         if (!rules.isEmpty()) return new Result("COOLDOWN", score, triggers, next, null, rules);
         rules.add(RuleIds.DIP_TRANCHE_UNIQUE);
         rules.add(RuleIds.RECOMMENDATION_MANUAL_ONLY);
-        return new Result("DEPLOY_TRANCHE", score, triggers, next, TRANCHES.get(next - 1), rules);
+        return new Result(
+                "DEPLOY_TRANCHE", score, triggers, next, policy.tranches().get(next - 1), rules);
     }
 
     private static int triggerCount(Input input) {
@@ -86,4 +92,16 @@ public final class EtfDipEngine {
             Integer trancheNumber,
             BigDecimal reserveFraction,
             List<String> ruleIds) {}
+
+    public record Policy(
+            int setupScoreMin, int requiredReversalSignals, List<BigDecimal> tranches, int cooldownTradingDays) {
+        public Policy {
+            tranches = List.copyOf(tranches);
+            if (setupScoreMin < 0
+                    || setupScoreMin > 100
+                    || requiredReversalSignals < 1
+                    || cooldownTradingDays < 0
+                    || tranches.isEmpty()) throw new IllegalArgumentException("ETF dip policy is invalid");
+        }
+    }
 }

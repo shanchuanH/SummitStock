@@ -28,7 +28,12 @@ class RetryIdempotencyTest extends MySqlIntegrationTest {
     @Test
     void retryUsesOneRunAndPersistsOneResult() {
         var key = "retry-test:" + java.util.UUID.randomUUID();
-        assertThat(jobs.enqueue("WEEKLY_MEMO", key, "{}", 1, Instant.now().minusSeconds(1)))
+        assertThat(jobs.enqueue(
+                        "COUNT_VALID_RECOMMENDATIONS",
+                        key,
+                        "{}",
+                        1,
+                        Instant.now().minusSeconds(1)))
                 .isTrue();
         var first = jobs.claim("worker-1", Duration.ofMinutes(1)).orElseThrow();
         assertThat(jobs.failTransient(first, "TRANSIENT_PROVIDER")).isFalse();

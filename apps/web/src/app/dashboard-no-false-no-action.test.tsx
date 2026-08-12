@@ -38,6 +38,7 @@ describe("DashboardNoFalseNoActionTest", () => {
     get.mockResolvedValueOnce({
       data: {
         state: "PARTIAL_ANALYSIS",
+        confirmedNoAction: false,
         headline: "Some positions have not completed analysis.",
         summary: { investedValue: "100", trackedCash: "0", openPositions: 2 },
         mustAct: [],
@@ -45,9 +46,28 @@ describe("DashboardNoFalseNoActionTest", () => {
         watch: [],
         opportunities: [],
         blocked: [],
-        market: { regime: "YELLOW", score: 50, confidence: "MEDIUM", qualityStatus: "HEALTHY", summary: "Balanced", dataAsOf: "2026-08-05T20:00:00Z" },
-        capital: { totalLiquidAssets: "12000", emergencyReserve: "1000", deployableCash: "1000", investableAssets: "11000", tacticalReserve: "1000" },
-        portfolio: { drawdown: "0.02", drawdownSource: "MARKET_DRIVEN", technologyExposure: "0.4", openRisk: "0.01", clusterRisk: "0.02" },
+        market: {
+          regime: "YELLOW",
+          score: 50,
+          confidence: "MEDIUM",
+          qualityStatus: "HEALTHY",
+          summary: "Balanced",
+          dataAsOf: "2026-08-05T20:00:00Z",
+        },
+        capital: {
+          totalLiquidAssets: "12000",
+          emergencyReserve: "1000",
+          deployableCash: "1000",
+          investableAssets: "11000",
+          tacticalReserve: "1000",
+        },
+        portfolio: {
+          drawdown: "0.02",
+          drawdownSource: "MARKET_DRIVEN",
+          technologyExposure: "0.4",
+          openRisk: "0.01",
+          clusterRisk: "0.02",
+        },
         portfolioHealth: { status: "WARNING", reasons: [] },
         dataReadiness: {
           status: "PARTIAL",
@@ -72,12 +92,14 @@ describe("DashboardNoFalseNoActionTest", () => {
       await screen.findAllByText("Some positions have not completed analysis."),
     ).not.toHaveLength(0);
     expect(screen.queryByText("NO URGENT ACTION")).not.toBeInTheDocument();
+    expect(screen.getByText("ANALYSIS PARTIAL")).toBeInTheDocument();
   });
 
   it("shows NO URGENT ACTION only for a ready empty action queue", async () => {
     get.mockResolvedValueOnce({
       data: {
         state: "ANALYSIS_READY",
+        confirmedNoAction: true,
         headline: "NO URGENT ACTION",
         summary: { investedValue: "100", trackedCash: "20", openPositions: 1 },
         mustAct: [],
@@ -85,9 +107,28 @@ describe("DashboardNoFalseNoActionTest", () => {
         watch: [],
         opportunities: [],
         blocked: [],
-        market: { regime: "GREEN", score: 70, confidence: "HIGH", qualityStatus: "HEALTHY", summary: "Healthy", dataAsOf: "2026-08-05T20:00:00Z" },
-        capital: { totalLiquidAssets: "12000", emergencyReserve: "1000", deployableCash: "1000", investableAssets: "11000", tacticalReserve: "1000" },
-        portfolio: { drawdown: "0.01", drawdownSource: "MARKET_DRIVEN", technologyExposure: "0.4", openRisk: "0.01", clusterRisk: "0.02" },
+        market: {
+          regime: "GREEN",
+          score: 70,
+          confidence: "HIGH",
+          qualityStatus: "HEALTHY",
+          summary: "Healthy",
+          dataAsOf: "2026-08-05T20:00:00Z",
+        },
+        capital: {
+          totalLiquidAssets: "12000",
+          emergencyReserve: "1000",
+          deployableCash: "1000",
+          investableAssets: "11000",
+          tacticalReserve: "1000",
+        },
+        portfolio: {
+          drawdown: "0.01",
+          drawdownSource: "MARKET_DRIVEN",
+          technologyExposure: "0.4",
+          openRisk: "0.01",
+          clusterRisk: "0.02",
+        },
         portfolioHealth: { status: "HEALTHY", reasons: [] },
         dataReadiness: {
           status: "HEALTHY",

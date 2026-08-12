@@ -128,7 +128,7 @@ class PipelineJobHandlerConfiguration {
     JobHandler collectEarningsCalendarJobHandler(EarningsIntelligenceApplicationService earnings, Clock clock) {
         return handler("COLLECT_EARNINGS_CALENDAR", context -> {
             var result = earnings.collectCalendar();
-            var warnings = result.observations() == 0 ? List.of("EARNINGS_CALENDAR_UNAVAILABLE") : List.<String>of();
+            var warnings = warnings(result.warnings(), result.observations(), "EARNINGS_CALENDAR_UNAVAILABLE");
             return new JobExecutionResult(
                     warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                     "{\"observations\":" + result.observations() + ",\"affected\":" + result.affected() + "}",
@@ -179,7 +179,7 @@ class PipelineJobHandlerConfiguration {
             var date = payload(context, json).marketDate();
             var result = macro.collect(date);
             var breadth = portfolio.collectBreadthMacro(date);
-            var warnings = result.observations() == 0 ? List.of("MACRO_DATA_UNAVAILABLE") : List.<String>of();
+            var warnings = warnings(result.warnings(), result.observations(), "MACRO_DATA_UNAVAILABLE");
             return new JobExecutionResult(
                     warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                     "{\"observations\":" + result.observations() + ",\"affected\":" + (result.affected() + breadth)
@@ -205,6 +205,23 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
+    JobHandler capturePositionMarksJobHandler(
+            PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
+        return handler("CAPTURE_POSITION_MARKS", context -> {
+            var result = portfolio.capturePositionMarks(requiredUser(payload(context, json)));
+            var warnings = new java.util.ArrayList<String>();
+            if (result.missing() > 0) warnings.add("POSITION_MARK_MISSING");
+            if (result.stale() > 0) warnings.add("POSITION_MARK_STALE");
+            return new JobExecutionResult(
+                    result.healthy() ? "SUCCEEDED" : "PARTIAL",
+                    "{\"marked\":" + result.marked() + ",\"missing\":" + result.missing() + ",\"stale\":"
+                            + result.stale() + "}",
+                    warnings,
+                    clock.instant());
+        });
+    }
+
+    @Bean
     JobHandler computeDrawdownJobHandler(PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler("COMPUTE_DRAWDOWN_SOURCE", context -> {
             var payload = payload(context, json);
@@ -221,23 +238,20 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
-    JobHandler updateThesesEventsJobHandler(
-            PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
+    JobHandler checkActiveThesesJobHandler(PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler(
-                "UPDATE_THESES_EVENTS",
-                context ->
-                        success(portfolio.updateThesesEvents(requiredUser(payload(context, json))), clock.instant()));
+                "CHECK_ACTIVE_THESES",
+                context -> success(portfolio.countActiveTheses(requiredUser(payload(context, json))), clock.instant()));
     }
 
     @Bean
     JobHandler computeHoldingAnalysisJobHandler(
             HoldingAnalysisApplicationService analysis, ObjectMapper json, Clock clock) {
-        return handler(
-                "COMPUTE_HOLDING_ANALYSIS",
-                context -> success(
-                        analysis.analyzeAll(requiredUser(payload(context, json)))
-                                .size(),
-                        clock.instant()));
+        return handler("COMPUTE_HOLDING_ANALYSIS", context -> {
+            var payload = payload(context, json);
+            var runId = requiredRun(context, payload);
+            return success(analysis.analyzeAll(requiredUser(payload), runId).size(), clock.instant());
+        });
     }
 
     @Bean
@@ -250,31 +264,35 @@ class PipelineJobHandlerConfiguration {
     @Bean
     JobHandler generateRecommendationsJobHandler(
             RecommendationGenerationService recommendations, ObjectMapper json, Clock clock) {
-        return handler(
-                "GENERATE_RECOMMENDATIONS",
-                context -> success(
-                        recommendations
-                                .generateAll(requiredUser(payload(context, json)))
-                                .size(),
-                        clock.instant()));
+        return handler("GENERATE_RECOMMENDATIONS", context -> {
+            var payload = payload(context, json);
+            var runId = requiredRun(context, payload);
+            return success(
+                    recommendations.generateForRun(requiredUser(payload), runId).size(), clock.instant());
+        });
     }
 
     @Bean
-    JobHandler generateDailyDigestJobHandler(
+    JobHandler countActiveRecommendationsJobHandler(
             PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler(
-                "GENERATE_DAILY_DIGEST",
-                context -> success(portfolio.dailyDigest(requiredUser(payload(context, json))), clock.instant()));
+                "COUNT_ACTIVE_RECOMMENDATIONS",
+                context -> success(
+                        portfolio.countActiveRecommendations(requiredUser(payload(context, json))), clock.instant()));
     }
 
     @Bean
-    JobHandler weeklyMemoJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
-        return handler("WEEKLY_MEMO", context -> success(portfolio.weeklyMemo(), clock.instant()));
+    JobHandler countValidRecommendationsJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
+        return handler(
+                "COUNT_VALID_RECOMMENDATIONS",
+                context -> success(portfolio.countValidRecommendations(), clock.instant()));
     }
 
     @Bean
-    JobHandler monthlyReviewJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
-        return handler("MONTHLY_REVIEW", context -> success(portfolio.monthlyReview(), clock.instant()));
+    JobHandler countRecentSuccessfulAnalysesJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
+        return handler(
+                "COUNT_RECENT_SUCCESSFUL_ANALYSES",
+                context -> success(portfolio.countRecentSuccessfulAnalyses(), clock.instant()));
     }
 
     private static JobHandler handler(String type, Function<JobExecutionContext, JobExecutionResult> action) {
@@ -282,7 +300,7 @@ class PipelineJobHandlerConfiguration {
     }
 
     private static JobExecutionResult count(EodMarketPipelineService.StageCount count, Instant at) {
-        var warnings = count.observations() == 0 ? List.of("NO_OBSERVATIONS") : List.<String>of();
+        var warnings = warnings(count.warnings(), count.observations(), "NO_OBSERVATIONS");
         return new JobExecutionResult(
                 warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                 "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
@@ -291,7 +309,7 @@ class PipelineJobHandlerConfiguration {
     }
 
     private static JobExecutionResult count(FundamentalsCollectionService.CollectionResult count, Instant at) {
-        var warnings = count.observations() == 0 ? List.of("NO_OBSERVATIONS") : List.<String>of();
+        var warnings = warnings(count.warnings(), count.observations(), "NO_OBSERVATIONS");
         return new JobExecutionResult(
                 warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                 "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
@@ -300,7 +318,7 @@ class PipelineJobHandlerConfiguration {
     }
 
     private static JobExecutionResult count(EstimateCollectionService.CollectionResult count, Instant at) {
-        var warnings = count.observations() == 0 ? List.of("ESTIMATES_UNAVAILABLE") : List.<String>of();
+        var warnings = warnings(count.warnings(), count.observations(), "ESTIMATES_UNAVAILABLE");
         return new JobExecutionResult(
                 warnings.isEmpty() ? "SUCCEEDED" : "PARTIAL",
                 "{\"observations\":" + count.observations() + ",\"affected\":" + count.affected() + "}",
@@ -310,6 +328,12 @@ class PipelineJobHandlerConfiguration {
 
     private static JobExecutionResult success(int affected, Instant at) {
         return JobExecutionResult.succeeded("{\"affected\":" + affected + "}", at);
+    }
+
+    private static List<String> warnings(List<String> providerWarnings, int observations, String emptyWarning) {
+        var warnings = new java.util.ArrayList<>(providerWarnings);
+        if (observations == 0) warnings.add(emptyWarning);
+        return List.copyOf(warnings);
     }
 
     private static void enqueueNext(
@@ -347,6 +371,12 @@ class PipelineJobHandlerConfiguration {
     private static UUID requiredUser(PipelinePayload payload) {
         if (payload.userId() == null) throw new PermanentDataException("MISSING_JOB_USER", "Job user is required");
         return payload.userId();
+    }
+
+    private static UUID requiredRun(JobExecutionContext context, PipelinePayload payload) {
+        var runId = context.analysisRunId() == null ? payload.runId() : context.analysisRunId();
+        if (runId == null) throw new PermanentDataException("MISSING_ANALYSIS_RUN", "Analysis run is required");
+        return runId;
     }
 
     record PipelinePayload(UUID runId, UUID userId, LocalDate marketDate) {}

@@ -14,7 +14,7 @@ Packets 01–08 implement the foundation through deterministic ETF Dip, durable 
 Prerequisites are JDK 25, Node.js 22.22+, pnpm 11+, and Docker Desktop. Copy `.env.example` to `.env` before replacing local-only credentials.
 
 ```powershell
-docker compose -f infra/compose.yaml up -d mysql
+docker compose -f infra/compose.local.yaml up -d mysql
 $env:SPRING_PROFILES_ACTIVE = "local-fixture"
 $env:PORTFOLIO_MARKET_PROVIDER = "fake"
 $env:PORTFOLIO_FUNDAMENTALS_PROVIDER = "fake"
@@ -24,7 +24,7 @@ pnpm dev
 
 The API runs at `http://localhost:8080`; the SPA runs at `http://localhost:4173`. The default development login is documented in `.env.example` and must not be used outside local development. The explicit `local-fixture` profile is required for deterministic local providers; omitting it fails closed.
 
-The read-only market inspection page is available at `http://localhost:4173/market-data`. Deterministic fake EOD and SEC/IR adapters are available only under the explicit `local-fixture` and `test` profiles. Outside those profiles, Alpha Vantage market data requires `PORTFOLIO_MARKET_API_KEY`, and SEC EDGAR requires a declared organization/contact value in `SEC_USER_AGENT`; disabled, fake, or incomplete production configuration fails closed.
+The read-only market inspection page is available at `http://localhost:4173/market-data`. Deterministic fake adapters are available only under the explicit `local-fixture` and `test` profiles. Formal production analysis requires Alpha Vantage market, estimates, and earnings-calendar credentials, SEC EDGAR with a declared organization/contact `SEC_USER_AGENT`, and a FRED API key for macro evidence. Disabled, fake, unavailable, or incomplete production configuration fails closed. `ALLOW_PARTIAL_PRODUCTION=true` is an explicit escape hatch for a non-formal partial deployment; the data-health UI reports `PARTIAL` while any required provider is unavailable.
 
 Regime, drawdown source, and data-quality gates are shown at `http://localhost:4173/market-context`. Private portfolio drawdown requires authentication; missing snapshots remain explicit `EMPTY` / `WAIT_FOR_DATA` states.
 
@@ -59,7 +59,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm api:check
-docker compose -f infra/compose.yaml config --quiet
+docker compose -f infra/compose.local.yaml config --quiet
 ```
 
 OpenAPI is exported from a real Spring context backed by a disposable MySQL 8.4 Testcontainer. Regenerate the contract with `pnpm api:generate` after changing a controller DTO.

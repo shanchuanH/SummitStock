@@ -32,15 +32,43 @@ const brief = {
   state: "ANALYSIS_READY",
   headline: "Analysis ready",
   summary: {
+    totalLiquidAssets: "6000",
     investedValue: "5000",
     trackedCash: "1000",
     emergencyCash: "500",
     tacticalReserve: "500",
+    coreExposureFraction: "0",
+    tacticalExposureFraction: "0.8333333333",
+    clusterRiskFraction: "0.025",
     openPositions: 1,
   },
   mustAct: [],
   doNot: [action],
   watch: [],
+  opportunities: [],
+  blocked: [],
+  market: {
+    regime: "YELLOW",
+    score: 50,
+    confidence: "MEDIUM",
+    qualityStatus: "HEALTHY",
+    summary: "Balanced",
+    dataAsOf: "2026-08-05T20:15:00Z",
+  },
+  capital: {
+    totalLiquidAssets: "6000",
+    emergencyReserve: "500",
+    deployableCash: "500",
+    investableAssets: "5500",
+    tacticalReserve: "500",
+  },
+  portfolio: {
+    drawdown: "0.02",
+    drawdownSource: "MARKET_DRIVEN",
+    technologyExposure: "0.5",
+    openRisk: "0.025",
+    clusterRisk: "0.025",
+  },
   portfolioHealth: { status: "WARNING", reasons: ["Concentration"] },
   dataReadiness: {
     status: "HEALTHY",
@@ -267,11 +295,15 @@ test("analysis ready, acknowledge without execution, and open position", async (
   await mockApi(page);
   await page.goto("/");
   await expect(page.getByText("HOLD_DO_NOT_ADD")).toBeVisible();
-  await page.getByRole("button", { name: "我已处理" }).click();
-  await expect(page.getByText("这不会在券商账户执行交易。")).toBeVisible();
+  await page.getByText("记录处理结果").click();
+  await expect(page.getByText("记录确认不等于执行交易。")).toBeVisible();
+  await page.getByRole("button", { name: "已处理" }).click();
+  await expect(page.getByRole("status")).toHaveText("处理决定已记录。");
   await page.goto("/portfolio");
   await page.getByRole("link", { name: /GOOGL/ }).click();
   await expect(page.getByRole("heading", { name: "GOOGL" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "最终结论" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /HOLD_DO_NOT_ADD/ }),
+  ).toBeVisible();
   await expect(page.getByText("暂无可用价格图表")).toBeVisible();
 });

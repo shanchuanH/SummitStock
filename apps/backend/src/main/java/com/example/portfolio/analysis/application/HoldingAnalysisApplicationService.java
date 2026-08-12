@@ -1,8 +1,11 @@
 package com.example.portfolio.analysis.application;
 
+import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.decision.AssetDecisionRouter;
+import com.example.portfolio.analysis.decision.BehavioralFirewall;
 import com.example.portfolio.analysis.decision.DecisionContext;
 import com.example.portfolio.analysis.decision.PortfolioConstraintEngine;
+import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.HoldingAnalysisResult;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
@@ -11,9 +14,11 @@ import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
 import com.example.portfolio.analysis.domain.StrategyDefinition;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
+import com.example.portfolio.analysis.narrative.NarrativeInput;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -31,6 +36,10 @@ public final class HoldingAnalysisApplicationService {
     private final PortfolioConstraintEngine portfolioConstraints;
     private final AssetDecisionRouter assetDecisions;
     private final HoldingAnalysisStore store;
+    private final PortfolioAllocationService allocations;
+    private final EtfDipEventService dipEvents;
+    private final BehavioralEvidenceService behavioralEvidence;
+    private final BehavioralFirewall behavioralFirewall;
     private final Clock clock;
 
     public HoldingAnalysisApplicationService(
@@ -40,6 +49,10 @@ public final class HoldingAnalysisApplicationService {
             PortfolioConstraintEngine portfolioConstraints,
             AssetDecisionRouter assetDecisions,
             HoldingAnalysisStore store,
+            PortfolioAllocationService allocations,
+            EtfDipEventService dipEvents,
+            BehavioralEvidenceService behavioralEvidence,
+            BehavioralFirewall behavioralFirewall,
             Clock clock) {
         this.evidenceAssembler = evidenceAssembler;
         this.freshness = freshness;
@@ -47,27 +60,37 @@ public final class HoldingAnalysisApplicationService {
         this.portfolioConstraints = portfolioConstraints;
         this.assetDecisions = assetDecisions;
         this.store = store;
+        this.allocations = allocations;
+        this.dipEvents = dipEvents;
+        this.behavioralEvidence = behavioralEvidence;
+        this.behavioralFirewall = behavioralFirewall;
         this.clock = clock;
     }
 
     public List<AnalyzedHolding> analyzeAll(UUID userId) {
+        return analyzeAll(userId, null);
+    }
+
+    public List<AnalyzedHolding> analyzeAll(UUID userId, UUID analysisRunId) {
         return evidenceAssembler.assembleAll(userId).stream()
-                .map(this::analyzeAndPersist)
+                .map(evidence -> analyzeAndPersist(evidence, analysisRunId))
                 .toList();
     }
 
     public AnalyzedHolding analyze(UUID userId, UUID positionId) {
-        return analyzeAndPersist(evidenceAssembler.assemble(userId, positionId));
+        return analyzeAndPersist(evidenceAssembler.assemble(userId, positionId), null);
     }
 
-    private AnalyzedHolding analyzeAndPersist(HoldingEvidence evidence) {
+    private AnalyzedHolding analyzeAndPersist(HoldingEvidence evidence, UUID analysisRunId) {
         var now = clock.instant();
         var state = HoldingEvidenceReadiness.assess(evidence, now, freshness);
         var policy = policy(evidence.position().classification(), evidence.strategy());
-        var candidates = candidates(evidence, state, policy);
-        var resolution = conflictResolver.resolve(candidates);
+        var candidates = candidates(evidence, state, policy, now);
+        var resolution =
+                conflictResolver.resolve(candidates, evidence.strategy().riskPriorityOverTax());
         var sizing = size(evidence, state, policy, resolution.winner(), now);
         var confidence = confidence(evidence, state);
+        var riskProjection = riskProjection(evidence, resolution.winner().action(), sizing);
         var result = new HoldingAnalysisResult(
                 evidence.position().id(),
                 analysisStatus(state),
@@ -96,14 +119,88 @@ public final class HoldingAnalysisApplicationService {
                 evidence.dataAsOf(),
                 now.plus(VALIDITY),
                 AnalysisChecksum.sha256(evidence + ":" + state + ":" + resolution));
-        var snapshotId = store.append(result, now);
-        return new AnalyzedHolding(snapshotId, evidence, result, resolution);
+        var narrativeInput = narrativeInput(evidence, result, resolution);
+        var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, riskProjection, now);
+        return new AnalyzedHolding(snapshotId, evidence, result, resolution, narrativeInput, riskProjection);
     }
 
-    private List<RecommendationCandidate> candidates(HoldingEvidence evidence, AnalysisReadiness state, Policy policy) {
+    private static RiskProjection riskProjection(
+            HoldingEvidence evidence, RecommendationAction action, PositionSizing.Result sizing) {
+        if (evidence.riskQuality() != EvidenceQuality.HEALTHY || evidence.totalOpenRisk() == null) {
+            return new RiskProjection(null, null, "PORTFOLIO_RISK_EVIDENCE_UNAVAILABLE");
+        }
+        var before = evidence.totalOpenRisk().max(BigDecimal.ZERO);
+        if (!com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
+                && !com.example.portfolio.analysis.decision.RecommendationSizingService.requiresSellSizing(action)) {
+            return new RiskProjection(before, before, "NO_POSITION_SIZE_CHANGE");
+        }
+        if (!sizing.exactQuantityAllowed()
+                || sizing.quantityMax() == null
+                || evidence.stop().formalStop() == null
+                || evidence.quote().last() == null
+                || evidence.portfolioEquity().amount().signum() <= 0) {
+            return new RiskProjection(before, null, "PROJECTED_RISK_INPUT_MISSING");
+        }
+        var riskPerShare =
+                evidence.quote().last().subtract(evidence.stop().formalStop()).abs();
+        var delta = riskPerShare
+                .multiply(sizing.quantityMax())
+                .divide(evidence.portfolioEquity().amount(), 10, RoundingMode.HALF_UP);
+        var after = com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
+                ? before.add(delta)
+                : before.subtract(delta).max(BigDecimal.ZERO);
+        return new RiskProjection(before, after, "PROJECTED_FROM_FORMAL_STOP_AND_MAX_QUANTITY");
+    }
+
+    private static NarrativeInput narrativeInput(
+            HoldingEvidence evidence, HoldingAnalysisResult analysis, RecommendationResolution resolution) {
+        return new NarrativeInput(
+                evidence.instrument().symbol(),
+                evidence.position().classification().name(),
+                resolution.winner().action().name(),
+                evidence.fundamentals().financialHealth(),
+                evidence.valuation().state(),
+                evidence.fundamentals().estimateRevision(),
+                evidence.indicators().priceState(),
+                resolution.winner().riskRank() <= 7 ? "BLOCKED" : "AVAILABLE",
+                resolution.winner().ruleId(),
+                analysis.reasons(),
+                analysis.risks(),
+                analysis.changeConditions(),
+                analysis.confidence(),
+                false);
+    }
+
+    private List<RecommendationCandidate> candidates(
+            HoldingEvidence evidence, AnalysisReadiness state, Policy policy, java.time.Instant now) {
+        var behavior = behavioralEvidence.load(evidence, now);
         var context = new DecisionContext(
-                evidence, state, policy.targetMin(), policy.targetMax(), policy.normalMax(), policy.hardMax());
+                evidence,
+                state,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax(),
+                allocations.forPosition(
+                        evidence.position().userId(),
+                        evidence.position().classification(),
+                        evidence.instrument().symbol()),
+                dipEvents
+                        .latest(
+                                evidence.position().userId(),
+                                evidence.instrument().id())
+                        .orElse(null),
+                behavior.lastDecisionAt(),
+                behavior.lastAddAt(),
+                behavior.averagingDown(),
+                behavior.thesisImproving(),
+                behavior.anchoredToCostBasis(),
+                behavior.holdingTradingDays(),
+                behavior.thesisProgress(),
+                behavior.ideaCooldownUntil(),
+                now);
         var values = new ArrayList<>(portfolioConstraints.evaluate(context));
+        values.addAll(behavioralFirewall.evaluate(context));
         values.addAll(assetDecisions.evaluate(context));
         return List.copyOf(values);
     }
@@ -115,6 +212,7 @@ public final class HoldingAnalysisApplicationService {
             RecommendationCandidate winner,
             java.time.Instant now) {
         var action = winner.action();
+        if (action == RecommendationAction.DEPLOY_DIP_TRANCHE) return dipSize(evidence, state, now);
         if ((!com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
                         && !com.example.portfolio.analysis.decision.RecommendationSizingService.requiresSellSizing(
                                 action))
@@ -128,31 +226,79 @@ public final class HoldingAnalysisApplicationService {
                 .max(BigDecimal.ZERO);
         var weightCap = policy.hardMax() == null ? policy.targetMax() : policy.hardMax();
         var trimTarget = "POSITION.HARD_CAP".equals(winner.ruleId()) ? weightCap : policy.targetMax();
-        return PositionSizing.calculate(new PositionSizing.Input(
-                action,
-                investableAssets,
-                policy.tradeRisk(),
-                evidence.quote().last(),
-                evidence.stop().formalStop(),
-                evidence.quote().last(),
-                evidence.position().quantity(),
-                evidence.position().marketValue(),
-                policy.targetMin(),
-                weightCap,
-                trimTarget,
-                deployableCash,
-                investableAssets.multiply(evidence.clusterOpenRisk()),
-                evidence.strategy().clusterOpenRiskMax(),
-                evidence.strategy().qualityStarterFraction(),
-                stopRequired(evidence.position().classification()),
-                evidence.quote().quality(),
-                evidence.capitalQuality(),
-                evidence.riskQuality(),
-                state != AnalysisReadiness.STALE
-                        && !freshness.stale(evidence.quote().dataAsOf(), now),
-                !freshness.stale(evidence.riskDataAsOf(), now),
-                evidence.position().classificationConfirmed(),
-                evidence.providerHardError()));
+        return PositionSizing.calculate(
+                new PositionSizing.Input(
+                        action,
+                        investableAssets,
+                        policy.tradeRisk(),
+                        evidence.quote().last(),
+                        evidence.stop().formalStop(),
+                        evidence.quote().last(),
+                        evidence.position().quantity(),
+                        evidence.position().marketValue(),
+                        policy.targetMin(),
+                        weightCap,
+                        trimTarget,
+                        deployableCash,
+                        investableAssets.multiply(evidence.clusterOpenRisk()),
+                        evidence.strategy().clusterOpenRiskMax(),
+                        evidence.strategy().qualityStarterFraction(),
+                        stopRequired(evidence.position().classification()),
+                        evidence.quote().quality(),
+                        evidence.capitalQuality(),
+                        evidence.riskQuality(),
+                        state != AnalysisReadiness.STALE
+                                && !freshness.stalePrice(
+                                        evidence.quote().marketDate(),
+                                        now,
+                                        evidence.strategy().freshness()),
+                        !freshness.staleDays(
+                                evidence.riskDataAsOf(),
+                                now,
+                                evidence.strategy().freshness().macroDailyDays()),
+                        evidence.position().classificationConfirmed(),
+                        evidence.providerHardError()),
+                evidence.strategy().exactQuantityRequiresHealthyPrice(),
+                evidence.strategy().exactQuantityRequiresReadyRisk());
+    }
+
+    private PositionSizing.Result dipSize(HoldingEvidence evidence, AnalysisReadiness state, java.time.Instant now) {
+        var event = dipEvents
+                .latest(evidence.position().userId(), evidence.instrument().id())
+                .orElse(null);
+        var sleeve = allocations.forPosition(
+                evidence.position().userId(),
+                evidence.position().classification(),
+                evidence.instrument().symbol());
+        if (event == null
+                || !event.readyForNextTranche()
+                || sleeve == null
+                || sleeve.gapWeight() == null
+                || sleeve.gapWeight().signum() <= 0
+                || evidence.quote().last() == null
+                || evidence.quote().last().signum() <= 0
+                || evidence.quote().quality() != EvidenceQuality.HEALTHY
+                || evidence.capitalQuality() != EvidenceQuality.HEALTHY
+                || evidence.riskQuality() != EvidenceQuality.HEALTHY
+                || state == AnalysisReadiness.STALE
+                || freshness.stalePrice(
+                        evidence.quote().marketDate(), now, evidence.strategy().freshness())
+                || freshness.staleDays(
+                        evidence.riskDataAsOf(),
+                        now,
+                        evidence.strategy().freshness().macroDailyDays())
+                || !evidence.position().classificationConfirmed()
+                || evidence.providerHardError()) return unavailableSizing();
+        var investable = evidence.portfolioEquity().amount();
+        var deployableCash = evidence.trackedCash()
+                .amount()
+                .subtract(evidence.emergencyCash().amount())
+                .max(BigDecimal.ZERO);
+        var trancheAmount = evidence.tacticalReserve().amount().multiply(event.tranchePct());
+        var capacityAmount = investable.multiply(sleeve.gapWeight());
+        var amount = trancheAmount.min(deployableCash).min(capacityAmount).max(BigDecimal.ZERO);
+        var quantity = amount.divide(evidence.quote().last(), 0, RoundingMode.FLOOR);
+        return new PositionSizing.Result(true, quantity, quantity, null, quantity, quantity, null);
     }
 
     private static PositionSizing.Result unavailableSizing() {
@@ -292,5 +438,9 @@ public final class HoldingAnalysisApplicationService {
             UUID snapshotId,
             HoldingEvidence evidence,
             HoldingAnalysisResult analysis,
-            RecommendationResolution resolution) {}
+            RecommendationResolution resolution,
+            NarrativeInput narrativeInput,
+            RiskProjection riskProjection) {}
+
+    public record RiskProjection(BigDecimal beforeFraction, BigDecimal afterFraction, String reason) {}
 }

@@ -83,7 +83,8 @@ class BacktestReportIntegrationTest extends MySqlIntegrationTest {
                 "b".repeat(64),
                 "{\"trades\":42}",
                 metrics,
-                Instant.parse("2026-08-05T12:00:00Z"));
+                Instant.parse("2026-08-05T12:00:00Z"),
+                validProof());
         assertThat(saved).isTrue();
         assertThat(reports.saveCompleted(
                         "admin@example.local",
@@ -92,13 +93,14 @@ class BacktestReportIntegrationTest extends MySqlIntegrationTest {
                         "1.0.0-draft",
                         LocalDate.parse("2020-01-01"),
                         LocalDate.parse("2025-12-31"),
-                        null,
-                        null,
+                        LocalDate.parse("2023-12-31"),
+                        LocalDate.parse("2024-01-01"),
                         "a".repeat(64),
                         "b".repeat(64),
                         "{}",
                         List.of(),
-                        Instant.now()))
+                        Instant.now(),
+                        validProof()))
                 .isFalse();
         assertThat(reports.find("other-backtest@example.local", runId)).isEmpty();
         assertThat(reports.latest("admin@example.local"))
@@ -107,7 +109,63 @@ class BacktestReportIntegrationTest extends MySqlIntegrationTest {
         mockMvc.perform(get("/api/v1/backtests/latest").with(httpBasic("admin@example.local", "change-before-use")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.biasStatus").value("CLEAR"))
+                .andExpect(jsonPath("$.universeVersion").value("sp500-2026-08"))
                 .andExpect(jsonPath("$.metrics[0].name").value("HOLD_FREQUENCY"));
         mockMvc.perform(get("/api/v1/backtests/latest")).andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void derivesBlockedStatusFromEvidenceInsteadOfTrustingTheCaller() {
+        var runId = UUID.randomUUID();
+        var proof = new BacktestBiasProofEvaluator.Proof(
+                LocalDate.parse("2024-01-02"),
+                LocalDate.parse("2024-01-01"),
+                Instant.parse("2026-08-05T12:00:00Z"),
+                List.of(Instant.parse("2026-08-05T12:00:01Z")),
+                false,
+                "sp500-2026-08",
+                "split-dividend-v2",
+                "xnys-2026a",
+                "close-slippage-10bps-v1",
+                "completed-bars-only-v1");
+        assertThat(reports.saveCompleted(
+                        "admin@example.local",
+                        runId,
+                        "blocked-proof",
+                        "1.0.0-draft",
+                        LocalDate.parse("2020-01-01"),
+                        LocalDate.parse("2025-12-31"),
+                        proof.trainingEnd(),
+                        proof.outOfSampleStart(),
+                        "a".repeat(64),
+                        "b".repeat(64),
+                        "{}",
+                        List.of(),
+                        Instant.parse("2026-08-05T12:00:00Z"),
+                        proof))
+                .isTrue();
+        var row = jdbc.sql(
+                        "SELECT bias_status status, JSON_LENGTH(JSON_EXTRACT(bias_proof, '$.failures')) failures FROM backtest_run WHERE id=UUID_TO_BIN(:id)")
+                .param("id", runId.toString())
+                .query(BiasRow.class)
+                .single();
+        assertThat(row.status()).isEqualTo("BLOCKED");
+        assertThat(row.failures()).isEqualTo(3);
+    }
+
+    private static BacktestBiasProofEvaluator.Proof validProof() {
+        return new BacktestBiasProofEvaluator.Proof(
+                LocalDate.parse("2023-12-31"),
+                LocalDate.parse("2024-01-01"),
+                Instant.parse("2026-08-05T12:00:00Z"),
+                List.of(Instant.parse("2026-08-05T11:59:59Z")),
+                true,
+                "sp500-2026-08",
+                "split-dividend-v2",
+                "xnys-2026a",
+                "close-slippage-10bps-v1",
+                "completed-bars-only-v1");
+    }
+
+    record BiasRow(String status, int failures) {}
 }

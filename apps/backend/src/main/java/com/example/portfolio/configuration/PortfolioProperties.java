@@ -13,6 +13,7 @@ public record PortfolioProperties(
         @NotBlank String runtimeMode,
         @NotBlank String strategyVersion,
         @NotBlank String strategyConfigPath,
+        boolean allowDraftStrategy,
         @NotNull @Valid Security security) {
 
     public record Security(@NotBlank @Email String devUser, @NotBlank String devPassword) {}

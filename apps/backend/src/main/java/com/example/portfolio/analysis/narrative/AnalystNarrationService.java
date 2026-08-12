@@ -19,24 +19,10 @@ public final class AnalystNarrationService {
 
     public NarrativeGenerator.GeneratedNarrative generate(
             UUID recommendationId, HoldingAnalysisApplicationService.AnalyzedHolding analyzed) {
-        var evidence = analyzed.evidence();
-        var analysis = analyzed.analysis();
-        var resolution = analyzed.resolution();
-        var input = new NarrativeInput(
-                evidence.instrument().symbol(),
-                evidence.position().classification().name(),
-                resolution.winner().action().name(),
-                evidence.fundamentals().financialHealth(),
-                evidence.valuation().state(),
-                evidence.fundamentals().estimateRevision(),
-                evidence.indicators().priceState(),
-                resolution.winner().riskRank() <= 7 ? "BLOCKED" : "AVAILABLE",
-                resolution.winner().ruleId(),
-                analysis.reasons(),
-                analysis.risks(),
-                analysis.changeConditions(),
-                analysis.confidence(),
-                false);
+        return generate(recommendationId, analyzed.narrativeInput());
+    }
+
+    public NarrativeGenerator.GeneratedNarrative generate(UUID recommendationId, NarrativeInput input) {
         var generated = generator.generate(input);
         store.append(recommendationId, generated, clock.instant());
         return generated;

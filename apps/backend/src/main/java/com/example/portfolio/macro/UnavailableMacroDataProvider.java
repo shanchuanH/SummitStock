@@ -4,13 +4,15 @@ import com.example.portfolio.market.provider.ProviderModels;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 @Component
-final class UnavailableMacroDataProvider implements MacroDataProvider {
+@ConditionalOnExpression("'${portfolio.providers.macro.type:unavailable}' != 'fred'")
+public final class UnavailableMacroDataProvider implements MacroDataProvider {
     private final Clock clock;
 
-    UnavailableMacroDataProvider(Clock clock) {
+    public UnavailableMacroDataProvider(Clock clock) {
         this.clock = clock;
     }
 

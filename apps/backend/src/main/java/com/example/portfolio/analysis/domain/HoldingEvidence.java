@@ -90,9 +90,27 @@ public record HoldingEvidence(
             Instant dataAsOf,
             String financialHealth,
             String estimateRevision,
-            EvidenceQuality estimateQuality) {
+            EvidenceQuality estimateQuality,
+            Instant estimateDataAsOf) {
+        public FundamentalSnapshot(
+                boolean available,
+                EvidenceQuality quality,
+                Instant dataAsOf,
+                String financialHealth,
+                String estimateRevision,
+                EvidenceQuality estimateQuality) {
+            this(available, quality, dataAsOf, financialHealth, estimateRevision, estimateQuality, dataAsOf);
+        }
+
         public FundamentalSnapshot(boolean available, EvidenceQuality quality, Instant dataAsOf) {
-            this(available, quality, dataAsOf, available ? "HEALTHY" : "MISSING", "MISSING", EvidenceQuality.MISSING);
+            this(
+                    available,
+                    quality,
+                    dataAsOf,
+                    available ? "HEALTHY" : "MISSING",
+                    "MISSING",
+                    EvidenceQuality.MISSING,
+                    dataAsOf);
         }
     }
 
@@ -109,7 +127,16 @@ public record HoldingEvidence(
         }
     }
 
-    public record EarningsEvent(boolean available, Instant eventAt, String riskLevel) {}
+    public record EarningsEvent(
+            boolean available, Instant eventAt, String eventRisk, String policyAction, Instant dataAsOf) {
+        public EarningsEvent(boolean available, Instant eventAt, String eventRisk, String policyAction) {
+            this(available, eventAt, eventRisk, policyAction, eventAt);
+        }
+
+        public EarningsEvent(boolean available, Instant eventAt, String eventRisk) {
+            this(available, eventAt, eventRisk, null, eventAt);
+        }
+    }
 
     public record Thesis(boolean available, boolean invalidated, Instant expiresAt) {}
 
@@ -119,12 +146,30 @@ public record HoldingEvidence(
             boolean available, BigDecimal drawdown, String state, boolean noNewRisk, Instant dataAsOf) {}
 
     public record StopEvidence(
-            BigDecimal formalStop, BigDecimal liveStop, boolean closeConfirmed, boolean catastrophic) {}
+            BigDecimal formalStop,
+            BigDecimal liveStop,
+            boolean closeConfirmed,
+            boolean catastrophic,
+            Instant dataAsOf) {
+        public StopEvidence(BigDecimal formalStop, BigDecimal liveStop, boolean closeConfirmed, boolean catastrophic) {
+            this(formalStop, liveStop, closeConfirmed, catastrophic, null);
+        }
+    }
 
     public record AnalysisProfile(
             boolean fundProfileAvailable,
             boolean thematic,
             BigDecimal topHoldingConcentration,
             String liquidityStatus,
-            BigDecimal portfolioOverlap) {}
+            BigDecimal portfolioOverlap,
+            Instant dataAsOf) {
+        public AnalysisProfile(
+                boolean fundProfileAvailable,
+                boolean thematic,
+                BigDecimal topHoldingConcentration,
+                String liquidityStatus,
+                BigDecimal portfolioOverlap) {
+            this(fundProfileAvailable, thematic, topHoldingConcentration, liquidityStatus, portfolioOverlap, null);
+        }
+    }
 }

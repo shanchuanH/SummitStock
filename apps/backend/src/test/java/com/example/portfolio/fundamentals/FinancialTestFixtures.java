@@ -29,7 +29,35 @@ final class FinancialTestFixtures {
                 LocalDate.parse(filed),
                 accession,
                 form,
-                "https://sec.test/" + accession);
+                "https://sec.test/" + accession,
+                endDate.getYear(),
+                form.startsWith("10-K") ? "FY" : "Q" + (((endDate.getMonthValue() - 1) / 3) + 1));
+    }
+
+    static ProviderModels.CompanyFact factWithFiscal(
+            FinancialMetric metric,
+            String value,
+            String end,
+            String filed,
+            String accession,
+            String form,
+            int fiscalYear,
+            String fiscalPeriod) {
+        var base = fact(metric, value, end, filed, accession, form);
+        return new ProviderModels.CompanyFact(
+                base.businessMetric(),
+                base.taxonomy(),
+                base.concept(),
+                base.unit(),
+                base.value(),
+                base.periodStart(),
+                base.periodEnd(),
+                base.filingDate(),
+                base.accessionNumber(),
+                base.form(),
+                base.sourceUri(),
+                fiscalYear,
+                fiscalPeriod);
     }
 
     static FinancialPeriodResolver.ResolvedPeriod period(String end, Map<FinancialMetric, BigDecimal> values) {

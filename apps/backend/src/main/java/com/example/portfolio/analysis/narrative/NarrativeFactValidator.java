@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public final class NarrativeFactValidator {
     private static final Pattern PERCENTAGE = Pattern.compile("(?<![\\d.])(\\d+(?:\\.\\d+)?)\\s*%");
+    private static final List<String> COST_BASIS_ANCHOR_TERMS = List.of("cost basis", "break even", "breakeven");
     private static final List<String> TARGET_PRICE_TERMS = List.of("target price", "price target", "目标价", "目标价格");
     private static final List<String> CONSENSUS_TERMS =
             List.of("analysts agree", "analyst consensus", "分析师一致认为", "分析师共识");
@@ -26,6 +27,9 @@ public final class NarrativeFactValidator {
         }
         if (!input.analystEvidenceAvailable() && containsAny(narrative, CONSENSUS_TERMS)) {
             violations.add("UNSUPPORTED_ANALYST_CONSENSUS");
+        }
+        if (containsAny(narrative, COST_BASIS_ANCHOR_TERMS)) {
+            violations.add("COST_BASIS_ANCHORING");
         }
         return new Validation(violations.isEmpty(), violations);
     }

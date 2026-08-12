@@ -10,6 +10,7 @@ import { PositionDetailPage } from "./app/position-detail-page";
 import { DipPage } from "./app/dip-page";
 import { BacktestPage } from "./app/backtest-page";
 import { PortfolioImportPage } from "./app/portfolio-import/PortfolioImportPage";
+import { RuntimeLayout } from "./app/runtime-layout";
 import {
   DashboardPage,
   DataHealthPage,
@@ -30,20 +31,25 @@ const queryClient = new QueryClient({
 });
 
 const router = createBrowserRouter([
-  { path: "/", element: <DashboardPage /> },
-  { path: "/portfolio", element: <PortfolioPage /> },
-  { path: "/portfolio/import", element: <PortfolioImportPage /> },
-  { path: "/positions/:positionId", element: <PositionDetailPage /> },
-  { path: "/opportunities", element: <OpportunitiesPage /> },
-  { path: "/review", element: <ReviewPage /> },
-  { path: "/settings", element: <SettingsPage /> },
-  { path: "/admin/data-health", element: <DataHealthPage /> },
-  { path: "/admin/backtests", element: <BacktestPage /> },
-  { path: "/advanced/health", element: <HealthPage /> },
-  { path: "/advanced/market-data", element: <MarketInspectionPage /> },
-  { path: "/advanced/market-context", element: <MarketContextPage /> },
-  { path: "/advanced/dip-buy", element: <DipPage /> },
-  { path: "*", element: <DashboardPage /> },
+  {
+    element: <RuntimeLayout />,
+    children: [
+      { path: "/", element: <DashboardPage /> },
+      { path: "/portfolio", element: <PortfolioPage /> },
+      { path: "/portfolio/import", element: <PortfolioImportPage /> },
+      { path: "/positions/:positionId", element: <PositionDetailPage /> },
+      { path: "/opportunities", element: <OpportunitiesPage /> },
+      { path: "/review", element: <ReviewPage /> },
+      { path: "/settings", element: <SettingsPage /> },
+      { path: "/admin/data-health", element: <DataHealthPage /> },
+      { path: "/admin/backtests", element: <BacktestPage /> },
+      { path: "/advanced/health", element: <HealthPage /> },
+      { path: "/advanced/market-data", element: <MarketInspectionPage /> },
+      { path: "/advanced/market-context", element: <MarketContextPage /> },
+      { path: "/advanced/dip-buy", element: <DipPage /> },
+      { path: "*", element: <DashboardPage /> },
+    ],
+  },
 ]);
 
 const root = document.getElementById("root");

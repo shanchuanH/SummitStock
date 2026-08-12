@@ -56,6 +56,9 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         update("DELETE ra FROM recommendation_acknowledgement ra JOIN app_user u ON u.id=ra.user_id "
                 + "WHERE u.email='" + EMAIL + "'");
         update("DELETE r FROM recommendation r JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE t FROM etf_dip_tranche t JOIN app_user u ON u.id=t.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE e FROM etf_dip_event e JOIN app_user u ON u.id=e.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE s FROM risk_cluster_snapshot s JOIN app_user u ON u.id=s.user_id WHERE u.email='" + EMAIL + "'");
         update("DELETE s FROM position_risk_snapshot s JOIN position p ON p.id=s.position_id "
                 + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id WHERE u.email='"
                 + EMAIL + "'");
@@ -73,8 +76,13 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
                 + "WHERE u.email='" + EMAIL + "'");
         update("DELETE d FROM portfolio_drawdown_snapshot d JOIN app_user u ON u.id=d.user_id WHERE u.email='" + EMAIL
                 + "'");
+        update("DELETE s FROM portfolio_allocation_snapshot s JOIN app_user u ON u.id=s.user_id WHERE u.email='" + EMAIL
+                + "'");
         update("DELETE c FROM compensation_holding c JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL + "'");
         update("DELETE s FROM position_snapshot s JOIN position p ON p.id=s.position_id "
+                + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
+                + "WHERE u.email='" + EMAIL + "' AND p.import_source='FIDELITY_CSV'");
+        update("DELETE m FROM position_mark_snapshot m JOIN position p ON p.id=m.position_id "
                 + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
                 + "WHERE u.email='" + EMAIL + "' AND p.import_source='FIDELITY_CSV'");
         update("DELETE p FROM position p JOIN investment_account a ON a.id=p.account_id "

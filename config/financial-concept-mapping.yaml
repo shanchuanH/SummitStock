@@ -17,6 +17,9 @@ CAPEX:
 CASH:
   - CashAndCashEquivalentsAtCarryingValue
 TOTAL_DEBT:
+  - DebtCurrentAndNoncurrent
+  - ShortTermBorrowings
+  - LongTermDebtCurrent
   - LongTermDebtNoncurrent
   - LongTermDebt
   - LongTermDebtAndFinanceLeaseObligationsCurrent

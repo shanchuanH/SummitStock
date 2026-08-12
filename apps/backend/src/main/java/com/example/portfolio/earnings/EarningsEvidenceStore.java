@@ -155,7 +155,7 @@ public class EarningsEvidenceStore {
                         SELECT BIN_TO_UUID(p.id) positionId,BIN_TO_UUID(p.instrument_id) instrumentId,p.classification,
                           CASE WHEN COALESCE((SELECT c.investable_assets FROM portfolio_capital_snapshot c
                             WHERE c.user_id=a.user_id ORDER BY c.data_as_of DESC LIMIT 1),0)>0
-                            THEN p.market_value/(SELECT c.investable_assets FROM portfolio_capital_snapshot c
+                            THEN COALESCE(m.marked_market_value,0)/(SELECT c.investable_assets FROM portfolio_capital_snapshot c
                               WHERE c.user_id=a.user_id ORDER BY c.data_as_of DESC LIMIT 1) ELSE 0 END positionWeight,
                           CASE WHEN p.average_cost>COALESCE((SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
                             ORDER BY s.data_as_of DESC LIMIT 1),p.average_cost)
@@ -168,6 +168,7 @@ public class EarningsEvidenceStore {
                           COALESCE((SELECT e.binary_event FROM earnings_event e WHERE e.instrument_id=p.instrument_id
                             AND e.event_at>=UTC_TIMESTAMP(6) ORDER BY e.event_at LIMIT 1),FALSE) binaryEvent
                         FROM position p JOIN investment_account a ON a.id=p.account_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE p.status='OPEN' AND p.classification<>'THEMATIC_ETF'
                         """)
                 .query(PositionRiskInput.class)

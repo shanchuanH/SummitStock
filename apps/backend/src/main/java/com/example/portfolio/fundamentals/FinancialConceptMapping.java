@@ -1,6 +1,8 @@
 package com.example.portfolio.fundamentals;
 
+import com.example.portfolio.market.provider.ProviderModels;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +41,35 @@ public final class FinancialConceptMapping {
 
     public Map<String, FinancialMetric> concepts() {
         return conceptToMetric;
+    }
+
+    public String mappingVersion() {
+        return "financial-concepts-v2";
+    }
+
+    public String aggregation(FinancialMetric metric) {
+        return metric == FinancialMetric.TOTAL_DEBT ? "AGGREGATE_OR_SUM_DISTINCT_COMPONENTS" : "SINGLE_CONCEPT";
+    }
+
+    public boolean valid(FinancialMetric metric, ProviderModels.CompanyFact fact) {
+        if (!validUnit(metric, fact.unit())) return false;
+        return allowsNegative(metric) || fact.value().compareTo(BigDecimal.ZERO) >= 0;
+    }
+
+    private static boolean validUnit(FinancialMetric metric, String unit) {
+        if (unit == null) return false;
+        return switch (metric) {
+            case DILUTED_SHARES -> "shares".equalsIgnoreCase(unit);
+            case DILUTED_EPS -> "USD/shares".equalsIgnoreCase(unit);
+            default -> "USD".equalsIgnoreCase(unit);
+        };
+    }
+
+    private static boolean allowsNegative(FinancialMetric metric) {
+        return switch (metric) {
+            case OPERATING_INCOME, NET_INCOME, OPERATING_CASH_FLOW, CAPEX, DILUTED_EPS -> true;
+            default -> false;
+        };
     }
 
     private static Map<String, FinancialMetric> parse(String yaml) {

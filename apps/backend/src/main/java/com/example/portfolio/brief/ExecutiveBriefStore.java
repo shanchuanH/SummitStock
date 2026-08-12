@@ -164,25 +164,25 @@ class ExecutiveBriefStore {
         var exposure = jdbc.sql(
                         """
                         WITH owned AS (
-                            SELECT p.id,p.market_value,p.classification
+                            SELECT p.id,COALESCE(m.marked_market_value,0) market_value,p.classification
                             FROM position p JOIN investment_account a ON a.id=p.account_id
                             JOIN app_user u ON u.id=a.user_id
+                            LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE u.email=:email AND p.status='OPEN'
                         ), latest_risk AS (
-                            SELECT r.position_id,r.open_risk_fraction,r.cluster_risk_fraction,
+                            SELECT r.position_id,r.open_risk_fraction,
                                    ROW_NUMBER() OVER (PARTITION BY r.position_id ORDER BY r.data_as_of DESC,r.created_at DESC) rn
                             FROM position_risk_snapshot r JOIN owned o ON o.id=r.position_id
-                        ), cluster_totals AS (
-                            SELECT m.risk_cluster_id,SUM(r.open_risk_fraction) cluster_risk
-                            FROM risk_cluster_membership m JOIN latest_risk r ON r.position_id=m.position_id AND r.rn=1
-                            GROUP BY m.risk_cluster_id
+                        ), latest_cluster AS (
+                            SELECT s.open_risk_fraction,
+                                   ROW_NUMBER() OVER (PARTITION BY s.risk_cluster_id ORDER BY s.data_as_of DESC,s.created_at DESC) rn
+                            FROM risk_cluster_snapshot s JOIN app_user u ON u.id=s.user_id WHERE u.email=:email
                         )
                         SELECT COALESCE(SUM(o.market_value),0) investedValue,
                                COALESCE(SUM(CASE WHEN o.classification IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) coreValue,
                                COALESCE(SUM(CASE WHEN o.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) tacticalValue,
                                COALESCE((SELECT SUM(open_risk_fraction) FROM latest_risk WHERE rn=1),0) openPlannedRisk,
-                               COALESCE((SELECT MAX(cluster_risk) FROM cluster_totals),
-                                        (SELECT MAX(cluster_risk_fraction) FROM latest_risk WHERE rn=1),0) clusterRisk
+                               COALESCE((SELECT MAX(open_risk_fraction) FROM latest_cluster WHERE rn=1),0) clusterRisk
                         FROM owned o
                         """)
                 .param("email", email)
@@ -202,9 +202,10 @@ class ExecutiveBriefStore {
                         """
                         WITH owner AS (SELECT id FROM app_user WHERE email=:email),
                         liquid AS (
-                            SELECT COALESCE(SUM(p.market_value),0)+COALESCE((SELECT SUM(c.current_amount)
+                            SELECT COALESCE(SUM(m.marked_market_value),0)+COALESCE((SELECT SUM(c.current_amount)
                                    FROM cash_bucket c WHERE c.user_id=(SELECT id FROM owner)),0) value
                             FROM position p JOIN investment_account a ON a.id=p.account_id
+                            LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE a.user_id=(SELECT id FROM owner) AND p.status='OPEN'
                         ), compensation AS (
                             SELECT c.symbol,COALESCE(SUM(c.estimated_value),0) value
@@ -212,11 +213,12 @@ class ExecutiveBriefStore {
                             WHERE c.user_id=(SELECT id FROM owner) AND c.vesting_status='UNVESTED'
                             GROUP BY c.symbol
                         ), employer AS (
-                            SELECT c.symbol,c.value + COALESCE(SUM(p.market_value),0) value
+                            SELECT c.symbol,c.value + COALESCE(SUM(m.marked_market_value),0) value
                             FROM compensation c
                             LEFT JOIN instrument i ON i.symbol=c.symbol
                             LEFT JOIN position p ON p.instrument_id=i.id AND p.status='OPEN'
                               AND p.account_id IN (SELECT id FROM investment_account WHERE user_id=(SELECT id FROM owner))
+                            LEFT JOIN current_position_mark m ON m.position_id=p.id
                             GROUP BY c.symbol,c.value
                         )
                         SELECT CASE WHEN (SELECT value FROM liquid)+(SELECT COALESCE(SUM(value),0) FROM compensation)=0
@@ -253,15 +255,16 @@ class ExecutiveBriefStore {
     private BigDecimal technologyExposure(String email) {
         return jdbc.sql(
                         """
-                        SELECT CASE WHEN SUM(p.market_value)=0 THEN NULL ELSE
+                        SELECT CASE WHEN SUM(m.marked_market_value)=0 THEN NULL ELSE
                             SUM(CASE WHEN EXISTS (
                                 SELECT 1 FROM risk_cluster_membership m
                                 JOIN risk_cluster c ON c.id=m.risk_cluster_id
                                 WHERE m.position_id=p.id AND c.cluster_code IN ('TECHNOLOGY','TECH')
-                            ) THEN p.market_value ELSE 0 END) / SUM(p.market_value) END
+                            ) THEN m.marked_market_value ELSE 0 END) / SUM(m.marked_market_value) END
                         FROM position p
                         JOIN investment_account a ON a.id=p.account_id
                         JOIN app_user u ON u.id=a.user_id
+                        LEFT JOIN current_position_mark m ON m.position_id=p.id
                         WHERE u.email=:email AND p.status='OPEN'
                         """)
                 .param("email", email)

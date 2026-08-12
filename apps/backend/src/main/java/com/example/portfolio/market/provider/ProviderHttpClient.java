@@ -14,22 +14,55 @@ import tools.jackson.databind.ObjectMapper;
 
 public final class ProviderHttpClient {
     private final HttpClient client;
-    private final ProviderExecutor executor;
+    private final ProviderExecutionPolicy policy;
     private final Duration timeout;
     private final ObjectMapper json;
 
-    ProviderHttpClient(HttpClient client, ProviderExecutor executor, Duration timeout, ObjectMapper json) {
+    ProviderHttpClient(HttpClient client, ProviderExecutionPolicy policy, Duration timeout, ObjectMapper json) {
         this.client = client;
-        this.executor = executor;
+        this.policy = policy;
         this.timeout = timeout;
         this.json = json;
     }
 
     public Payload get(URI uri, Map<String, String> headers) {
-        return executor.execute(() -> send(uri, headers));
+        return policy.execute(operation(uri), context(uri), () -> send(uri, headers), Payload::raw);
+    }
+
+    public String getText(URI uri, Map<String, String> headers) {
+        return policy.execute(operation(uri), context(uri), () -> sendProviderText(uri, headers), value -> value);
+    }
+
+    private String sendProviderText(URI uri, Map<String, String> headers) {
+        var body = sendText(uri, headers);
+        if (!body.stripLeading().startsWith("{")) return body;
+        try {
+            var candidate = json.readTree(body);
+            if (candidate != null) ProviderPayloads.rejectProviderError(candidate);
+            return body;
+        } catch (JacksonException exception) {
+            throw new ProviderCallException(
+                    ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned malformed text payload", 200, false);
+        }
     }
 
     private Payload send(URI uri, Map<String, String> headers) {
+        var body = sendText(uri, headers);
+        try {
+            JsonNode jsonBody = json.readTree(body);
+            if (jsonBody == null || jsonBody.isNull()) {
+                throw new ProviderCallException(
+                        ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned an empty payload", 200, false);
+            }
+            ProviderPayloads.rejectProviderError(jsonBody);
+            return new Payload(body, jsonBody);
+        } catch (JacksonException exception) {
+            throw new ProviderCallException(
+                    ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned malformed JSON", 200, false);
+        }
+    }
+
+    private String sendText(URI uri, Map<String, String> headers) {
         var builder = HttpRequest.newBuilder(uri).GET().timeout(timeout).header("Accept", "application/json");
         headers.forEach(builder::header);
         try {
@@ -48,18 +81,7 @@ public final class ProviderHttpClient {
                 throw new ProviderCallException(
                         ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned an empty payload", status, false);
             }
-            try {
-                JsonNode body = json.readTree(response.body());
-                if (body == null || body.isNull()) {
-                    throw new ProviderCallException(
-                            ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned an empty payload", status, false);
-                }
-                ProviderPayloads.rejectProviderError(body);
-                return new Payload(response.body(), body);
-            } catch (JacksonException exception) {
-                throw new ProviderCallException(
-                        ProviderErrorCode.PROVIDER_MALFORMED, "Provider returned malformed JSON", status, false);
-            }
+            return response.body();
         } catch (HttpTimeoutException exception) {
             throw new ProviderCallException(
                     ProviderErrorCode.PROVIDER_TIMEOUT, "Provider request timed out", null, true);
@@ -74,6 +96,20 @@ public final class ProviderHttpClient {
             throw new ProviderCallException(
                     ProviderErrorCode.PROVIDER_UNAVAILABLE, "Provider request interrupted", null, false);
         }
+    }
+
+    private static String operation(URI uri) {
+        if (uri.getRawQuery() != null) {
+            for (var part : uri.getRawQuery().split("&")) {
+                if (part.regionMatches(true, 0, "function=", 0, 9))
+                    return part.substring(9).toLowerCase();
+            }
+        }
+        return "http-get";
+    }
+
+    private static String context(URI uri) {
+        return "{\"host\":\"" + uri.getHost() + "\",\"path\":\"" + uri.getPath() + "\"}";
     }
 
     public record Payload(String raw, JsonNode json) {}
