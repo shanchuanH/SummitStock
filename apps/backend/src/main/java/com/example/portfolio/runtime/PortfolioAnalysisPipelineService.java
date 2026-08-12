@@ -308,7 +308,7 @@ public class PortfolioAnalysisPipelineService {
                 .update();
     }
 
-    public int updateThesesEvents(UUID userId) {
+    public int countActiveTheses(UUID userId) {
         return jdbc.sql(
                         """
                         SELECT COUNT(*) FROM position_thesis t
@@ -325,14 +325,14 @@ public class PortfolioAnalysisPipelineService {
         return dipEvents.evaluateAndCapture(userId);
     }
 
-    public int dailyDigest(UUID userId) {
+    public int countActiveRecommendations(UUID userId) {
         return jdbc.sql("SELECT COUNT(*) FROM recommendation WHERE user_id=UUID_TO_BIN(:userId) AND status='ACTIVE'")
                 .param("userId", userId.toString())
                 .query(Integer.class)
                 .single();
     }
 
-    public int weeklyMemo() {
+    public int countValidRecommendations() {
         return jdbc.sql(
                         """
                         SELECT COUNT(*) FROM recommendation
@@ -343,7 +343,7 @@ public class PortfolioAnalysisPipelineService {
                 .single();
     }
 
-    public int monthlyReview() {
+    public int countRecentSuccessfulAnalyses() {
         return jdbc.sql(
                         """
                         SELECT COUNT(*) FROM portfolio_analysis_run

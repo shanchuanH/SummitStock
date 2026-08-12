@@ -352,3 +352,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The dashboard no longer derives a calm state from empty arrays. It displays `ANALYSIS PARTIAL`, `WAITING FOR DATA`, or `BLOCKED` for incomplete, waiting, stale, blocked, and failed analysis instead of implying that no action is required.
 - Contract tests prove that empty/no-portfolio and ready-with-action responses remain unconfirmed, while a fully covered ready portfolio with every action queue empty is explicitly confirmed.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 191 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D5 - 2026-08-12
+
+- Pipeline and scheduler names now state their real behavior: thesis inspection is `CHECK_ACTIVE_THESES`; daily recommendation inspection is `COUNT_ACTIVE_RECOMMENDATIONS`; scheduled weekly/monthly counts are `COUNT_VALID_RECOMMENDATIONS` and `COUNT_RECENT_SUCCESSFUL_ANALYSES`.
+- `UPDATE_DIP_EVENTS` remains unchanged because it performs the claimed durable dip-event capture side effect.
+- Flyway V33 migrates historical analysis-step dependencies and durable job types to the honest names, preserving existing audit records and run topology.
+- A semantic contract test prevents the misleading update/generate names from returning, while scheduler tests prove the periodic jobs enqueue the renamed read-only operations.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

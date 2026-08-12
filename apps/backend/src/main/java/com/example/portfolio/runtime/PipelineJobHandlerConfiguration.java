@@ -238,12 +238,10 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
-    JobHandler updateThesesEventsJobHandler(
-            PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
+    JobHandler checkActiveThesesJobHandler(PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler(
-                "UPDATE_THESES_EVENTS",
-                context ->
-                        success(portfolio.updateThesesEvents(requiredUser(payload(context, json))), clock.instant()));
+                "CHECK_ACTIVE_THESES",
+                context -> success(portfolio.countActiveTheses(requiredUser(payload(context, json))), clock.instant()));
     }
 
     @Bean
@@ -277,21 +275,26 @@ class PipelineJobHandlerConfiguration {
     }
 
     @Bean
-    JobHandler generateDailyDigestJobHandler(
+    JobHandler countActiveRecommendationsJobHandler(
             PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler(
-                "GENERATE_DAILY_DIGEST",
-                context -> success(portfolio.dailyDigest(requiredUser(payload(context, json))), clock.instant()));
+                "COUNT_ACTIVE_RECOMMENDATIONS",
+                context -> success(
+                        portfolio.countActiveRecommendations(requiredUser(payload(context, json))), clock.instant()));
     }
 
     @Bean
-    JobHandler weeklyMemoJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
-        return handler("WEEKLY_MEMO", context -> success(portfolio.weeklyMemo(), clock.instant()));
+    JobHandler countValidRecommendationsJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
+        return handler(
+                "COUNT_VALID_RECOMMENDATIONS",
+                context -> success(portfolio.countValidRecommendations(), clock.instant()));
     }
 
     @Bean
-    JobHandler monthlyReviewJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
-        return handler("MONTHLY_REVIEW", context -> success(portfolio.monthlyReview(), clock.instant()));
+    JobHandler countRecentSuccessfulAnalysesJobHandler(PortfolioAnalysisPipelineService portfolio, Clock clock) {
+        return handler(
+                "COUNT_RECENT_SUCCESSFUL_ANALYSES",
+                context -> success(portfolio.countRecentSuccessfulAnalyses(), clock.instant()));
     }
 
     private static JobHandler handler(String type, Function<JobExecutionContext, JobExecutionResult> action) {

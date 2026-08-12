@@ -59,7 +59,7 @@ public class PostEarningsReanalysisService {
         affected += estimates.collectAll().affected();
         affected += revisions.computeAll();
         affected += earnings.computeReactions();
-        affected += portfolio.updateThesesEvents(userId);
+        affected += portfolio.countActiveTheses(userId);
         affected += valuation.computeAll();
         affected += earnings.computeRisk();
         affected += holdingAnalysis.analyzeAll(userId).size();

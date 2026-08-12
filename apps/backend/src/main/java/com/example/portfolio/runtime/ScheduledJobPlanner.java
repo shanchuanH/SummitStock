@@ -56,14 +56,19 @@ class ScheduledJobPlanner {
     @Scheduled(cron = "${portfolio.worker.weekly-cron:0 30 22 * * FRI}", zone = "UTC")
     void weekly() {
         var date = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC);
-        jobs.enqueue("WEEKLY_MEMO", "weekly:" + date, "{\"marketDate\":\"" + date + "\"}", 10, clock.instant());
+        jobs.enqueue(
+                "COUNT_VALID_RECOMMENDATIONS",
+                "weekly:" + date,
+                "{\"marketDate\":\"" + date + "\"}",
+                10,
+                clock.instant());
     }
 
     @Scheduled(cron = "${portfolio.worker.monthly-cron:0 0 23 L * *}", zone = "UTC")
     void monthly() {
         var date = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC);
         jobs.enqueue(
-                "MONTHLY_REVIEW",
+                "COUNT_RECENT_SUCCESSFUL_ANALYSES",
                 "monthly:" + date.getYear() + "-" + date.getMonthValue(),
                 "{\"marketDate\":\"" + date + "\"}",
                 10,

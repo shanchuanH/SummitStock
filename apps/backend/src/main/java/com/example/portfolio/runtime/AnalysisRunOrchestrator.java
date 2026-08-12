@@ -34,11 +34,11 @@ public class AnalysisRunOrchestrator {
             "CAPTURE_POSITION_MARKS",
             "COMPUTE_DRAWDOWN_SOURCE",
             "RECALCULATE_STOPS",
-            "UPDATE_THESES_EVENTS",
+            "CHECK_ACTIVE_THESES",
             "UPDATE_DIP_EVENTS",
             "COMPUTE_HOLDING_ANALYSIS",
             "GENERATE_RECOMMENDATIONS",
-            "GENERATE_DAILY_DIGEST");
+            "COUNT_ACTIVE_RECOMMENDATIONS");
 
     private final JdbcClient jdbc;
     private final DurableJobStore jobs;
