@@ -79,6 +79,7 @@ public class ExecutiveBriefQueryService {
                 evidence.staleAnalysisPositions(),
                 Math.max(0, evidence.openPositions() - evidence.analyzedPositions()),
                 evidence.failedJobCount());
+        var confirmedNoAction = confirmedNoAction(state, mustAct, doNot, watch, blocked, readinessView);
         var strategyVersion = run != null
                 ? run.strategyVersion()
                 : metadata.strategyVersion() == null
@@ -89,6 +90,7 @@ public class ExecutiveBriefQueryService {
                 : metadata.dataAsOf() == null ? instant(summary.dataAsOf()) : instant(metadata.dataAsOf());
         return new ExecutiveBrief(
                 state,
+                confirmedNoAction,
                 headline(state, mustAct.size(), watch.size()),
                 new PortfolioSummary(
                         decimal(summary.investedValue()),
@@ -152,6 +154,26 @@ public class ExecutiveBriefQueryService {
                 run == null ? null : run.runId(),
                 strategyVersion,
                 dataAsOf);
+    }
+
+    static boolean confirmedNoAction(
+            PortfolioAnalysisState state,
+            List<BriefAction> mustAct,
+            List<BriefAction> doNot,
+            List<BriefAction> watch,
+            List<BriefAction> blocked,
+            DataReadiness readiness) {
+        return state == PortfolioAnalysisState.ANALYSIS_READY
+                && mustAct.isEmpty()
+                && doNot.isEmpty()
+                && watch.isEmpty()
+                && blocked.isEmpty()
+                && "HEALTHY".equals(readiness.status())
+                && "1".equals(readiness.marketCoverage())
+                && "1".equals(readiness.fundamentalCoverage())
+                && readiness.stalePositionCount() == 0
+                && readiness.missingPositionCount() == 0
+                && readiness.failedJobCount() == 0;
     }
 
     private static List<BriefAction> actions(
@@ -281,6 +303,7 @@ public class ExecutiveBriefQueryService {
 
     public record ExecutiveBrief(
             @NotNull PortfolioAnalysisState state,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean confirmedNoAction,
             @NotNull String headline,
             @NotNull @Valid PortfolioSummary summary,
             @NotNull @Valid Market market,

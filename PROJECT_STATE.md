@@ -344,3 +344,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Production Compose requires an immutable image reference and explicit secrets, exposes MySQL only on an internal network, publishes no database or backend host port, gives the backend only the application database credential, and makes the API reachable solely through an external reverse-proxy network.
 - Local/production runbooks, CI Compose validation, and backup/restore scripts now reference the correct environment-specific Compose file. Both Compose models pass `docker compose config --quiet` with their documented inputs.
 - Verification: production security/provider gates pass 9 focused tests; real MySQL session, CSRF, login, and throttling smoke tests pass. Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 190 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D4 - 2026-08-12
+
+- `ExecutiveBrief.confirmedNoAction` is now the backend-owned canonical no-action fact and is required in the OpenAPI contract and generated TypeScript client.
+- The flag is true only for `ANALYSIS_READY` with empty must-act, do-not, watch, and blocked queues, healthy full market/fundamental coverage, and no stale, missing, or failed evidence.
+- The dashboard no longer derives a calm state from empty arrays. It displays `ANALYSIS PARTIAL`, `WAITING FOR DATA`, or `BLOCKED` for incomplete, waiting, stale, blocked, and failed analysis instead of implying that no action is required.
+- Contract tests prove that empty/no-portfolio and ready-with-action responses remain unconfirmed, while a fully covered ready portfolio with every action queue empty is explicitly confirmed.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 191 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

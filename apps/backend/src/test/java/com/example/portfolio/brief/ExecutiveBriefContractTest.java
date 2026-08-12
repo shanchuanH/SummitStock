@@ -64,6 +64,7 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
         mockMvc.perform(get("/api/v1/brief/today").with(httpBasic("brief-contract@example.local", "change-before-use")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("NO_PORTFOLIO"))
+                .andExpect(jsonPath("$.confirmedNoAction").value(false))
                 .andExpect(jsonPath("$.headline").value("No portfolio has been imported."))
                 .andExpect(jsonPath("$.summary.investedValue").value("0"))
                 .andExpect(jsonPath("$.summary.trackedCash").value("0"))
@@ -87,6 +88,7 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
         mockMvc.perform(get("/api/v1/brief/today").with(httpBasic("brief-contract@example.local", "change-before-use")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("ANALYSIS_READY"))
+                .andExpect(jsonPath("$.confirmedNoAction").value(false))
                 .andExpect(jsonPath("$.headline").value("1 item(s) require action; 0 item(s) require watching."))
                 .andExpect(jsonPath("$.summary.investedValue").value("10100"))
                 .andExpect(jsonPath("$.summary.trackedCash").value("14000"))
@@ -100,6 +102,22 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.mustAct[0].symbol").value("BRFT"))
                 .andExpect(jsonPath("$.dataReadiness.status").value("HEALTHY"))
                 .andExpect(jsonPath("$.dataReadiness.marketCoverage").value("1"));
+    }
+
+    @Test
+    void confirmsNoActionOnlyWhenReadyCoverageIsHealthyAndEveryActionQueueIsEmpty() throws Exception {
+        seedReadyPortfolio();
+        update("DELETE FROM recommendation WHERE user_id=UUID_TO_BIN('" + USER_ID + "')");
+
+        mockMvc.perform(get("/api/v1/brief/today").with(httpBasic("brief-contract@example.local", "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("ANALYSIS_READY"))
+                .andExpect(jsonPath("$.confirmedNoAction").value(true))
+                .andExpect(jsonPath("$.mustAct.length()").value(0))
+                .andExpect(jsonPath("$.doNot.length()").value(0))
+                .andExpect(jsonPath("$.watch.length()").value(0))
+                .andExpect(jsonPath("$.blocked.length()").value(0))
+                .andExpect(jsonPath("$.dataReadiness.status").value("HEALTHY"));
     }
 
     private void seedReadyPortfolio() {

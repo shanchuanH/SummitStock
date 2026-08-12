@@ -1512,6 +1512,7 @@ export interface components {
         | "STALE"
         | "BLOCKED"
         | "FAILED";
+      confirmedNoAction: boolean;
       headline: string;
       summary: components["schemas"]["PortfolioSummary"];
       market: components["schemas"]["Market"];
@@ -1602,6 +1603,12 @@ export interface components {
       outOfSampleFrom?: string;
       status?: string;
       biasStatus?: string;
+      universeVersion?: string;
+      priceAdjustmentVersion?: string;
+      calendarVersion?: string;
+      costModelVersion?: string;
+      featureCutoffPolicy?: string;
+      biasProof?: string;
       summaryJson?: string;
       /** Format: date-time */
       completedAt?: string;
