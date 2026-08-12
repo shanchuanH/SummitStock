@@ -273,7 +273,7 @@ public class PortfolioStore {
                                i.symbol, p.classification,COALESCE(m.marked_market_value,0) market_value,
                                h.current_weight, r.action, r.priority, r.quantity_min, r.quantity_max,
                                r.target_weight_min, r.target_weight_max, r.risk_before_fraction,
-                               r.risk_after_fraction, r.risk_calculation_reason, r.confidence, r.reasons, r.risks,
+                               r.risk_after_fraction, r.risk_calculation_reason, r.tax_lot_status, r.confidence, r.reasons, r.risks,
                                r.change_conditions, r.rule_ids, r.strategy_version,
                                r.data_as_of, r.valid_until,
                                CASE WHEN r.quantity_max IS NULL OR q.last_price IS NULL THEN NULL
@@ -376,6 +376,7 @@ public class PortfolioStore {
             BigDecimal riskBeforeFraction,
             BigDecimal riskAfterFraction,
             String riskCalculationReason,
+            String taxLotStatus,
             String confidence,
             String reasons,
             String risks,

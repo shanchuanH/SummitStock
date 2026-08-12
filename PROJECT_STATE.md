@@ -377,3 +377,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Non-sizing actions preserve before/after risk, while unavailable projections remain null with an explicit `riskCalculationReason` such as `PORTFOLIO_RISK_EVIDENCE_UNAVAILABLE` or `PROJECTED_RISK_INPUT_MISSING`.
 - Flyway V35 backfills legacy rows with `LEGACY_NOT_CALCULATED`; both recommendation API representations expose the required reason and the generated client reflects it.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening Tax-Lot Scope - 2026-08-12
+
+- Recommendation APIs now expose a required `taxLotStatus`; no UI or API contract implies that a total-quantity recommendation has been tax optimized.
+- Sell-sizing decisions return `TAX_DATA_MISSING` unless persisted tax lots cover the recommended maximum quantity. Covered decisions return `TAX_LOTS_AVAILABLE_NOT_OPTIMIZED`, explicitly preserving the distinction between data availability and optimization.
+- Non-sell actions return `NOT_APPLICABLE`; Flyway V36 labels historical recommendations `LEGACY_UNKNOWN` rather than inventing tax evidence.
+- Total recommended quantities remain available independently of lot selection, matching the intentionally limited scope of this hardening pass.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

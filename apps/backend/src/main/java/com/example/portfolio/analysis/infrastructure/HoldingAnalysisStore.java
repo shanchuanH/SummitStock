@@ -135,18 +135,19 @@ public class HoldingAnalysisStore {
             Instant createdAt) {
         var id = UUID.randomUUID();
         var recommendationChecksum = checksumMaterial(analysis, resolution);
+        var taxLotStatus = taxLotStatus(analysis, resolution);
         jdbc.sql(
                         """
                         INSERT INTO recommendation (
                             id, user_id, position_id, holding_analysis_id, strategy_version, action, priority,
                             quantity_min, quantity_max, target_weight_min, target_weight_max,
-                            risk_before_fraction, risk_after_fraction, risk_calculation_reason, confidence, reasons, risks,
+                            risk_before_fraction, risk_after_fraction, risk_calculation_reason, tax_lot_status, confidence, reasons, risks,
                             change_conditions, rule_ids, evidence_refs, evidence_checksum, data_as_of, valid_until, status,
                             winning_rule, suppressed_candidates, resolution_reason, config_hash, created_at
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:userId), UUID_TO_BIN(:positionId), UUID_TO_BIN(:analysisId),
                             :strategyVersion, :action, :priority, :quantityMin, :quantityMax, :targetMin, :targetMax,
-                            :riskBefore, :riskAfter, :riskReason, :confidence, CAST(:reasons AS JSON), CAST(:risks AS JSON),
+                            :riskBefore, :riskAfter, :riskReason, :taxLotStatus, :confidence, CAST(:reasons AS JSON), CAST(:risks AS JSON),
                             CAST(:conditions AS JSON), CAST(:rules AS JSON), CAST(:evidenceRefs AS JSON), :checksum, :dataAsOf, :validUntil,
                             'ACTIVE', :winningRule, CAST(:suppressed AS JSON), :resolutionReason, :configHash, :createdAt
                         ) ON DUPLICATE KEY UPDATE
@@ -166,6 +167,7 @@ public class HoldingAnalysisStore {
                 .param("riskBefore", riskProjection.beforeFraction())
                 .param("riskAfter", riskProjection.afterFraction())
                 .param("riskReason", riskProjection.reason())
+                .param("taxLotStatus", taxLotStatus)
                 .param("confidence", analysis.confidence())
                 .param("reasons", serialize(analysis.reasons()))
                 .param("risks", serialize(analysis.risks()))
@@ -192,6 +194,24 @@ public class HoldingAnalysisStore {
                 .param("checksum", recommendationChecksum)
                 .query(UUID.class)
                 .single();
+    }
+
+    private String taxLotStatus(HoldingAnalysisResult analysis, RecommendationResolution resolution) {
+        if (!com.example.portfolio.analysis.decision.RecommendationSizingService.requiresSellSizing(
+                resolution.winner().action())) return "NOT_APPLICABLE";
+        var coveredQuantity = jdbc.sql(
+                        """
+                        SELECT COALESCE(SUM(t.quantity),0) FROM tax_lot t
+                        JOIN position_lot l ON l.id=t.position_lot_id
+                        WHERE l.position_id=UUID_TO_BIN(:positionId)
+                        """)
+                .param("positionId", analysis.positionId().toString())
+                .query(BigDecimal.class)
+                .single();
+        return analysis.recommendedQuantityMax() != null
+                        && coveredQuantity.compareTo(analysis.recommendedQuantityMax()) >= 0
+                ? "TAX_LOTS_AVAILABLE_NOT_OPTIMIZED"
+                : "TAX_DATA_MISSING";
     }
 
     public Optional<PositionReportRow> latestReport(UUID userId, UUID positionId) {

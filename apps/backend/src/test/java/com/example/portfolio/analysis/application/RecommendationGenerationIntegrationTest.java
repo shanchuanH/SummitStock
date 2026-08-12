@@ -33,6 +33,12 @@ class RecommendationGenerationIntegrationTest extends HoldingAnalysisIntegration
                 .query(Integer.class)
                 .single();
         assertThat(riskTruth).isEqualTo(3);
+        assertThat(jdbc.sql(
+                                "SELECT COUNT(*) FROM recommendation WHERE user_id=UUID_TO_BIN(:userId) AND tax_lot_status IN ('NOT_APPLICABLE','TAX_DATA_MISSING','TAX_LOTS_AVAILABLE_NOT_OPTIMIZED')")
+                        .param("userId", USER_ID.toString())
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(3);
         var narratives = jdbc.sql(
                         """
                         SELECT COUNT(*) FROM decision_narrative n

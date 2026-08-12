@@ -3362,6 +3362,9 @@
           "riskCalculationReason" : {
             "type" : "string"
           },
+          "taxLotStatus" : {
+            "type" : "string"
+          },
           "confidence" : {
             "type" : "string"
           },
@@ -3383,7 +3386,7 @@
             "format" : "date-time"
           }
         },
-        "required" : [ "action", "changeConditionsJson", "confidence", "dataAsOf", "id", "priority", "reasonsJson", "riskCalculationReason", "risksJson", "validUntil" ]
+        "required" : [ "action", "changeConditionsJson", "confidence", "dataAsOf", "id", "priority", "reasonsJson", "riskCalculationReason", "risksJson", "taxLotStatus", "validUntil" ]
       },
       "Capital" : {
         "type" : "object",
@@ -3804,6 +3807,9 @@
             "type" : "string"
           },
           "riskCalculationReason" : {
+            "type" : "string"
+          },
+          "taxLotStatus" : {
             "type" : "string"
           },
           "currentWeight" : {

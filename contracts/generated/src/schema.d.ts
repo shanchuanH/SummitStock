@@ -1471,6 +1471,7 @@ export interface components {
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
       riskCalculationReason: string;
+      taxLotStatus: string;
       confidence: string;
       reasonsJson: string;
       risksJson: string;
@@ -1640,6 +1641,7 @@ export interface components {
       riskBeforeFraction?: string;
       riskAfterFraction?: string;
       riskCalculationReason?: string;
+      taxLotStatus?: string;
       currentWeight?: string;
       estimatedAmount?: string;
       confidence?: string;
