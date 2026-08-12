@@ -2,9 +2,11 @@ package com.example.portfolio.analysis.infrastructure;
 
 import com.example.portfolio.analysis.domain.HoldingAnalysisResult;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
+import com.example.portfolio.analysis.narrative.NarrativeInput;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -24,25 +26,31 @@ public class HoldingAnalysisStore {
     }
 
     @Transactional
-    public UUID append(HoldingAnalysisResult value, Instant createdAt) {
+    public UUID append(
+            UUID analysisRunId,
+            HoldingAnalysisResult value,
+            RecommendationResolution resolution,
+            NarrativeInput narrativeInput,
+            Instant createdAt) {
         var id = UUID.randomUUID();
         jdbc.sql(
                         """
                         INSERT IGNORE INTO holding_analysis_snapshot (
-                            id, position_id, strategy_version, analysis_status, readiness, confidence,
+                            id, analysis_run_id, position_id, strategy_version, analysis_status, readiness, confidence,
                             current_weight, target_weight_min, target_weight_max, exact_quantity_allowed,
                             recommended_action, recommended_quantity_min, recommended_quantity_max,
                             reasons, risks, change_conditions, rule_ids, evidence_refs, evidence_checksum, config_hash,
-                            data_as_of, valid_until, created_at
+                            decision_payload, data_as_of, valid_until, created_at
                         ) VALUES (
-                            UUID_TO_BIN(:id), UUID_TO_BIN(:positionId), :strategyVersion, :analysisStatus,
+                            UUID_TO_BIN(:id), UUID_TO_BIN(:analysisRunId), UUID_TO_BIN(:positionId), :strategyVersion, :analysisStatus,
                             :readiness, :confidence, :currentWeight, :targetMin, :targetMax, :exactQuantity,
                             :action, :quantityMin, :quantityMax, CAST(:reasons AS JSON), CAST(:risks AS JSON),
                             CAST(:conditions AS JSON), CAST(:rules AS JSON), CAST(:evidenceRefs AS JSON), :checksum, :configHash,
-                            :dataAsOf, :validUntil, :createdAt
+                            CAST(:decisionPayload AS JSON), :dataAsOf, :validUntil, :createdAt
                         )
                         """)
                 .param("id", id.toString())
+                .param("analysisRunId", analysisRunId == null ? null : analysisRunId.toString())
                 .param("positionId", value.positionId().toString())
                 .param("strategyVersion", value.strategyVersion())
                 .param("analysisStatus", value.analysisStatus())
@@ -62,6 +70,7 @@ public class HoldingAnalysisStore {
                 .param("evidenceRefs", serialize(value.evidenceRefs()))
                 .param("checksum", value.evidenceChecksum())
                 .param("configHash", value.configHash())
+                .param("decisionPayload", serialize(new PersistedDecision(value, resolution, narrativeInput)))
                 .param("dataAsOf", value.dataAsOf())
                 .param("validUntil", value.validUntil())
                 .param("createdAt", createdAt)
@@ -69,15 +78,35 @@ public class HoldingAnalysisStore {
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(id) FROM holding_analysis_snapshot
-                        WHERE position_id=UUID_TO_BIN(:positionId) AND strategy_version=:strategyVersion
-                          AND data_as_of=:dataAsOf AND evidence_checksum=:checksum
+                        WHERE id=UUID_TO_BIN(:id)
                         """)
-                .param("positionId", value.positionId().toString())
-                .param("strategyVersion", value.strategyVersion())
-                .param("dataAsOf", value.dataAsOf())
-                .param("checksum", value.evidenceChecksum())
+                .param("id", id.toString())
                 .query(UUID.class)
                 .single();
+    }
+
+    public List<PersistedHolding> forRun(UUID userId, UUID analysisRunId) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(h.id) snapshotId, CAST(h.decision_payload AS CHAR) decisionPayload
+                        FROM holding_analysis_snapshot h
+                        JOIN position p ON p.id=h.position_id
+                        JOIN investment_account a ON a.id=p.account_id
+                        WHERE h.analysis_run_id=UUID_TO_BIN(:runId)
+                          AND a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                        ORDER BY h.created_at, h.id
+                        """)
+                .param("runId", analysisRunId.toString())
+                .param("userId", userId.toString())
+                .query((rs, rowNum) -> {
+                    var decision = deserialize(rs.getString("decisionPayload"), PersistedDecision.class);
+                    return new PersistedHolding(
+                            UUID.fromString(rs.getString("snapshotId")),
+                            decision.analysis(),
+                            decision.resolution(),
+                            decision.narrativeInput());
+                })
+                .list();
     }
 
     @Transactional
@@ -212,6 +241,14 @@ public class HoldingAnalysisStore {
         }
     }
 
+    private <T> T deserialize(String value, Class<T> type) {
+        try {
+            return json.readValue(value, type);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Could not deserialize persisted analysis decision", exception);
+        }
+    }
+
     private String checksumMaterial(HoldingAnalysisResult analysis, RecommendationResolution resolution) {
         return com.example.portfolio.analysis.application.AnalysisChecksum.sha256(analysis.evidenceChecksum() + ":"
                 + resolution.winner().ruleId() + ":" + serialize(resolution.suppressed()));
@@ -254,4 +291,13 @@ public class HoldingAnalysisStore {
             String narrativeRisks,
             String narrativeWatchNext,
             String narrativeConfidenceExplanation) {}
+
+    private record PersistedDecision(
+            HoldingAnalysisResult analysis, RecommendationResolution resolution, NarrativeInput narrativeInput) {}
+
+    public record PersistedHolding(
+            UUID snapshotId,
+            HoldingAnalysisResult analysis,
+            RecommendationResolution resolution,
+            NarrativeInput narrativeInput) {}
 }

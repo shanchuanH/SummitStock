@@ -14,6 +14,7 @@ import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
 import com.example.portfolio.analysis.domain.StrategyDefinition;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
+import com.example.portfolio.analysis.narrative.NarrativeInput;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
@@ -67,16 +68,20 @@ public final class HoldingAnalysisApplicationService {
     }
 
     public List<AnalyzedHolding> analyzeAll(UUID userId) {
+        return analyzeAll(userId, null);
+    }
+
+    public List<AnalyzedHolding> analyzeAll(UUID userId, UUID analysisRunId) {
         return evidenceAssembler.assembleAll(userId).stream()
-                .map(this::analyzeAndPersist)
+                .map(evidence -> analyzeAndPersist(evidence, analysisRunId))
                 .toList();
     }
 
     public AnalyzedHolding analyze(UUID userId, UUID positionId) {
-        return analyzeAndPersist(evidenceAssembler.assemble(userId, positionId));
+        return analyzeAndPersist(evidenceAssembler.assemble(userId, positionId), null);
     }
 
-    private AnalyzedHolding analyzeAndPersist(HoldingEvidence evidence) {
+    private AnalyzedHolding analyzeAndPersist(HoldingEvidence evidence, UUID analysisRunId) {
         var now = clock.instant();
         var state = HoldingEvidenceReadiness.assess(evidence, now, freshness);
         var policy = policy(evidence.position().classification(), evidence.strategy());
@@ -113,8 +118,28 @@ public final class HoldingAnalysisApplicationService {
                 evidence.dataAsOf(),
                 now.plus(VALIDITY),
                 AnalysisChecksum.sha256(evidence + ":" + state + ":" + resolution));
-        var snapshotId = store.append(result, now);
-        return new AnalyzedHolding(snapshotId, evidence, result, resolution);
+        var narrativeInput = narrativeInput(evidence, result, resolution);
+        var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, now);
+        return new AnalyzedHolding(snapshotId, evidence, result, resolution, narrativeInput);
+    }
+
+    private static NarrativeInput narrativeInput(
+            HoldingEvidence evidence, HoldingAnalysisResult analysis, RecommendationResolution resolution) {
+        return new NarrativeInput(
+                evidence.instrument().symbol(),
+                evidence.position().classification().name(),
+                resolution.winner().action().name(),
+                evidence.fundamentals().financialHealth(),
+                evidence.valuation().state(),
+                evidence.fundamentals().estimateRevision(),
+                evidence.indicators().priceState(),
+                resolution.winner().riskRank() <= 7 ? "BLOCKED" : "AVAILABLE",
+                resolution.winner().ruleId(),
+                analysis.reasons(),
+                analysis.risks(),
+                analysis.changeConditions(),
+                analysis.confidence(),
+                false);
     }
 
     private List<RecommendationCandidate> candidates(
@@ -384,5 +409,6 @@ public final class HoldingAnalysisApplicationService {
             UUID snapshotId,
             HoldingEvidence evidence,
             HoldingAnalysisResult analysis,
-            RecommendationResolution resolution) {}
+            RecommendationResolution resolution,
+            NarrativeInput narrativeInput) {}
 }

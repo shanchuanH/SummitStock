@@ -49,10 +49,16 @@ class EodPipelineVerticalIntegrationTest extends PortfolioImportIntegrationSuppo
                 .isPositive();
         assertThat(count("SELECT COUNT(*) FROM holding_analysis_snapshot h JOIN position p ON p.id=h.position_id "
                         + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
-                        + "WHERE u.email='" + EMAIL + "' AND p.status='OPEN'"))
+                        + "WHERE u.email='" + EMAIL + "' AND p.status='OPEN' "
+                        + "AND h.analysis_run_id=UUID_TO_BIN('" + runId + "') AND h.decision_payload IS NOT NULL"))
                 .isEqualTo(3);
         assertThat(count("SELECT COUNT(*) FROM recommendation r JOIN app_user u ON u.id=r.user_id " + "WHERE u.email='"
                         + EMAIL + "' AND r.status='ACTIVE'"))
+                .isEqualTo(3);
+        assertThat(count("SELECT COUNT(*) FROM recommendation r "
+                        + "JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id "
+                        + "JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "' "
+                        + "AND h.analysis_run_id=UUID_TO_BIN('" + runId + "')"))
                 .isEqualTo(3);
     }
 

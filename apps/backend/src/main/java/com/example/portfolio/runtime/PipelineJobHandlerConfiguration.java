@@ -247,12 +247,11 @@ class PipelineJobHandlerConfiguration {
     @Bean
     JobHandler computeHoldingAnalysisJobHandler(
             HoldingAnalysisApplicationService analysis, ObjectMapper json, Clock clock) {
-        return handler(
-                "COMPUTE_HOLDING_ANALYSIS",
-                context -> success(
-                        analysis.analyzeAll(requiredUser(payload(context, json)))
-                                .size(),
-                        clock.instant()));
+        return handler("COMPUTE_HOLDING_ANALYSIS", context -> {
+            var payload = payload(context, json);
+            var runId = requiredRun(context, payload);
+            return success(analysis.analyzeAll(requiredUser(payload), runId).size(), clock.instant());
+        });
     }
 
     @Bean
@@ -265,13 +264,12 @@ class PipelineJobHandlerConfiguration {
     @Bean
     JobHandler generateRecommendationsJobHandler(
             RecommendationGenerationService recommendations, ObjectMapper json, Clock clock) {
-        return handler(
-                "GENERATE_RECOMMENDATIONS",
-                context -> success(
-                        recommendations
-                                .generateAll(requiredUser(payload(context, json)))
-                                .size(),
-                        clock.instant()));
+        return handler("GENERATE_RECOMMENDATIONS", context -> {
+            var payload = payload(context, json);
+            var runId = requiredRun(context, payload);
+            return success(
+                    recommendations.generateForRun(requiredUser(payload), runId).size(), clock.instant());
+        });
     }
 
     @Bean
@@ -373,6 +371,12 @@ class PipelineJobHandlerConfiguration {
     private static UUID requiredUser(PipelinePayload payload) {
         if (payload.userId() == null) throw new PermanentDataException("MISSING_JOB_USER", "Job user is required");
         return payload.userId();
+    }
+
+    private static UUID requiredRun(JobExecutionContext context, PipelinePayload payload) {
+        var runId = context.analysisRunId() == null ? payload.runId() : context.analysisRunId();
+        if (runId == null) throw new PermanentDataException("MISSING_ANALYSIS_RUN", "Analysis run is required");
+        return runId;
     }
 
     record PipelinePayload(UUID runId, UUID userId, LocalDate marketDate) {}

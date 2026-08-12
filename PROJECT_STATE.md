@@ -360,3 +360,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Flyway V33 migrates historical analysis-step dependencies and durable job types to the honest names, preserving existing audit records and run topology.
 - A semantic contract test prevents the misleading update/generate names from returning, while scheduler tests prove the periodic jobs enqueue the renamed read-only operations.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D6 - 2026-08-12
+
+- Flyway V34 links each holding-analysis snapshot to its owning `portfolio_analysis_run`, enforces one canonical snapshot per run/position, and preserves snapshots if an old run is deleted.
+- The compute step persists the complete resolved decision and deterministic narrative input as an auditable JSON payload alongside the normalized snapshot columns.
+- `GENERATE_RECOMMENDATIONS` now loads the exact snapshots for its run and creates recommendations/narratives from their persisted decisions; it never invokes `analyzeAll()`.
+- The post-earnings path also performs holding analysis only once by using the single-pass recommendation entry point.
+- The real three-position EOD acceptance test proves exactly three run-linked snapshots and three recommendations that reference those same snapshots.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
