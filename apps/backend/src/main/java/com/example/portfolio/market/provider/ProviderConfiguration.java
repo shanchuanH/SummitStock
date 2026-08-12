@@ -1,5 +1,6 @@
 package com.example.portfolio.market.provider;
 
+import com.example.portfolio.market.persistence.ProviderRequestJournal;
 import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
@@ -13,14 +14,16 @@ import tools.jackson.databind.ObjectMapper;
 @EnableConfigurationProperties(ProviderProperties.class)
 class ProviderConfiguration {
     @Bean
-    ProviderExecutor providerExecutor(Clock clock, ProviderProperties properties) {
+    ProviderExecutionPolicy providerExecutionPolicy(
+            Clock clock, ProviderProperties properties, ProviderRequestJournal journal) {
         var execution = properties.execution();
-        return new ProviderExecutor(
+        return policy(
                 clock,
-                ProviderConfiguration::sleep,
                 execution.maxAttempts(),
                 execution.retryDelay(),
-                execution.minimumInterval());
+                execution.minimumInterval(),
+                journal,
+                "alpha-vantage");
     }
 
     @Bean
@@ -35,16 +38,44 @@ class ProviderConfiguration {
     @Primary
     ProviderHttpClient providerHttpClient(
             HttpClient providerJavaHttpClient,
-            ProviderExecutor providerExecutor,
+            ProviderExecutionPolicy providerExecutionPolicy,
             ProviderProperties properties,
             ObjectMapper json) {
         return new ProviderHttpClient(
-                providerJavaHttpClient, providerExecutor, properties.execution().requestTimeout(), json);
+                providerJavaHttpClient,
+                providerExecutionPolicy,
+                properties.execution().requestTimeout(),
+                json);
+    }
+
+    @Bean("secProviderHttpClient")
+    ProviderHttpClient secProviderHttpClient(
+            HttpClient providerJavaHttpClient,
+            Clock clock,
+            ProviderProperties properties,
+            ProviderRequestJournal journal,
+            ObjectMapper json) {
+        var execution = properties.execution();
+        return new ProviderHttpClient(
+                providerJavaHttpClient,
+                policy(
+                        clock,
+                        execution.maxAttempts(),
+                        execution.retryDelay(),
+                        execution.minimumInterval(),
+                        journal,
+                        "sec"),
+                execution.requestTimeout(),
+                json);
     }
 
     @Bean("estimateProviderHttpClient")
     ProviderHttpClient estimateProviderHttpClient(
-            HttpClient providerJavaHttpClient, Clock clock, ProviderProperties properties, ObjectMapper json) {
+            HttpClient providerJavaHttpClient,
+            Clock clock,
+            ProviderProperties properties,
+            ProviderRequestJournal journal,
+            ObjectMapper json) {
         var config = properties.estimates();
         return client(
                 providerJavaHttpClient,
@@ -53,12 +84,18 @@ class ProviderConfiguration {
                 config.maxAttempts(),
                 config.retryDelay(),
                 config.minimumInterval(),
-                config.requestTimeout());
+                config.requestTimeout(),
+                journal,
+                "alpha-vantage-estimates");
     }
 
     @Bean("earningsCalendarProviderHttpClient")
     ProviderHttpClient earningsCalendarProviderHttpClient(
-            HttpClient providerJavaHttpClient, Clock clock, ProviderProperties properties, ObjectMapper json) {
+            HttpClient providerJavaHttpClient,
+            Clock clock,
+            ProviderProperties properties,
+            ProviderRequestJournal journal,
+            ObjectMapper json) {
         var config = properties.earningsCalendar();
         return client(
                 providerJavaHttpClient,
@@ -67,12 +104,18 @@ class ProviderConfiguration {
                 config.maxAttempts(),
                 config.retryDelay(),
                 config.minimumInterval(),
-                config.requestTimeout());
+                config.requestTimeout(),
+                journal,
+                "alpha-vantage-earnings");
     }
 
     @Bean("macroProviderHttpClient")
     ProviderHttpClient macroProviderHttpClient(
-            HttpClient providerJavaHttpClient, Clock clock, ProviderProperties properties, ObjectMapper json) {
+            HttpClient providerJavaHttpClient,
+            Clock clock,
+            ProviderProperties properties,
+            ProviderRequestJournal journal,
+            ObjectMapper json) {
         var config = properties.macro();
         return client(
                 providerJavaHttpClient,
@@ -81,7 +124,9 @@ class ProviderConfiguration {
                 config.maxAttempts(),
                 config.retryDelay(),
                 config.minimumInterval(),
-                config.requestTimeout());
+                config.requestTimeout(),
+                journal,
+                "fred");
     }
 
     private static ProviderHttpClient client(
@@ -91,12 +136,25 @@ class ProviderConfiguration {
             int maxAttempts,
             Duration retryDelay,
             Duration minimumInterval,
-            Duration requestTimeout) {
+            Duration requestTimeout,
+            ProviderRequestJournal journal,
+            String providerId) {
         return new ProviderHttpClient(
                 http,
-                new ProviderExecutor(clock, ProviderConfiguration::sleep, maxAttempts, retryDelay, minimumInterval),
+                policy(clock, maxAttempts, retryDelay, minimumInterval, journal, providerId),
                 requestTimeout,
                 json);
+    }
+
+    private static ProviderExecutionPolicy policy(
+            Clock clock,
+            int maxAttempts,
+            Duration retryDelay,
+            Duration minimumInterval,
+            ProviderRequestJournal journal,
+            String providerId) {
+        return new ProviderExecutionPolicy(
+                clock, ProviderConfiguration::sleep, maxAttempts, retryDelay, minimumInterval, journal, providerId);
     }
 
     private static void sleep(java.time.Duration duration) {

@@ -326,3 +326,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Expired-lease recovery marks the abandoned attempt `FAILED/LEASE_EXPIRED` before making the job claimable, preserving an auditable attempt history.
 - The required A/B race test proves that after A expires and B reclaims, A cannot heartbeat or complete, B exclusively owns the final result, and A's attempt remains closed as expired.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 184 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D2 - 2026-08-12
+
+- Quote scheduling now uses the canonical exchange calendar and runs at one-minute slots only during the regular XNYS/XNAS session; weekends, holidays, pre-market, and post-market enqueue no polling jobs.
+- Market polling no longer scans every historically active instrument. The canonical tracked set is limited to open positions, benchmark metadata, and explicitly active `WATCHLIST` ideas. Migration V32 separates watchlist activity from behavioral cooldown semantics.
+- `ProviderExecutionPolicy` is now the single execution boundary for every production provider HTTP request. It centralizes minimum interval enforcement, bounded retry/backoff, the existing daily quota gate, and durable request journaling.
+- Alpha Vantage market/estimate/earnings clients, SEC, and FRED receive distinct policy identities and usage records. Request journal context stores only host and path, so API keys and query secrets are not persisted.
+- Tests prove 429 retry through the central policy, quota/journal accounting, secret redaction, production provider contracts, regular-session-only scheduling, exclusion of untracked historical instruments, and inclusion of benchmarks plus active watchlist ideas.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 187 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

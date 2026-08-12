@@ -14,23 +14,23 @@ import tools.jackson.databind.ObjectMapper;
 
 public final class ProviderHttpClient {
     private final HttpClient client;
-    private final ProviderExecutor executor;
+    private final ProviderExecutionPolicy policy;
     private final Duration timeout;
     private final ObjectMapper json;
 
-    ProviderHttpClient(HttpClient client, ProviderExecutor executor, Duration timeout, ObjectMapper json) {
+    ProviderHttpClient(HttpClient client, ProviderExecutionPolicy policy, Duration timeout, ObjectMapper json) {
         this.client = client;
-        this.executor = executor;
+        this.policy = policy;
         this.timeout = timeout;
         this.json = json;
     }
 
     public Payload get(URI uri, Map<String, String> headers) {
-        return executor.execute(() -> send(uri, headers));
+        return policy.execute(operation(uri), context(uri), () -> send(uri, headers), Payload::raw);
     }
 
     public String getText(URI uri, Map<String, String> headers) {
-        return executor.execute(() -> sendProviderText(uri, headers));
+        return policy.execute(operation(uri), context(uri), () -> sendProviderText(uri, headers), value -> value);
     }
 
     private String sendProviderText(URI uri, Map<String, String> headers) {
@@ -96,6 +96,20 @@ public final class ProviderHttpClient {
             throw new ProviderCallException(
                     ProviderErrorCode.PROVIDER_UNAVAILABLE, "Provider request interrupted", null, false);
         }
+    }
+
+    private static String operation(URI uri) {
+        if (uri.getRawQuery() != null) {
+            for (var part : uri.getRawQuery().split("&")) {
+                if (part.regionMatches(true, 0, "function=", 0, 9))
+                    return part.substring(9).toLowerCase();
+            }
+        }
+        return "http-get";
+    }
+
+    private static String context(URI uri) {
+        return "{\"host\":\"" + uri.getHost() + "\",\"path\":\"" + uri.getPath() + "\"}";
     }
 
     public record Payload(String raw, JsonNode json) {}

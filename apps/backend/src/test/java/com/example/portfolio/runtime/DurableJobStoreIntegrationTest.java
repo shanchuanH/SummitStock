@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.portfolio.MySqlIntegrationTest;
 import com.example.portfolio.configuration.PortfolioProperties;
+import com.example.portfolio.market.provider.UsEquityTradingCalendar;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -115,7 +116,11 @@ class DurableJobStoreIntegrationTest extends MySqlIntegrationTest {
     @Test
     void scheduledScannerWritesAnIdempotentEodPipeline() {
         var planner = new ScheduledJobPlanner(
-                jobs, orchestrator, properties, Clock.fixed(Instant.parse("2026-08-05T22:15:00Z"), ZoneOffset.UTC));
+                jobs,
+                orchestrator,
+                properties,
+                Clock.fixed(Instant.parse("2026-08-05T15:00:00Z"), ZoneOffset.UTC),
+                new UsEquityTradingCalendar());
         planner.quotes();
         planner.quotes();
         assertThat(jobs.pendingCount()).isEqualTo(1);

@@ -86,7 +86,7 @@ class SecProviderContractTest {
                         ProviderProperties.FundamentalsType.SEC, baseUrl, "SummitStock test@example.test"),
                 new ProviderProperties.Execution(
                         1, Duration.ZERO, Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(2)));
-        var executor = new ProviderExecutor(CLOCK, ignored -> {}, 1, Duration.ZERO, Duration.ZERO);
+        var executor = new ProviderExecutionPolicy(CLOCK, ignored -> {}, 1, Duration.ZERO, Duration.ZERO);
         var http =
                 new ProviderHttpClient(HttpClient.newHttpClient(), executor, Duration.ofSeconds(2), new ObjectMapper());
         return new SecFundamentalsProvider(http, properties, CLOCK);

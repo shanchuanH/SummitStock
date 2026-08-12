@@ -53,7 +53,7 @@ class ProductionSupplementalProviderContractTest {
     private static ProviderHttpClient http() {
         return new ProviderHttpClient(
                 HttpClient.newHttpClient(),
-                new ProviderExecutor(CLOCK, ignored -> {}, 1, Duration.ZERO, Duration.ZERO),
+                new ProviderExecutionPolicy(CLOCK, ignored -> {}, 1, Duration.ZERO, Duration.ZERO),
                 Duration.ofSeconds(2),
                 new ObjectMapper());
     }

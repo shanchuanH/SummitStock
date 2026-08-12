@@ -291,7 +291,13 @@ public class EodMarketPipelineService {
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(id) id, symbol FROM instrument
-                        WHERE active=TRUE AND asset_type IN ('EQUITY','ETF') ORDER BY symbol
+                        WHERE active=TRUE AND asset_type IN ('EQUITY','ETF') AND (
+                          JSON_EXTRACT(metadata, '$.benchmark') = TRUE
+                          OR EXISTS (SELECT 1 FROM position p WHERE p.instrument_id=instrument.id AND p.status='OPEN')
+                          OR EXISTS (SELECT 1 FROM investment_idea idea
+                                     WHERE idea.instrument_id=instrument.id AND idea.source_type='WATCHLIST'
+                                       AND idea.active=TRUE))
+                        ORDER BY symbol
                         """)
                 .query(TrackedInstrument.class)
                 .list();

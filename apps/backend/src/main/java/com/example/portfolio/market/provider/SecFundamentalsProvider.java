@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -29,7 +30,8 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
     private final Clock clock;
     private final DataQualityPolicy quality = new DataQualityPolicy();
 
-    public SecFundamentalsProvider(ProviderHttpClient http, ProviderProperties properties, Clock clock) {
+    public SecFundamentalsProvider(
+            @Qualifier("secProviderHttpClient") ProviderHttpClient http, ProviderProperties properties, Clock clock) {
         this.http = http;
         this.properties = properties;
         this.clock = clock;

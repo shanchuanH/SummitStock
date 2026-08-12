@@ -83,7 +83,7 @@ class MarketProviderContractTest {
 
     private static ProductionMarketDataProvider provider(String baseUrl, int attempts) {
         var properties = properties(baseUrl);
-        var executor = new ProviderExecutor(CLOCK, ignored -> {}, attempts, Duration.ZERO, Duration.ZERO);
+        var executor = new ProviderExecutionPolicy(CLOCK, ignored -> {}, attempts, Duration.ZERO, Duration.ZERO);
         var http =
                 new ProviderHttpClient(HttpClient.newHttpClient(), executor, Duration.ofSeconds(2), new ObjectMapper());
         return new ProductionMarketDataProvider(http, properties, CLOCK);
