@@ -1,4 +1,4 @@
-name: portfolio-engine
+name: portfolio-engine-local
 
 services:
   mysql:

@@ -335,3 +335,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Alpha Vantage market/estimate/earnings clients, SEC, and FRED receive distinct policy identities and usage records. Request journal context stores only host and path, so API keys and query secrets are not persisted.
 - Tests prove 429 retry through the central policy, quota/journal accounting, secret redaction, production provider contracts, regular-session-only scheduling, exclusion of untracked historical instruments, and inclusion of benchmarks plus active watchlist ideas.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 187 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening D3 - 2026-08-12
+
+- A production-only startup gate rejects blank credentials and all documented placeholder values (`change-before-use`, `change-local-app-password`, and `change-local-root-password`) before the application can serve traffic.
+- Production startup also fails when Secure session cookies or forwarded-header handling are disabled, when `local-fixture` is co-activated, or when a fake market/fundamentals provider is selected. The production profile defaults to Secure cookies and framework proxy-header processing.
+- Deployment configuration is split into `infra/compose.local.yaml` and `infra/compose.prod.yaml`. Local fixtures and published development ports exist only in the local file.
+- Production Compose requires an immutable image reference and explicit secrets, exposes MySQL only on an internal network, publishes no database or backend host port, gives the backend only the application database credential, and makes the API reachable solely through an external reverse-proxy network.
+- Local/production runbooks, CI Compose validation, and backup/restore scripts now reference the correct environment-specific Compose file. Both Compose models pass `docker compose config --quiet` with their documented inputs.
+- Verification: production security/provider gates pass 9 focused tests; real MySQL session, CSRF, login, and throttling smoke tests pass. Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 190 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

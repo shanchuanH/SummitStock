@@ -40,7 +40,7 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           fail-on-severity: high
-      - run: docker compose -f infra/compose.yaml config --quiet
+      - run: docker compose -f infra/compose.local.yaml config --quiet
       - run: docker build -f infra/docker/backend.Dockerfile .
       - uses: gitleaks/gitleaks-action@v3
         env:

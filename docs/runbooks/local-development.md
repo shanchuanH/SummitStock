@@ -5,7 +5,7 @@
 Use JDK 25 and the checked-in Maven Wrapper. Node.js must be 22.12 or newer and pnpm must be 11.x. Docker provides MySQL 8.4 for local runtime and Testcontainers.
 
 1. Copy `.env.example` to `.env` and change credentials if the machine is shared.
-2. Start MySQL with `docker compose -f infra/compose.yaml up -d mysql`.
+2. Start MySQL with `docker compose -f infra/compose.local.yaml up -d mysql`.
 3. Start the API with `.\mvnw.cmd -pl apps/backend -am spring-boot:run`.
 4. Start the SPA with `pnpm dev`.
 
@@ -16,7 +16,7 @@ MySQL is configured for InnoDB, `utf8mb4`, UTC, and strict SQL mode. Flyway owns
 - `PORTFOLIO_RUNTIME_MODE=api`: servlet API, Actuator, security, and OpenAPI.
 - `PORTFOLIO_RUNTIME_MODE=worker`: non-web process using the same domain and persistence code.
 
-Use `docker compose -f infra/compose.yaml --profile app up --build` to run MySQL plus both modes in containers.
+Use `docker compose -f infra/compose.local.yaml --profile app up --build` to run MySQL plus both modes in containers.
 
 ## Contract workflow
 

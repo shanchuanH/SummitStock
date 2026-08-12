@@ -14,7 +14,7 @@ Packets 01–08 implement the foundation through deterministic ETF Dip, durable 
 Prerequisites are JDK 25, Node.js 22.22+, pnpm 11+, and Docker Desktop. Copy `.env.example` to `.env` before replacing local-only credentials.
 
 ```powershell
-docker compose -f infra/compose.yaml up -d mysql
+docker compose -f infra/compose.local.yaml up -d mysql
 $env:SPRING_PROFILES_ACTIVE = "local-fixture"
 $env:PORTFOLIO_MARKET_PROVIDER = "fake"
 $env:PORTFOLIO_FUNDAMENTALS_PROVIDER = "fake"
@@ -59,7 +59,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm api:check
-docker compose -f infra/compose.yaml config --quiet
+docker compose -f infra/compose.local.yaml config --quiet
 ```
 
 OpenAPI is exported from a real Spring context backed by a disposable MySQL 8.4 Testcontainer. Regenerate the contract with `pnpm api:generate` after changing a controller DTO.
