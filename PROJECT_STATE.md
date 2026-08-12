@@ -385,3 +385,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Non-sell actions return `NOT_APPLICABLE`; Flyway V36 labels historical recommendations `LEGACY_UNKNOWN` rather than inventing tax evidence.
 - Total recommended quantities remain available independently of lot selection, matching the intentionally limited scope of this hardening pass.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 193 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Hardening Position Bucket Consistency - 2026-08-12
+
+- `position.bucket` is confirmed as the strategy sleeve, not an independent user label. Classification confirmation now updates classification and sleeve atomically under the same optimistic version check.
+- `CORE_BROAD_ETF`, `CORE_TECH_ETF`, and `CASH_EQUIVALENT` map to `CORE`; quality, thematic, tactical, turnaround, and speculative classifications map to `TACTICAL_OVERLAY`.
+- Flyway V37 applies the same deterministic mapping to every existing confirmed position, eliminating historical classification/bucket disagreement.
+- API integration tests prove both core and quality classification paths return the synchronized bucket; the complete real-portfolio vertical scenario remains green.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 194 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

@@ -168,6 +168,7 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.classification").value("CORE_BROAD_ETF"))
+                .andExpect(jsonPath("$.bucket").value("CORE"))
                 .andExpect(jsonPath("$.classificationConfirmed").value(true))
                 .andExpect(jsonPath("$.version").value(1));
         assertThat(jdbc.sql(
@@ -182,6 +183,18 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void classificationConfirmationSynchronizesTheStrategySleeveBucket() throws Exception {
+        mockMvc.perform(post("/api/v1/positions/{id}/classify", OWNER_POSITION)
+                        .with(httpBasic("admin@example.local", "change-before-use"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"classification\":\"QUALITY_STOCK\",\"expectedVersion\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.classification").value("QUALITY_STOCK"))
+                .andExpect(jsonPath("$.bucket").value("TACTICAL_OVERLAY"));
     }
 
     @Test

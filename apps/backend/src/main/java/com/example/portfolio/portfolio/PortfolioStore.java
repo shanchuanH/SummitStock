@@ -207,6 +207,7 @@ public class PortfolioStore {
                         JOIN investment_account a ON a.id = p.account_id
                         JOIN app_user u ON u.id = a.user_id
                         SET p.classification = :classification,
+                            p.bucket = :bucket,
                             p.classification_confirmed = TRUE,
                             p.classification_source = :source,
                             p.updated_at = :updatedAt,
@@ -214,6 +215,7 @@ public class PortfolioStore {
                         WHERE p.id = UUID_TO_BIN(:id) AND u.email = :email AND p.version = :version
                         """)
                 .param("classification", classification)
+                .param("bucket", bucketFor(classification))
                 .param("source", source)
                 .param("updatedAt", clock.instant())
                 .param("id", id.toString())
@@ -243,6 +245,13 @@ public class PortfolioStore {
                 .param("email", email)
                 .update();
         return position(email, id).orElseThrow();
+    }
+
+    static String bucketFor(String classification) {
+        return switch (classification) {
+            case "CORE_BROAD_ETF", "CORE_TECH_ETF", "CASH_EQUIVALENT" -> "CORE";
+            default -> "TACTICAL_OVERLAY";
+        };
     }
 
     public List<HoldingAnalysisView> analyses(String email) {
