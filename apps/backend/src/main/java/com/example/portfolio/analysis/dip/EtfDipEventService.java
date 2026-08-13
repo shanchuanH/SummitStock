@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.dip;
 
 import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.market.provider.TradingCalendar;
 import com.example.portfolio.strategy.dip.EtfDipEngine;
 import com.example.portfolio.strategy.market.EvidenceQuality;
@@ -127,6 +128,16 @@ public class EtfDipEventService {
     }
 
     public Optional<EtfDipDecisionEvent> latest(UUID userId, UUID instrumentId) {
+        return latest(
+                userId,
+                instrumentId,
+                new DecisionAsOfContext(
+                        LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC),
+                        clock.instant(),
+                        strategies.current().version()));
+    }
+
+    public Optional<EtfDipDecisionEvent> latest(UUID userId, UUID instrumentId, DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT status state,setup_score setupScore,trigger_count triggerCount,
@@ -136,11 +147,16 @@ public class EtfDipEventService {
                         FROM etf_dip_event
                         WHERE user_id=UUID_TO_BIN(:userId) AND instrument_id=UUID_TO_BIN(:instrumentId)
                           AND valid_until>=:now
+                          AND DATE(data_as_of)<=:marketDate AND data_as_of<=:cutoff
+                          AND strategy_version=:strategyVersion
                         ORDER BY data_as_of DESC,created_at DESC LIMIT 1
                         """)
                 .param("userId", userId.toString())
                 .param("instrumentId", instrumentId.toString())
-                .param("now", clock.instant())
+                .param("now", context.dataCutoff())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
                 .query(EventRow.class)
                 .optional()
                 .map(row -> new EtfDipDecisionEvent(

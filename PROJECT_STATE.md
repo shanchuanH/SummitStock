@@ -558,3 +558,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Stop recalculation now extracts the latest two separately confirmed swing lows. The earlier pivot is the structure input; the later pivot is passed as a higher-low input only when its price is strictly greater.
 - The prior fallback that substituted an arbitrary 22-bar minimum was removed. One pivot, an equal/lower second pivot, or insufficient confirmation can no longer manufacture a higher-low stop raise.
 - Verification: 8 strategy-core stop/intelligence tests and the new backend swing-structure test pass. Coverage proves distinct 8→9 pivots raise the structural input, while 8→7 and a lone 8 pivot pass no higher low.
+
+## User-Friendly Strategy Manual — Strategy S-5 — 2026-08-13
+
+- `DecisionAsOfContext` now carries market date, evidence cutoff, and strategy version. Analysis runs derive this context from their persisted run date/version; live analysis uses the injected clock.
+- Point-in-time evidence access covers indicator, breadth, macro observation/factor, ETF Dip, market regime, estimate revision, and valuation assessment snapshots with both `market_date <= context.marketDate` and `data_as_of <= context.dataCutoff`; versioned strategy outputs also require the exact strategy version.
+- Holding evidence assembly, regime inputs, breadth, macro, and ETF Dip reads now consume the context. Price bars, quotes, price state, fundamentals, estimates, and valuation snapshots are cutoff-bound, so historical runs do not silently read the latest database row.
+- Verification: backend packaging passes; the focused MySQL replay test inserts a same-market-date indicator learned after the cutoff and a future indicator, then proves the store selects the older point-in-time value. Focused replay/readiness tests pass 4/4.

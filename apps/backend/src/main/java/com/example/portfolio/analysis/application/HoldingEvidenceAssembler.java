@@ -2,11 +2,14 @@ package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
+import com.example.portfolio.analysis.domain.StrategyDefinition;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,31 +25,48 @@ public final class HoldingEvidenceAssembler {
     private final PublishedStrategyService strategies;
     private final CapitalBaseService capitalBases;
     private final ClusterRiskService clusterRisks;
+    private final Clock clock;
 
     public HoldingEvidenceAssembler(
             JdbcClient jdbc,
             PublishedStrategyService strategies,
             CapitalBaseService capitalBases,
-            ClusterRiskService clusterRisks) {
+            ClusterRiskService clusterRisks,
+            Clock clock) {
         this.jdbc = jdbc;
         this.strategies = strategies;
         this.capitalBases = capitalBases;
         this.clusterRisks = clusterRisks;
+        this.clock = clock;
     }
 
     public List<HoldingEvidence> assembleAll(UUID userId) {
-        return positions(userId).stream().map(this::assemble).toList();
+        var strategy = strategies.current();
+        var context = new DecisionAsOfContext(LocalDate.now(clock), clock.instant(), strategy.version());
+        return assembleAll(userId, context);
+    }
+
+    StrategyDefinition currentStrategy() {
+        return strategies.current();
+    }
+
+    public List<HoldingEvidence> assembleAll(UUID userId, DecisionAsOfContext context) {
+        return positions(userId).stream()
+                .map(position -> assemble(position, context))
+                .toList();
     }
 
     public HoldingEvidence assemble(UUID userId, UUID positionId) {
+        var strategy = strategies.current();
+        var context = new DecisionAsOfContext(LocalDate.now(clock), clock.instant(), strategy.version());
         return positions(userId).stream()
                 .filter(value -> value.positionId().equals(positionId))
                 .findFirst()
-                .map(this::assemble)
+                .map(position -> assemble(position, context))
                 .orElseThrow(() -> new IllegalArgumentException("Position is not owned by user"));
     }
 
-    private HoldingEvidence assemble(PositionRow position) {
+    private HoldingEvidence assemble(PositionRow position, DecisionAsOfContext context) {
         var totals = totals(position.userId());
         var capital = capitalBases.calculate(position.userId());
         var risk = riskEvidence(position.userId());
@@ -56,15 +76,15 @@ public final class HoldingEvidenceAssembler {
                 : position.marketValue().divide(investable, MathContext.DECIMAL64);
         var cluster = cluster(position.positionId(), investable);
         var clusterRisk = clusterRisks.forPosition(position.positionId());
-        var quote = quote(position.instrumentId());
-        var bars = bars(position.instrumentId());
-        var indicators = indicators(position.instrumentId(), bars);
-        var fundamentals = fundamentals(position.instrumentId());
-        var valuation = valuation(position.positionId(), position.instrumentId());
+        var quote = quote(position.instrumentId(), context);
+        var bars = bars(position.instrumentId(), context);
+        var indicators = indicators(position.instrumentId(), bars, context);
+        var fundamentals = fundamentals(position.instrumentId(), context);
+        var valuation = valuation(position.positionId(), position.instrumentId(), context);
         var event = event(position.positionId(), position.instrumentId());
         var catalyst = catalyst(position.positionId());
         var thesis = thesis(position.positionId());
-        var regime = regime();
+        var regime = regime(context);
         var drawdown = drawdown(position.userId());
         var stop = stop(position.positionId());
         var profile = profile(position.instrumentId());
@@ -219,7 +239,7 @@ public final class HoldingEvidenceAssembler {
                 > 0;
     }
 
-    private HoldingEvidence.LatestQuote quote(UUID instrumentId) {
+    private HoldingEvidence.LatestQuote quote(UUID instrumentId, DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT last_price last, data_as_of dataAsOf,
@@ -228,9 +248,12 @@ public final class HoldingEvidenceAssembler {
                                     THEN quality_status ELSE decision_quality_status END quality,
                                execution_quality_status executionQuality
                         FROM quote WHERE instrument_id=UUID_TO_BIN(:id)
+                          AND COALESCE(decision_market_date,DATE(source_timestamp))<=:marketDate AND data_as_of<=:cutoff
                         ORDER BY data_as_of DESC, created_at DESC LIMIT 1
                         """)
                 .param("id", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(QuoteRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.LatestQuote(
@@ -242,15 +265,18 @@ public final class HoldingEvidenceAssembler {
                 .orElse(new HoldingEvidence.LatestQuote(null, null, EvidenceQuality.MISSING));
     }
 
-    private List<HoldingEvidence.PriceBar> bars(UUID instrumentId) {
+    private List<HoldingEvidence.PriceBar> bars(UUID instrumentId, DecisionAsOfContext context) {
         return jdbc
                 .sql(
                         """
                         SELECT market_date marketDate, close_price close,volume
                         FROM price_bar WHERE instrument_id=UUID_TO_BIN(:id) AND adjusted=TRUE
+                          AND market_date<=:marketDate AND data_as_of<=:cutoff
                         ORDER BY market_date DESC LIMIT 250
                         """)
                 .param("id", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(BarRow.class)
                 .list()
                 .stream()
@@ -258,24 +284,31 @@ public final class HoldingEvidenceAssembler {
                 .toList();
     }
 
-    private HoldingEvidence.IndicatorSet indicators(UUID instrumentId, List<HoldingEvidence.PriceBar> bars) {
+    private HoldingEvidence.IndicatorSet indicators(
+            UUID instrumentId, List<HoldingEvidence.PriceBar> bars, DecisionAsOfContext context) {
         var values = jdbc.sql(
                         """
                         SELECT indicator_code code, value_double value
                         FROM indicator_snapshot s
                         WHERE instrument_id=UUID_TO_BIN(:id) AND status='READY'
+                          AND market_date<=:marketDate AND data_as_of<=:cutoff
                           AND market_date=(SELECT MAX(x.market_date) FROM indicator_snapshot x
-                                           WHERE x.instrument_id=s.instrument_id)
+                                           WHERE x.instrument_id=s.instrument_id AND x.market_date<=:marketDate
+                                             AND x.data_as_of<=:cutoff)
                           AND indicator_code IN ('SMA_20','RSI_14','ATR_14')
                         """)
                 .param("id", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(IndicatorRow.class)
                 .list();
         var sma = indicator(values, "SMA_20");
         var latest = bars.isEmpty() ? null : bars.getFirst().close();
         var priceState = jdbc.sql(
-                        "SELECT price_state FROM price_state_snapshot WHERE instrument_id=UUID_TO_BIN(:id) ORDER BY market_date DESC LIMIT 1")
+                        "SELECT price_state FROM price_state_snapshot WHERE instrument_id=UUID_TO_BIN(:id) AND market_date<=:marketDate AND data_as_of<=:cutoff ORDER BY market_date DESC,data_as_of DESC LIMIT 1")
                 .param("id", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(String.class)
                 .optional()
                 .orElse(
@@ -290,21 +323,22 @@ public final class HoldingEvidenceAssembler {
                 priceState);
     }
 
-    private HoldingEvidence.FundamentalSnapshot fundamentals(UUID instrumentId) {
+    private HoldingEvidence.FundamentalSnapshot fundamentals(UUID instrumentId, DecisionAsOfContext context) {
         var financials = jdbc.sql(
                         """
                         SELECT quality, dataAsOf, health FROM (
                             SELECT quality, data_as_of dataAsOf, overall_status health, 0 source_priority
                             FROM financial_health_snapshot WHERE instrument_id=UUID_TO_BIN(:id)
-                              AND overall_status<>'MISSING'
+                              AND overall_status<>'MISSING' AND data_as_of<=:cutoff
                             UNION ALL
                             SELECT quality_status quality, MAX(data_as_of) dataAsOf, 'HEALTHY' health, 1 source_priority
-                            FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN(:id)
+                            FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN(:id) AND data_as_of<=:cutoff
                             GROUP BY quality_status
                         ) evidence
                         ORDER BY source_priority, dataAsOf DESC LIMIT 1
                         """)
                 .param("id", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
                 .query(QualityRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.FundamentalSnapshot(
@@ -318,10 +352,11 @@ public final class HoldingEvidenceAssembler {
         return jdbc.sql(
                         """
                         SELECT overall_revision revision, quality, data_as_of dataAsOf
-                        FROM estimate_revision_snapshot WHERE instrument_id=UUID_TO_BIN(:id)
+                        FROM estimate_revision_snapshot WHERE instrument_id=UUID_TO_BIN(:id) AND data_as_of<=:cutoff
                         ORDER BY data_as_of DESC LIMIT 1
                         """)
                 .param("id", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
                 .query(RevisionRow.class)
                 .optional()
                 .map(revision -> new HoldingEvidence.FundamentalSnapshot(
@@ -335,15 +370,19 @@ public final class HoldingEvidenceAssembler {
                 .orElse(financials);
     }
 
-    private HoldingEvidence.ValuationSnapshot valuation(UUID positionId, UUID instrumentId) {
+    private HoldingEvidence.ValuationSnapshot valuation(
+            UUID positionId, UUID instrumentId, DecisionAsOfContext context) {
         var canonical = jdbc.sql(
                         """
                         SELECT valuation_state state, confidence, observation_count observationCount,
                                data_as_of dataAsOf
                         FROM valuation_assessment_snapshot WHERE instrument_id=UUID_TO_BIN(:id)
+                          AND data_as_of<=:cutoff AND strategy_version=:strategyVersion
                         ORDER BY data_as_of DESC LIMIT 1
                         """)
                 .param("id", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
                 .query(ValuationRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.ValuationSnapshot(
@@ -355,8 +394,9 @@ public final class HoldingEvidenceAssembler {
                         false,
                         instant(value.dataAsOf())));
         var valuation = canonical.orElseGet(() -> jdbc.sql(
-                        "SELECT data_as_of FROM valuation_snapshot WHERE position_id=UUID_TO_BIN(:id) ORDER BY data_as_of DESC LIMIT 1")
+                        "SELECT data_as_of FROM valuation_snapshot WHERE position_id=UUID_TO_BIN(:id) AND data_as_of<=:cutoff ORDER BY data_as_of DESC LIMIT 1")
                 .param("id", positionId.toString())
+                .param("cutoff", context.dataCutoff())
                 .query(LocalDateTime.class)
                 .optional()
                 .map(value -> new HoldingEvidence.ValuationSnapshot(true, instant(value)))
@@ -452,9 +492,12 @@ public final class HoldingEvidenceAssembler {
                 .orElse(new HoldingEvidence.Thesis(false, false, null));
     }
 
-    private HoldingEvidence.MarketRegimeSnapshot regime() {
+    private HoldingEvidence.MarketRegimeSnapshot regime(DecisionAsOfContext context) {
         return jdbc.sql(
-                        "SELECT regime_label label, data_as_of dataAsOf FROM market_regime_snapshot ORDER BY data_as_of DESC LIMIT 1")
+                        "SELECT regime_label label, data_as_of dataAsOf FROM market_regime_snapshot WHERE DATE(data_as_of)<=:marketDate AND data_as_of<=:cutoff AND strategy_version=:strategyVersion ORDER BY data_as_of DESC LIMIT 1")
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
                 .query(RegimeRow.class)
                 .optional()
                 .map(value -> new HoldingEvidence.MarketRegimeSnapshot(true, value.label(), instant(value.dataAsOf())))

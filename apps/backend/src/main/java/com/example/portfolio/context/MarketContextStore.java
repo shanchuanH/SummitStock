@@ -1,5 +1,6 @@
 package com.example.portfolio.context;
 
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -106,6 +107,25 @@ public class MarketContextStore {
                         ORDER BY data_as_of DESC, created_at DESC
                         LIMIT 1
                         """)
+                .query(RegimeView.class)
+                .optional();
+    }
+
+    public Optional<RegimeView> latestRegime(DecisionAsOfContext context) {
+        return jdbc.sql(
+                        """
+                        SELECT strategy_version, regime_label, total_score, trend_score,
+                               momentum_score, breadth_score, stress_score, confidence,
+                               tactical_cap_five_percent, quality_status, narratives, rule_ids,
+                               data_as_of
+                        FROM market_regime_snapshot
+                        WHERE DATE(data_as_of)<=:marketDate AND data_as_of<=:cutoff
+                          AND strategy_version=:strategyVersion
+                        ORDER BY data_as_of DESC, created_at DESC LIMIT 1
+                        """)
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
                 .query(RegimeView.class)
                 .optional();
     }

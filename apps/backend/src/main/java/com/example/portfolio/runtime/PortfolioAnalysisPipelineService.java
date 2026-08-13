@@ -5,6 +5,7 @@ import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.analysis.risk.DrawdownAttributionService;
 import com.example.portfolio.analysis.risk.PortfolioNavService;
@@ -85,9 +86,10 @@ public class PortfolioAnalysisPipelineService {
     }
 
     public int computeRegime(LocalDate marketDate) {
-        var spy = benchmark("SPY", marketDate);
-        var qqq = benchmark("QQQ", marketDate);
-        var canonicalBreadth = breadthService.latest(marketDate);
+        var decisionContext = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion());
+        var spy = benchmark("SPY", decisionContext);
+        var qqq = benchmark("QQQ", decisionContext);
+        var canonicalBreadth = breadthService.latest(decisionContext);
         var breadth = canonicalBreadth.pctAboveSma50() == null
                 ? 0
                 : canonicalBreadth.pctAboveSma50().doubleValue();
@@ -100,11 +102,11 @@ public class PortfolioAnalysisPipelineService {
                 ? null
                 : BigDecimal.valueOf(Math.clamp(qqq.realizedVolatility() / 0.50, 0, 1));
         macro.computeFactors(marketDate, realizedStress);
-        var macroFactors = macro.latestFactors(marketDate);
+        var macroFactors = macro.latestFactors(decisionContext);
         double stressResilience = macroFactors.stressResilience() == null
                 ? realizedStress == null ? 0 : 1 - realizedStress.doubleValue()
                 : macroFactors.stressResilience().doubleValue();
-        var vix = macro.latestValue("VIXCLS", marketDate);
+        var vix = macro.latestValue("VIXCLS", decisionContext);
         var input = new MarketRegimeEngine.Input(
                 trend,
                 momentum,
@@ -396,24 +398,29 @@ public class PortfolioAnalysisPipelineService {
     }
 
     private Benchmark benchmark(String symbol, LocalDate date) {
+        return benchmark(symbol, DecisionAsOfContext.marketClose(date, properties.strategyVersion()));
+    }
+
+    private Benchmark benchmark(String symbol, DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT p.close_price latestClose,
                                (SELECT AVG(x.close_price) FROM (SELECT close_price FROM price_bar b
                                 JOIN instrument j ON j.id=b.instrument_id WHERE j.symbol=:symbol
-                                AND b.adjusted=TRUE AND b.market_date<=:date ORDER BY b.market_date DESC LIMIT 200) x) average200,
+                                AND b.adjusted=TRUE AND b.market_date<=:date AND b.data_as_of<=:cutoff ORDER BY b.market_date DESC LIMIT 200) x) average200,
                                (SELECT value_double FROM indicator_snapshot s JOIN instrument k ON k.id=s.instrument_id
-                                WHERE k.symbol=:symbol AND s.indicator_code='RSI_14' ORDER BY s.market_date DESC LIMIT 1) rsi,
+                                WHERE k.symbol=:symbol AND s.indicator_code='RSI_14' AND s.market_date<=:date AND s.data_as_of<=:cutoff ORDER BY s.market_date DESC,s.data_as_of DESC LIMIT 1) rsi,
                                (SELECT value_double FROM indicator_snapshot s JOIN instrument k ON k.id=s.instrument_id
-                                WHERE k.symbol=:symbol AND s.indicator_code='MACD_12_26_9' ORDER BY s.market_date DESC LIMIT 1) macd,
+                                WHERE k.symbol=:symbol AND s.indicator_code='MACD_12_26_9' AND s.market_date<=:date AND s.data_as_of<=:cutoff ORDER BY s.market_date DESC,s.data_as_of DESC LIMIT 1) macd,
                                (SELECT value_double FROM indicator_snapshot s JOIN instrument k ON k.id=s.instrument_id
-                                WHERE k.symbol=:symbol AND s.indicator_code='REALIZED_VOL_20' ORDER BY s.market_date DESC LIMIT 1) realizedVolatility
+                                WHERE k.symbol=:symbol AND s.indicator_code='REALIZED_VOL_20' AND s.market_date<=:date AND s.data_as_of<=:cutoff ORDER BY s.market_date DESC,s.data_as_of DESC LIMIT 1) realizedVolatility
                         FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
-                        WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
+                        WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date AND p.data_as_of<=:cutoff
                         ORDER BY p.market_date DESC LIMIT 1
                         """)
                 .param("symbol", symbol)
-                .param("date", date)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(BenchmarkRow.class)
                 .optional()
                 .map(row -> new Benchmark(
