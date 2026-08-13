@@ -77,8 +77,12 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.watch.length()").value(0))
                 .andExpect(jsonPath("$.opportunities.length()").value(0))
                 .andExpect(jsonPath("$.blocked.length()").value(0))
+                .andExpect(jsonPath("$.todayPriorities.length()").value(0))
+                .andExpect(jsonPath("$.topRisks.length()").value(1))
+                .andExpect(jsonPath("$.allHoldings.length()").value(0))
                 .andExpect(jsonPath("$.dataReadiness.status").value("NOT_READY"))
-                .andExpect(jsonPath("$.dataReadiness.marketCoverage").value("1"));
+                .andExpect(jsonPath("$.dataReadiness.marketCoverage").value("1"))
+                .andExpect(jsonPath("$.dataReadiness.completeness").value("1"));
     }
 
     @Test
@@ -100,6 +104,16 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.capital.investableAssets").value("14100"))
                 .andExpect(jsonPath("$.mustAct.length()").value(1))
                 .andExpect(jsonPath("$.mustAct[0].symbol").value("BRFT"))
+                .andExpect(jsonPath("$.mustAct[0].companyName").value("Brief Fund"))
+                .andExpect(jsonPath("$.todayPriorities.length()").value(1))
+                .andExpect(jsonPath("$.topRisks.length()").value(1))
+                .andExpect(jsonPath("$.topRisks[0].risk").value("Market concentration"))
+                .andExpect(jsonPath("$.topRisks[0].meaning").isNotEmpty())
+                .andExpect(jsonPath("$.topRisks[0].nowAction").isNotEmpty())
+                .andExpect(jsonPath("$.allHoldings.length()").value(1))
+                .andExpect(jsonPath("$.allHoldings[0].priority").value("MUST_ACT"))
+                .andExpect(jsonPath("$.summary.tacticalSpeculativeExposureFraction")
+                        .value("0"))
                 .andExpect(jsonPath("$.dataReadiness.status").value("HEALTHY"))
                 .andExpect(jsonPath("$.dataReadiness.marketCoverage").value("1"));
     }
@@ -124,7 +138,7 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
         update(
                 """
                 INSERT INTO instrument (id, symbol, exchange, asset_type, currency, active, metadata, created_at, updated_at, version)
-                VALUES (UUID_TO_BIN('%s'), 'BRFT', 'TEST', 'ETF', 'USD', TRUE, JSON_OBJECT(), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
+                VALUES (UUID_TO_BIN('%s'), 'BRFT', 'TEST', 'ETF', 'USD', TRUE, JSON_OBJECT('name','Brief Fund'), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
                 """
                         .formatted(INSTRUMENT_ID));
         update(
@@ -166,7 +180,7 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
         update(
                 """
                 INSERT INTO recommendation (id, user_id, position_id, holding_analysis_id, strategy_version, action, priority, confidence, reasons, risks, change_conditions, rule_ids, evidence_checksum, data_as_of, valid_until, status, created_at)
-                VALUES (UUID_TO_BIN('71000000-0000-0000-0000-000000000013'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '3.0.0-draft', 'REVIEW', 'MUST_ACT', 'HIGH', JSON_ARRAY('review'), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY('BRIEF.ACTION.001'), REPEAT('9',64), UTC_TIMESTAMP(6), '2099-01-01', 'ACTIVE', UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('71000000-0000-0000-0000-000000000013'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '3.0.0-draft', 'REVIEW', 'MUST_ACT', 'HIGH', JSON_ARRAY('review'), JSON_ARRAY('Market concentration'), JSON_ARRAY('Concentration falls below the configured limit'), JSON_ARRAY('BRIEF.ACTION.001'), REPEAT('9',64), UTC_TIMESTAMP(6), '2099-01-01', 'ACTIVE', UTC_TIMESTAMP(6))
                 """
                         .formatted(USER_ID, POSITION_ID, ANALYSIS_ID));
     }

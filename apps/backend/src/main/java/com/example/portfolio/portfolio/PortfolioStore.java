@@ -279,7 +279,8 @@ public class PortfolioStore {
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(r.id) id, BIN_TO_UUID(r.position_id) position_id,
-                               i.symbol, p.classification,COALESCE(m.marked_market_value,0) market_value,
+                               i.symbol, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(i.metadata,'$.name')),i.symbol) company_name,
+                               p.classification,COALESCE(m.marked_market_value,0) market_value,
                                h.current_weight, r.action, r.priority, r.quantity_min, r.quantity_max,
                                r.target_weight_min, r.target_weight_max, r.risk_before_fraction,
                                r.risk_after_fraction, r.risk_calculation_reason, r.tax_lot_status, r.confidence, r.reasons, r.risks,
@@ -373,6 +374,7 @@ public class PortfolioStore {
             UUID id,
             UUID positionId,
             String symbol,
+            String companyName,
             String classification,
             BigDecimal marketValue,
             BigDecimal currentWeight,

@@ -12,6 +12,7 @@
 .brief-action-section { margin: 32px 0; }
 .dashboard-grid, .position-modules, .settings-grid, .review-grid, .opportunity-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; margin: 28px 0; }
 .health-metrics { grid-template-columns: repeat(2, 1fr); }
+.owner-health-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .calm-state { display: flex; justify-content: space-between; gap: 20px; border-color: var(--green); }
 .audit-details { margin-top: 16px; }
 .portfolio-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0; }
@@ -43,7 +44,7 @@
   .workspace-nav a { white-space: nowrap; }
   .terminal-overview, .brief-counts { grid-template-columns: repeat(2, 1fr); }
   .action-metrics { grid-template-columns: repeat(2,1fr); }
-  .dashboard-grid, .position-modules, .settings-grid, .review-grid, .opportunity-grid, .action-evidence { grid-template-columns: 1fr; }
+  .dashboard-grid, .position-modules, .settings-grid, .review-grid, .opportunity-grid, .action-evidence, .risk-list, .owner-health-metrics { grid-template-columns: 1fr; }
   .position-hero { grid-template-columns: 1fr; }
   .evidence-tiles { grid-template-columns: repeat(2, 1fr); }
 }

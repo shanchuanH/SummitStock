@@ -181,6 +181,7 @@ class ExecutiveBriefStore {
                         SELECT COALESCE(SUM(o.market_value),0) investedValue,
                                COALESCE(SUM(CASE WHEN o.classification IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) coreValue,
                                COALESCE(SUM(CASE WHEN o.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) tacticalValue,
+                               COALESCE(SUM(CASE WHEN o.classification IN ('TACTICAL_TRADE','TURNAROUND','SPECULATIVE') THEN o.market_value ELSE 0 END),0) tacticalSpecValue,
                                COALESCE((SELECT SUM(open_risk_fraction) FROM latest_risk WHERE rn=1),0) openPlannedRisk,
                                COALESCE((SELECT MAX(open_risk_fraction) FROM latest_cluster WHERE rn=1),0) clusterRisk
                         FROM owned o
@@ -243,6 +244,7 @@ class ExecutiveBriefStore {
                 exposure.investedValue(),
                 exposure.coreValue(),
                 exposure.tacticalValue(),
+                exposure.tacticalSpecValue(),
                 technology,
                 employer,
                 exposure.clusterRisk(),
@@ -277,6 +279,7 @@ class ExecutiveBriefStore {
             BigDecimal investedValue,
             BigDecimal coreValue,
             BigDecimal tacticalValue,
+            BigDecimal tacticalSpecValue,
             BigDecimal openPlannedRisk,
             BigDecimal clusterRisk) {}
 
@@ -289,6 +292,7 @@ class ExecutiveBriefStore {
             BigDecimal investedValue,
             BigDecimal coreValue,
             BigDecimal tacticalValue,
+            BigDecimal tacticalSpecValue,
             BigDecimal technologyExposureFraction,
             BigDecimal employerExposureFraction,
             BigDecimal clusterRiskFraction,

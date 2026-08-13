@@ -10,21 +10,31 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class ExecutiveBriefQueryService {
     private final PortfolioStore portfolios;
     private final ExecutiveBriefStore briefStore;
     private final PortfolioReadinessService readiness;
+    private final ObjectMapper objectMapper;
 
     public ExecutiveBriefQueryService(
-            PortfolioStore portfolios, ExecutiveBriefStore briefStore, PortfolioReadinessService readiness) {
+            PortfolioStore portfolios,
+            ExecutiveBriefStore briefStore,
+            PortfolioReadinessService readiness,
+            ObjectMapper objectMapper) {
         this.portfolios = portfolios;
         this.briefStore = briefStore;
         this.readiness = readiness;
+        this.objectMapper = objectMapper;
     }
 
     public ExecutiveBrief today(String email) {
@@ -55,6 +65,10 @@ public class ExecutiveBriefQueryService {
                 state == PortfolioAnalysisState.ANALYSIS_READY || state == PortfolioAnalysisState.PARTIAL_ANALYSIS
                         ? portfolios.activeRecommendations(email)
                         : List.<PortfolioStore.RecommendationView>of();
+        var todayPriorities = recommendations.stream()
+                .limit(3)
+                .map(ExecutiveBriefQueryService::action)
+                .toList();
         var mustAct = actions(recommendations, "MUST_ACT", 3);
         var doNot = actions(recommendations, "DO_NOT", Integer.MAX_VALUE);
         var blockedRecommendations = recommendations.stream()
@@ -70,12 +84,16 @@ public class ExecutiveBriefQueryService {
                 .map(ExecutiveBriefQueryService::action)
                 .toList();
         var portfolioHealth = health(state, mustAct);
+        var marketCoverage =
+                coverage(evidence.openPositions() - evidence.missingMarketPositions(), evidence.openPositions());
+        var fundamentalCoverage = coverage(
+                evidence.requiredFundamentalPositions() - evidence.missingFundamentalPositions(),
+                evidence.requiredFundamentalPositions());
         var readinessView = new DataReadiness(
                 dataStatus(state),
-                coverage(evidence.openPositions() - evidence.missingMarketPositions(), evidence.openPositions()),
-                coverage(
-                        evidence.requiredFundamentalPositions() - evidence.missingFundamentalPositions(),
-                        evidence.requiredFundamentalPositions()),
+                marketCoverage,
+                fundamentalCoverage,
+                decimal(new BigDecimal(marketCoverage).min(new BigDecimal(fundamentalCoverage))),
                 evidence.staleAnalysisPositions(),
                 Math.max(0, evidence.openPositions() - evidence.analyzedPositions()),
                 evidence.failedJobCount());
@@ -102,6 +120,9 @@ public class ExecutiveBriefQueryService {
                         fraction(metrics.coreValue(), summary.investedValue().add(cash.trackedCash())),
                         fraction(
                                 metrics.tacticalValue(), summary.investedValue().add(cash.trackedCash())),
+                        fraction(
+                                metrics.tacticalSpecValue(),
+                                summary.investedValue().add(cash.trackedCash())),
                         decimal(metrics.technologyExposureFraction()),
                         decimal(metrics.employerExposureFraction()),
                         decimal(metrics.clusterRiskFraction()),
@@ -141,6 +162,9 @@ public class ExecutiveBriefQueryService {
                 watch,
                 opportunities,
                 blocked,
+                todayPriorities,
+                topRisks(todayPriorities, readinessView),
+                summary.openPositions() == 0 ? List.of() : holdings(email),
                 portfolioHealth,
                 readinessView,
                 briefStore.nextEvents(email).stream()
@@ -185,6 +209,7 @@ public class ExecutiveBriefQueryService {
                         item.id(),
                         item.positionId(),
                         item.symbol(),
+                        item.companyName(),
                         item.classification(),
                         item.action(),
                         item.priority(),
@@ -212,6 +237,7 @@ public class ExecutiveBriefQueryService {
                 item.id(),
                 item.positionId(),
                 item.symbol(),
+                item.companyName(),
                 item.classification(),
                 item.action(),
                 item.priority(),
@@ -231,6 +257,74 @@ public class ExecutiveBriefQueryService {
                 item.changeConditions(),
                 instant(item.dataAsOf()),
                 instant(item.validUntil()));
+    }
+
+    private List<TopRisk> topRisks(List<BriefAction> priorities, DataReadiness readiness) {
+        var risks = new ArrayList<TopRisk>();
+        var seen = new LinkedHashSet<String>();
+        for (var action : priorities) {
+            for (var risk : jsonList(action.risksJson())) {
+                if (seen.add(risk)) {
+                    risks.add(new TopRisk(
+                            risk,
+                            "This evidence could invalidate the current " + action.action() + " decision for "
+                                    + (action.symbol() == null ? "the portfolio" : action.symbol()) + ".",
+                            "Review the full analysis before the recommendation expires; do not exceed its sizing limits.",
+                            action.symbol(),
+                            action.priority()));
+                    if (risks.size() == 3) return risks;
+                }
+            }
+        }
+        if (!"HEALTHY".equals(readiness.status()) && seen.add("Critical data coverage is incomplete.")) {
+            risks.add(new TopRisk(
+                    "Critical data coverage is incomplete.",
+                    "A missing or stale input can suppress a precise recommendation.",
+                    "Wait for the analysis pipeline or inspect Data Health before acting.",
+                    null,
+                    "WATCH"));
+        }
+        return risks.stream().limit(3).toList();
+    }
+
+    private List<String> jsonList(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(value, new TypeReference<>() {});
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private List<HoldingSummary> holdings(String email) {
+        return portfolios.holdings(email).stream()
+                .map(item -> new HoldingSummary(
+                        item.id(),
+                        item.symbol(),
+                        item.name(),
+                        item.classification(),
+                        item.action(),
+                        normalizedPriority(item.priority(), item.action()),
+                        item.confidence(),
+                        decimal(item.currentWeight()),
+                        item.dataStatus()))
+                .sorted(Comparator.comparingInt(item -> priorityRank(item.priority())))
+                .toList();
+    }
+
+    private static String normalizedPriority(String priority, String action) {
+        if ("NORMAL".equals(priority) || priority == null) return "HOLD";
+        if ("HOLD".equals(action) && "WATCH".equals(priority)) return "HOLD";
+        return priority;
+    }
+
+    private static int priorityRank(String priority) {
+        return switch (priority) {
+            case "MUST_ACT" -> 0;
+            case "DO_NOT" -> 1;
+            case "WATCH" -> 2;
+            default -> 3;
+        };
     }
 
     private static boolean isDataBlocked(PortfolioStore.RecommendationView item) {
@@ -318,6 +412,9 @@ public class ExecutiveBriefQueryService {
             @NotNull List<@Valid BriefAction> watch,
             @NotNull List<@Valid BriefAction> opportunities,
             @NotNull List<@Valid BriefAction> blocked,
+            @NotNull List<@Valid BriefAction> todayPriorities,
+            @NotNull List<@Valid TopRisk> topRisks,
+            @NotNull List<@Valid HoldingSummary> allHoldings,
             @NotNull @Valid PortfolioHealth portfolioHealth,
             @NotNull @Valid DataReadiness dataReadiness,
             @NotNull List<@Valid NextEvent> nextEvents,
@@ -352,6 +449,7 @@ public class ExecutiveBriefQueryService {
             @NotNull String totalLiquidAssets,
             String coreExposureFraction,
             String tacticalExposureFraction,
+            String tacticalSpeculativeExposureFraction,
             String technologyExposureFraction,
             String employerExposureFraction,
             String clusterRiskFraction,
@@ -364,6 +462,7 @@ public class ExecutiveBriefQueryService {
             @NotNull UUID id,
             UUID positionId,
             String symbol,
+            String companyName,
             String classification,
             @NotNull String action,
             @NotNull String priority,
@@ -384,12 +483,31 @@ public class ExecutiveBriefQueryService {
             @NotNull Instant dataAsOf,
             @NotNull Instant validUntil) {}
 
+    public record TopRisk(
+            @NotNull String risk,
+            @NotNull String meaning,
+            @NotNull String nowAction,
+            String symbol,
+            @NotNull String priority) {}
+
+    public record HoldingSummary(
+            @NotNull UUID positionId,
+            @NotNull String symbol,
+            @NotNull String companyName,
+            String classification,
+            @NotNull String action,
+            @NotNull String priority,
+            @NotNull String confidence,
+            String currentWeight,
+            @NotNull String dataStatus) {}
+
     public record PortfolioHealth(@NotNull String status, @NotNull List<String> reasons) {}
 
     public record DataReadiness(
             @NotNull String status,
             @NotNull String marketCoverage,
             @NotNull String fundamentalCoverage,
+            @NotNull String completeness,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long stalePositionCount,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long missingPositionCount,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long failedJobCount) {}

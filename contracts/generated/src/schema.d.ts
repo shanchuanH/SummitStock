@@ -1483,6 +1483,7 @@ export interface components {
       /** Format: uuid */
       positionId?: string;
       symbol?: string;
+      companyName?: string;
       classification?: string;
       action: string;
       priority: string;
@@ -1516,6 +1517,7 @@ export interface components {
       status: string;
       marketCoverage: string;
       fundamentalCoverage: string;
+      completeness: string;
       /** Format: int64 */
       stalePositionCount: number;
       /** Format: int64 */
@@ -1549,6 +1551,9 @@ export interface components {
       watch: components["schemas"]["BriefAction"][];
       opportunities: components["schemas"]["BriefAction"][];
       blocked: components["schemas"]["BriefAction"][];
+      todayPriorities: components["schemas"]["BriefAction"][];
+      topRisks: components["schemas"]["TopRisk"][];
+      allHoldings: components["schemas"]["HoldingSummary"][];
       portfolioHealth: components["schemas"]["PortfolioHealth"];
       dataReadiness: components["schemas"]["DataReadiness"];
       nextEvents: components["schemas"]["NextEvent"][];
@@ -1557,6 +1562,18 @@ export interface components {
       strategyVersion?: string;
       /** Format: date-time */
       dataAsOf?: string;
+    };
+    HoldingSummary: {
+      /** Format: uuid */
+      positionId: string;
+      symbol: string;
+      companyName: string;
+      classification?: string;
+      action: string;
+      priority: string;
+      confidence: string;
+      currentWeight?: string;
+      dataStatus: string;
     };
     Market: {
       regime: string;
@@ -1597,6 +1614,7 @@ export interface components {
       totalLiquidAssets: string;
       coreExposureFraction?: string;
       tacticalExposureFraction?: string;
+      tacticalSpeculativeExposureFraction?: string;
       technologyExposureFraction?: string;
       employerExposureFraction?: string;
       clusterRiskFraction?: string;
@@ -1604,6 +1622,13 @@ export interface components {
       unvestedCompensationValue: string;
       portfolioDrawdownFraction?: string;
       drawdownSource?: string;
+    };
+    TopRisk: {
+      risk: string;
+      meaning: string;
+      nowAction: string;
+      symbol?: string;
+      priority: string;
     };
     Metric: {
       name?: string;

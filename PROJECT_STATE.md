@@ -427,3 +427,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Confirmation atomically persists classifications and cash setup, reconciles the portfolio without creating assets, then queues the existing analysis pipeline. An owner-scoped status endpoint exposes the eight required stages from durable job state instead of simulated progress.
 - The web flow includes classification review, cash setup, explicit confirmation, and resumable analysis progress polling. OpenAPI and generated TypeScript contracts include the expanded onboarding and status models.
 - Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 208 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 4 — 2026-08-12
+
+- `GET /api/v1/brief/today` is the sole owner-dashboard aggregate. It now returns no more than three cross-priority daily actions, the top three unique risks with explicit meaning and immediate response, and all holdings ordered MUST_ACT, DO_NOT, WATCH, then HOLD.
+- Every action includes company, classification, action, priority, confidence, current and target weights, quantity range, estimated amount, primary reasons and risks, data timestamp, expiry, and change conditions. The only controls are full analysis, handled, and defer; no automatic execution path exists.
+- Owner portfolio health is limited to investable assets, Emergency Cash, strategy drawdown, Tactical plus Speculative exposure, and conservative data completeness. The no-action message remains gated on READY, full coverage, fresh analysis, and empty action queues.
+- Frontend fixtures and generated API contracts cover the expanded aggregate without composing lower-level financial services in React.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 208 backend tests; backend formatting/build gates pass; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
