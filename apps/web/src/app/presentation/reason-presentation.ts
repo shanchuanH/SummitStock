@@ -25,5 +25,5 @@ const reasonPresentations: Record<string, string> = {
 
 export function presentReason(value?: string | null) {
   if (!value) return "当前没有足够证据形成完整原因。";
-  return reasonPresentations[value] ?? value;
+  return reasonPresentations[value] ?? "当前证据不足以支持可靠的精确数量。";
 }

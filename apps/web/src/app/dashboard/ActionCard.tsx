@@ -11,6 +11,7 @@ import {
   formatQuantity,
 } from "../presentation/number-format";
 import { presentPriority } from "../presentation/priority-presentation";
+import { presentReason } from "../presentation/reason-presentation";
 
 export type DashboardAction = components["schemas"]["BriefAction"];
 
@@ -22,12 +23,6 @@ function list(value?: string | null) {
   } catch {
     return [];
   }
-}
-function quantity(action: DashboardAction) {
-  return (
-    formatQuantity(action.quantityMin, action.quantityMax) ??
-    "证据不足，暂不提供精确数量"
-  );
 }
 
 export function ActionCard({ action }: { action: DashboardAction }) {
@@ -48,8 +43,13 @@ export function ActionCard({ action }: { action: DashboardAction }) {
   const actionCopy = presentAction(action.action);
   const priority = presentPriority(action.priority);
   const confidence = presentConfidence(action.confidence);
+  const quantity = formatQuantity(action.quantityMin, action.quantityMax);
   return (
-    <li className="action-card" data-priority={action.priority}>
+    <li
+      className="action-card compact-action-card"
+      data-priority={action.priority}
+      data-tone={actionCopy.tone}
+    >
       <header>
         <div>
           <strong>{action.symbol ?? "组合"}</strong>
@@ -58,68 +58,69 @@ export function ActionCard({ action }: { action: DashboardAction }) {
             {presentClassification(action.classification)}
           </span>
         </div>
-        <div className="action-verdict">
-          <b>{actionCopy.title}</b>
-        </div>
+        <span className={`priority-pill ${priority.tone}`}>
+          {priority.label}
+        </span>
       </header>
+      <h3>{actionCopy.title}</h3>
+      {quantity ? (
+        <p className="action-quantity">
+          建议：{actionCopy.verb} {quantity}
+          {action.estimatedAmount
+            ? `，约 ${formatMoney(action.estimatedAmount)}`
+            : ""}
+        </p>
+      ) : (
+        <p className="quantity-unavailable">
+          暂不提供精确股数：{presentReason(action.riskCalculationReason)}
+        </p>
+      )}
       <p className="analyst-line">
         {reasons[0] ?? "分析证据尚未形成完整结论。"}
       </p>
-      <dl className="action-metrics">
-        <div>
-          <dt>当前 → 目标</dt>
-          <dd>
-            {formatPercent(action.currentWeight)} →{" "}
-            {formatPercent(action.targetWeightMin)}–
-            {formatPercent(action.targetWeightMax)}
-          </dd>
-        </div>
-        <div>
-          <dt>建议数量</dt>
-          <dd>{quantity(action)}</dd>
-        </div>
-        <div>
-          <dt>建议金额</dt>
-          <dd>{formatMoney(action.estimatedAmount)}</dd>
-        </div>
-        <div>
-          <dt>优先级 / 置信度</dt>
-          <dd>
-            {priority.label} / {confidence.label}
-          </dd>
-        </div>
-      </dl>
-      <div className="action-evidence">
-        <section>
-          <h3>为什么</h3>
-          <ul>
-            {(reasons.length ? reasons : ["暂无完整原因证据"])
-              .slice(0, 3)
-              .map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-          </ul>
-        </section>
-        <section>
-          <h3>主要风险</h3>
-          <ul>
-            {(risks.length ? risks : ["暂无完整风险证据"])
-              .slice(0, 2)
-              .map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-          </ul>
-        </section>
-      </div>
-      <p>
-        <strong>改变条件：</strong>
-        {changes.length ? changes.join("；") : "暂无明确条件"}
+      <p className="compact-position-line">
+        当前 {formatPercent(action.currentWeight)} → 目标{" "}
+        {formatPercent(action.targetWeightMin)}–
+        {formatPercent(action.targetWeightMax)}
       </p>
-      <p>
-        <strong>数据更新：</strong>
-        {formatDateTime(action.dataAsOf)}；<strong>有效期：</strong>
-        {formatDateTime(action.validUntil)}
-      </p>
+      <details className="action-disclosure">
+        <summary>查看原因与风险</summary>
+        <div className="action-evidence">
+          <section>
+            <h4>为什么</h4>
+            <ul>
+              {(reasons.length ? reasons : ["暂无完整原因证据"])
+                .slice(0, 3)
+                .map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+            </ul>
+          </section>
+          <section>
+            <h4>主要风险</h4>
+            <ul>
+              {(risks.length ? risks : ["暂无完整风险证据"])
+                .slice(0, 2)
+                .map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+            </ul>
+          </section>
+        </div>
+        <p>
+          <strong>什么情况下改变结论：</strong>
+          {changes.length ? changes.join("；") : "暂无明确条件"}
+        </p>
+        <p>
+          <strong>置信度：</strong>
+          {confidence.label} — {confidence.detail}
+        </p>
+        <p>
+          <strong>数据更新：</strong>
+          {formatDateTime(action.dataAsOf)}；<strong>有效期：</strong>
+          {formatDateTime(action.validUntil)}
+        </p>
+      </details>
       <div className="action-buttons">
         {action.positionId ? (
           <a className="report-link" href={`/positions/${action.positionId}`}>
@@ -144,7 +145,7 @@ export function ActionCard({ action }: { action: DashboardAction }) {
         </button>
       </div>
       <div className="acknowledgement">
-        <small>记录确认不等于执行交易。</small>
+        <small>这里只记录你的决定，不会执行交易。</small>
         {acknowledgement.isSuccess ? (
           <span role="status">处理决定已记录。</span>
         ) : null}

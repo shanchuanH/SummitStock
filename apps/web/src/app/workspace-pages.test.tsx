@@ -96,7 +96,7 @@ describe("Packet 07 workspace", () => {
       }),
     );
     renderPage(<DashboardPage />);
-    expect(await screen.findByText("S1")).toBeInTheDocument();
+    expect(await screen.findAllByText("S1")).toHaveLength(2);
     expect(screen.getAllByText("需要复核后再决定")).toHaveLength(3);
     expect(screen.queryByText("S4")).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(1);

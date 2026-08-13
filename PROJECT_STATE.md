@@ -468,3 +468,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The presentation contract test reads the deterministic backend `RecommendationAction` enum and fails whenever a backend action lacks a frontend mapping. Dashboard, holdings, holding report, opportunities, review, and ETF-dip history now consume the shared action language instead of local maps.
 - The holding hero now reads the absolute position limit from `layers.portfolioRole.hardMaxWeight`, eliminating the former speculative-only hard-limit source. Missing numbers render as unavailable rather than zero.
 - Verification: frontend ESLint and TypeScript pass; 16 Vitest files / 32 tests pass; generated client and production Vite build pass. No strategy threshold, recommendation precedence, quantity calculation, or drawdown definition changed in UI-0.
+
+## User-Friendly Strategy Manual — UI-1 — 2026-08-13
+
+- The owner dashboard now follows one decision path: today's deterministic conclusion, no more than three server-ranked actions, portfolio safety, readiness, top risks, and a four-column holdings summary. It still uses the single `GET /api/v1/brief/today` aggregate and does not compose client-side recommendations.
+- `TodayDecisionHero` distinguishes confirmed no-action, urgent action, incomplete data, stale analysis, and blocked/failed analysis. Incomplete or failed analysis never emits a calm conclusion or a precise quantity.
+- Action cards now lead with the recommendation, server-supplied quantity when available, primary reason, and current-to-target position. Evidence, risk, confidence, validity, and change conditions remain available in a collapsed disclosure.
+- Portfolio safety uses the brief's actual protected reserve, strategy drawdown, tactical/speculative exposure, and deployable cash. Market state and audit metadata are secondary disclosures rather than the first screen.
+- Verification: frontend ESLint and TypeScript pass; 18 Vitest files / 35 tests pass; production Vite build passes. No recommendation, sizing, risk, or readiness value is hard-coded in the UI.
