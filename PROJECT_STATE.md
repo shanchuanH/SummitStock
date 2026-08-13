@@ -531,3 +531,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - A later cash-only broker change automatically creates an idempotent `portfolio_external_cashflow_event` through `PortfolioNavService.recordExternalCashflow`; a simultaneous position and cash change creates `NAV_RECONCILIATION_REQUIRED` instead of guessing.
 - The owner brief suppresses its drawdown number while NAV reconciliation is unresolved and explains that the system is distinguishing investment performance from external funding. No synthetic return or precise drawdown is shown.
 - Verification: portfolio import integration tests pass 5/5; the dedicated MySQL reconciliation test proves baseline, defensible $7,000 cashflow recording, and rejection of an ambiguous $1,000 change; frontend 18 Vitest files / 40 tests and TypeScript pass.
+
+## User-Friendly Strategy Manual — Strategy S-1 — 2026-08-13
+
+- Drawdown attribution now uses peak quantity, post-peak executed quantity changes, execution cashflows, and current quantity/value. Sold positions remain eligible, and a post-peak add is no longer charged the full peak-to-current price decline.
+- V41 adds explicit quantity delta, execution price, and realized P&L fields to the trade journal. A quantity change without complete execution evidence is excluded rather than assigned a fabricated precise loss.
+- Position and cluster contributions use the monetary strategy NAV drawdown, `(high_water_nav - nav) × units`, as their common denominator. Persisted JSON now exposes positive `positionLossAmount` and contribution fractions.
+- Verification: Flyway applies through V41; focused NAV and attribution tests pass. Tests prove a 50-share post-peak add, a 60-share post-peak sale, exclusion of incomplete execution evidence, loss ranking, and NAV-loss denominator alignment.
