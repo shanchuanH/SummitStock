@@ -1078,10 +1078,28 @@ export interface components {
       /** Format: date-time */
       validUntil?: string;
     };
+    FundamentalMetricsResponse: {
+      revenueTtm?: string;
+      revenueYoy?: string;
+      epsTtm?: string;
+      operatingMargin?: string;
+      fcfTtm?: string;
+      fcfMargin?: string;
+      netCash?: string;
+      dilutionYoy?: string;
+      revision30d?: string;
+      revision90d?: string;
+      epsChange30d?: string;
+      epsChange90d?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
     IntelligenceResponse: {
       stop?: components["schemas"]["StopSnapshotResponse"];
       thesis?: components["schemas"]["ThesisResponse"];
       valuation?: components["schemas"]["ValuationResponse"];
+      fundamentalMetrics?: components["schemas"]["FundamentalMetricsResponse"];
+      valuationMetrics?: components["schemas"]["ValuationMetricsResponse"];
       earnings?: components["schemas"]["EarningsResponse"];
       journal?: components["schemas"]["JournalResponse"][];
     };
@@ -1098,6 +1116,16 @@ export interface components {
       closeConfirmed?: boolean;
       ruleIdsJson?: string;
       qualityStatus?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    ValuationMetricsResponse: {
+      trailingPe?: string;
+      forwardPe?: string;
+      evSales?: string;
+      fcfYield?: string;
+      historyPercentile5y?: string;
+      quality?: string;
       /** Format: date-time */
       dataAsOf?: string;
     };

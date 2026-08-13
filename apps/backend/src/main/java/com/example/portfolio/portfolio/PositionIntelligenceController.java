@@ -18,7 +18,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,19 +34,16 @@ import org.springframework.web.server.ResponseStatusException;
 public class PositionIntelligenceController {
     private final PortfolioStore portfolio;
     private final PositionIntelligenceStore store;
-    private final Optional<DebugApiAccess> debugAccess;
     private final Clock clock;
     private final PublishedStrategyService strategies;
 
     public PositionIntelligenceController(
             PortfolioStore portfolio,
             PositionIntelligenceStore store,
-            Optional<DebugApiAccess> debugAccess,
             Clock clock,
             PublishedStrategyService strategies) {
         this.portfolio = portfolio;
         this.store = store;
-        this.debugAccess = debugAccess;
         this.clock = clock;
         this.strategies = strategies;
     }
@@ -55,7 +51,6 @@ public class PositionIntelligenceController {
     @GetMapping("/intelligence")
     IntelligenceResponse intelligence(@PathVariable UUID positionId, Principal principal) {
         requireOwned(positionId, principal);
-        requireDebugProfile();
         return new IntelligenceResponse(
                 store.latestStop(principal.getName(), positionId)
                         .map(StopSnapshotResponse::from)
@@ -65,6 +60,12 @@ public class PositionIntelligenceController {
                         .orElse(null),
                 store.latestValuation(principal.getName(), positionId)
                         .map(ValuationResponse::from)
+                        .orElse(null),
+                store.latestFundamentalMetrics(principal.getName(), positionId)
+                        .map(FundamentalMetricsResponse::from)
+                        .orElse(null),
+                store.latestValuationMetrics(principal.getName(), positionId)
+                        .map(ValuationMetricsResponse::from)
                         .orElse(null),
                 store.latestEarnings(principal.getName(), positionId)
                         .map(EarningsResponse::from)
@@ -139,10 +140,6 @@ public class PositionIntelligenceController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
-    private void requireDebugProfile() {
-        if (debugAccess.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-    }
-
     private static HoldingClassification classification(String value) {
         try {
             return HoldingClassification.valueOf(value);
@@ -166,6 +163,7 @@ public class PositionIntelligenceController {
             case "3M" -> today.minusMonths(3);
             case "6M" -> today.minusMonths(6);
             case "1Y" -> today.minusYears(1);
+            case "3Y" -> today.minusYears(3);
             case "5Y" -> today.minusYears(5);
             case "MAX" -> LocalDate.of(1970, 1, 1);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported chart range");
@@ -176,6 +174,8 @@ public class PositionIntelligenceController {
             StopSnapshotResponse stop,
             ThesisResponse thesis,
             ValuationResponse valuation,
+            FundamentalMetricsResponse fundamentalMetrics,
+            ValuationMetricsResponse valuationMetrics,
             EarningsResponse earnings,
             List<JournalResponse> journal) {}
 
@@ -349,6 +349,58 @@ public class PositionIntelligenceController {
                     value.strategyVersion(),
                     instant(value.dataAsOf()),
                     instant(value.validUntil()));
+        }
+    }
+
+    public record FundamentalMetricsResponse(
+            String revenueTtm,
+            String revenueYoy,
+            String epsTtm,
+            String operatingMargin,
+            String fcfTtm,
+            String fcfMargin,
+            String netCash,
+            String dilutionYoy,
+            String revision30d,
+            String revision90d,
+            String epsChange30d,
+            String epsChange90d,
+            Instant dataAsOf) {
+        static FundamentalMetricsResponse from(PositionIntelligenceStore.FundamentalMetricsView value) {
+            return new FundamentalMetricsResponse(
+                    decimal(value.revenueTtm()),
+                    decimal(value.revenueYoy()),
+                    decimal(value.epsTtm()),
+                    decimal(value.operatingMargin()),
+                    decimal(value.fcfTtm()),
+                    decimal(value.fcfMargin()),
+                    decimal(value.netCash()),
+                    decimal(value.dilutionYoy()),
+                    value.revision30d(),
+                    value.revision90d(),
+                    decimal(value.epsChange30d()),
+                    decimal(value.epsChange90d()),
+                    instant(value.dataAsOf()));
+        }
+    }
+
+    public record ValuationMetricsResponse(
+            String trailingPe,
+            String forwardPe,
+            String evSales,
+            String fcfYield,
+            String historyPercentile5y,
+            String quality,
+            Instant dataAsOf) {
+        static ValuationMetricsResponse from(PositionIntelligenceStore.ValuationMetricsView value) {
+            return new ValuationMetricsResponse(
+                    decimal(value.trailingPe()),
+                    decimal(value.forwardPe()),
+                    decimal(value.evSales()),
+                    decimal(value.fcfYield()),
+                    decimal(value.historyPercentile5y()),
+                    value.quality(),
+                    instant(value.dataAsOf()));
         }
     }
 

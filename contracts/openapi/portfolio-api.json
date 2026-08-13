@@ -2322,6 +2322,51 @@
           }
         }
       },
+      "FundamentalMetricsResponse": {
+        "type": "object",
+        "properties": {
+          "revenueTtm": {
+            "type": "string"
+          },
+          "revenueYoy": {
+            "type": "string"
+          },
+          "epsTtm": {
+            "type": "string"
+          },
+          "operatingMargin": {
+            "type": "string"
+          },
+          "fcfTtm": {
+            "type": "string"
+          },
+          "fcfMargin": {
+            "type": "string"
+          },
+          "netCash": {
+            "type": "string"
+          },
+          "dilutionYoy": {
+            "type": "string"
+          },
+          "revision30d": {
+            "type": "string"
+          },
+          "revision90d": {
+            "type": "string"
+          },
+          "epsChange30d": {
+            "type": "string"
+          },
+          "epsChange90d": {
+            "type": "string"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "IntelligenceResponse": {
         "type": "object",
         "properties": {
@@ -2333,6 +2378,12 @@
           },
           "valuation": {
             "$ref": "#/components/schemas/ValuationResponse"
+          },
+          "fundamentalMetrics": {
+            "$ref": "#/components/schemas/FundamentalMetricsResponse"
+          },
+          "valuationMetrics": {
+            "$ref": "#/components/schemas/ValuationMetricsResponse"
           },
           "earnings": {
             "$ref": "#/components/schemas/EarningsResponse"
@@ -2380,6 +2431,33 @@
             "type": "string"
           },
           "qualityStatus": {
+            "type": "string"
+          },
+          "dataAsOf": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ValuationMetricsResponse": {
+        "type": "object",
+        "properties": {
+          "trailingPe": {
+            "type": "string"
+          },
+          "forwardPe": {
+            "type": "string"
+          },
+          "evSales": {
+            "type": "string"
+          },
+          "fcfYield": {
+            "type": "string"
+          },
+          "historyPercentile5y": {
+            "type": "string"
+          },
+          "quality": {
             "type": "string"
           },
           "dataAsOf": {

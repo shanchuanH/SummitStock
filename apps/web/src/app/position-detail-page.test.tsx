@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PositionDetailPage } from "./position-detail-page";
@@ -33,6 +34,9 @@ const report = {
     changeConditions: ["Material earnings deterioration"],
     winningRule: "RISK_CAP",
     resolutionReason: "Current weight is above target.",
+    narrative: {
+      oneSentence: "长期逻辑仍成立，但仓位已经太大。",
+    },
     validUntil: "2026-09-01T00:00:00Z",
   },
   evidence: {
@@ -111,6 +115,29 @@ const chart = {
   tradeMarkers: [],
   quality: "HEALTHY",
 };
+const intelligence = {
+  fundamentalMetrics: {
+    revenueTtm: "350000000000",
+    revenueYoy: "0.14",
+    epsTtm: "8.23",
+    operatingMargin: "0.32",
+    fcfTtm: "72000000000",
+    fcfMargin: "0.205",
+    netCash: "98000000000",
+    dilutionYoy: "0.006",
+    revision30d: "POSITIVE",
+    revision90d: "FLAT",
+    epsChange30d: "0.018",
+    epsChange90d: "0",
+  },
+  valuationMetrics: {
+    trailingPe: "24.8",
+    forwardPe: "21.4",
+    evSales: "6.2",
+    fcfYield: "0.036",
+    historyPercentile5y: "0.42",
+  },
+};
 
 function response(value: unknown, status = 200) {
   return Promise.resolve(
@@ -147,7 +174,67 @@ describe("PositionDetailPage", () => {
     cleanup();
     vi.unstubAllGlobals();
   });
-  it("renders the six-layer analyst report and real chart without false precision", async () => {
+  it("puts the answer first and defaults only layers one and two open", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const path = url(input);
+        if (path.endsWith("/analyst-report")) return response(report);
+        if (path.includes("/chart")) return response(chart);
+        if (path.endsWith("/intelligence")) return response(intelligence);
+        throw new Error(path);
+      }),
+    );
+    renderPage();
+    expect(
+      await screen.findByRole("heading", { name: "GOOGL" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/当前无需交易或证据不足，未提供精确数量/),
+    ).toHaveLength(1);
+    expect(
+      screen.getByText("长期逻辑仍成立，但仓位已经太大。"),
+    ).toBeInTheDocument();
+    const layers = Array.from(document.querySelectorAll(".analyst-layer"));
+    expect(layers).toHaveLength(6);
+    expect(layers.map((layer) => (layer as HTMLDetailsElement).open)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(screen.getByText("Revenue TTM").parentElement).toHaveTextContent(
+      "3500",
+    );
+    expect(screen.getByText("24.8×")).toBeInTheDocument();
+    expect(screen.getByLabelText("真实持仓图表")).toHaveTextContent(
+      "1 根真实日线",
+    );
+    expect(document.querySelectorAll(".module-number")).toHaveLength(6);
+    expect(screen.getByText(/规则：/).parentElement).toHaveTextContent(
+      "RISK_CAP",
+    );
+  });
+  it("loads a selected real chart range with a normal mobile-safe click", async () => {
+    const fetch = vi.fn((input: string | URL | Request) => {
+      const path = url(input);
+      if (path.endsWith("/analyst-report")) return response(report);
+      if (path.includes("/chart")) return response(chart);
+      if (path.endsWith("/intelligence")) return response(intelligence);
+      throw new Error(path);
+    });
+    vi.stubGlobal("fetch", fetch);
+    renderPage();
+    await screen.findByRole("heading", { name: "GOOGL" });
+    await userEvent.click(screen.getByRole("button", { name: "3M" }));
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/chart?range=3M"),
+      expect.anything(),
+    );
+  });
+  it("shows unavailable instead of zero when canonical metrics are absent", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((input: string | URL | Request) => {
@@ -159,22 +246,9 @@ describe("PositionDetailPage", () => {
       }),
     );
     renderPage();
-    expect(
-      await screen.findByRole("heading", { name: "GOOGL" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/当前无需交易或证据不足，未提供精确数量/),
-    ).toHaveLength(2);
-    expect(
-      screen.getByText(/估值可能有吸引力，但组合仓位已触及上限/),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("真实持仓图表")).toHaveTextContent(
-      "1 根真实日线",
-    );
-    expect(document.querySelectorAll(".module-number")).toHaveLength(6);
-    expect(screen.getByText(/规则：/).parentElement).toHaveTextContent(
-      "RISK_CAP",
-    );
+    await screen.findByRole("heading", { name: "GOOGL" });
+    expect(screen.getAllByText("暂无可靠数据").length).toBeGreaterThan(5);
+    expect(screen.queryByText("$0")).not.toBeInTheDocument();
   });
   it("uses explicit unavailable state when report evidence is missing", async () => {
     vi.stubGlobal(

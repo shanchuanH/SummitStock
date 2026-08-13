@@ -83,6 +83,76 @@ public class PositionIntelligenceStore {
                 .optional();
     }
 
+    public Optional<FundamentalMetricsView> latestFundamentalMetrics(String email, UUID positionId) {
+        return jdbc.sql(
+                        """
+                        WITH metric_versions AS (
+                          SELECT m.instrument_id,m.period_id,m.metric_code,m.value_decimal,p.period_type,p.end_date,
+                                 ROW_NUMBER() OVER (PARTITION BY m.instrument_id,m.period_id,m.metric_code
+                                                    ORDER BY m.data_as_of DESC,m.created_at DESC) version_rank
+                          FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id
+                        ), quarterly AS (
+                          SELECT instrument_id,metric_code,value_decimal,end_date,
+                                 DENSE_RANK() OVER (PARTITION BY instrument_id,metric_code ORDER BY end_date DESC) quarter_rank
+                          FROM metric_versions WHERE version_rank=1 AND period_type='QUARTERLY'
+                        ), ttm AS (
+                          SELECT instrument_id,
+                                 CASE WHEN COUNT(CASE WHEN metric_code='REVENUE' THEN 1 END)=4
+                                      THEN SUM(CASE WHEN metric_code='REVENUE' THEN value_decimal ELSE 0 END) END revenue_ttm,
+                                 CASE WHEN COUNT(CASE WHEN metric_code='DILUTED_EPS' THEN 1 END)=4
+                                      THEN SUM(CASE WHEN metric_code='DILUTED_EPS' THEN value_decimal ELSE 0 END) END eps_ttm,
+                                 CASE WHEN COUNT(CASE WHEN metric_code='FREE_CASH_FLOW' THEN 1 END)=4
+                                      THEN SUM(CASE WHEN metric_code='FREE_CASH_FLOW' THEN value_decimal ELSE 0 END) END fcf_ttm
+                          FROM quarterly WHERE quarter_rank<=4 GROUP BY instrument_id
+                        )
+                        SELECT t.revenue_ttm revenueTtm,
+                               (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=p.instrument_id AND m.metric_code='REVENUE_YOY' ORDER BY m.data_as_of DESC,m.created_at DESC LIMIT 1) revenueYoy,
+                               t.eps_ttm epsTtm,
+                               (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=p.instrument_id AND m.metric_code='OPERATING_MARGIN' ORDER BY m.data_as_of DESC,m.created_at DESC LIMIT 1) operatingMargin,
+                               t.fcf_ttm fcfTtm,
+                               (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=p.instrument_id AND m.metric_code='FCF_MARGIN' ORDER BY m.data_as_of DESC,m.created_at DESC LIMIT 1) fcfMargin,
+                               (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=p.instrument_id AND m.metric_code='NET_CASH' ORDER BY m.data_as_of DESC,m.created_at DESC LIMIT 1) netCash,
+                               (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=p.instrument_id AND m.metric_code='SHARE_DILUTION_YOY' ORDER BY m.data_as_of DESC,m.created_at DESC LIMIT 1) dilutionYoy,
+                               (SELECT r.revision_30d FROM estimate_revision_snapshot r WHERE r.instrument_id=p.instrument_id ORDER BY r.data_as_of DESC,r.created_at DESC LIMIT 1) revision30d,
+                               (SELECT r.revision_90d FROM estimate_revision_snapshot r WHERE r.instrument_id=p.instrument_id ORDER BY r.data_as_of DESC,r.created_at DESC LIMIT 1) revision90d,
+                               (SELECT r.eps_change_30d FROM estimate_revision_snapshot r WHERE r.instrument_id=p.instrument_id ORDER BY r.data_as_of DESC,r.created_at DESC LIMIT 1) epsChange30d,
+                               (SELECT r.eps_change_90d FROM estimate_revision_snapshot r WHERE r.instrument_id=p.instrument_id ORDER BY r.data_as_of DESC,r.created_at DESC LIMIT 1) epsChange90d,
+                               (SELECT MAX(m.data_as_of) FROM financial_metric_snapshot m WHERE m.instrument_id=p.instrument_id) dataAsOf
+                        FROM position p
+                        JOIN investment_account a ON a.id=p.account_id
+                        JOIN app_user u ON u.id=a.user_id
+                        LEFT JOIN ttm t ON t.instrument_id=p.instrument_id
+                        WHERE u.email=:email AND p.id=UUID_TO_BIN(:positionId)
+                        """)
+                .param("email", email)
+                .param("positionId", positionId.toString())
+                .query(FundamentalMetricsView.class)
+                .optional();
+    }
+
+    public Optional<ValuationMetricsView> latestValuationMetrics(String email, UUID positionId) {
+        return jdbc.sql(
+                        """
+                        SELECT v.trailing_pe trailingPe,v.forward_pe forwardPe,v.ev_sales evSales,
+                               v.fcf_yield fcfYield,a.own_history_percentile_5y historyPercentile5y,
+                               v.quality quality,v.data_as_of dataAsOf
+                        FROM position p
+                        JOIN investment_account account ON account.id=p.account_id
+                        JOIN app_user u ON u.id=account.user_id
+                        LEFT JOIN valuation_metric_history v ON v.id=(
+                          SELECT vm.id FROM valuation_metric_history vm WHERE vm.instrument_id=p.instrument_id
+                          ORDER BY vm.market_date DESC,vm.data_as_of DESC,vm.created_at DESC LIMIT 1)
+                        LEFT JOIN valuation_assessment_snapshot a ON a.id=(
+                          SELECT va.id FROM valuation_assessment_snapshot va WHERE va.instrument_id=p.instrument_id
+                          ORDER BY va.data_as_of DESC,va.created_at DESC LIMIT 1)
+                        WHERE u.email=:email AND p.id=UUID_TO_BIN(:positionId)
+                        """)
+                .param("email", email)
+                .param("positionId", positionId.toString())
+                .query(ValuationMetricsView.class)
+                .optional();
+    }
+
     public Optional<EarningsView> latestEarnings(String email, UUID positionId) {
         return jdbc.sql(
                         """
@@ -275,6 +345,30 @@ public class PositionIntelligenceStore {
             String strategyVersion,
             LocalDateTime dataAsOf,
             LocalDateTime validUntil) {}
+
+    public record FundamentalMetricsView(
+            BigDecimal revenueTtm,
+            BigDecimal revenueYoy,
+            BigDecimal epsTtm,
+            BigDecimal operatingMargin,
+            BigDecimal fcfTtm,
+            BigDecimal fcfMargin,
+            BigDecimal netCash,
+            BigDecimal dilutionYoy,
+            String revision30d,
+            String revision90d,
+            BigDecimal epsChange30d,
+            BigDecimal epsChange90d,
+            LocalDateTime dataAsOf) {}
+
+    public record ValuationMetricsView(
+            BigDecimal trailingPe,
+            BigDecimal forwardPe,
+            BigDecimal evSales,
+            BigDecimal fcfYield,
+            BigDecimal historyPercentile5y,
+            String quality,
+            LocalDateTime dataAsOf) {}
 
     public record EarningsView(
             int eventCount,

@@ -245,6 +245,10 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.stop.liveStop").value("94"))
                 .andExpect(jsonPath("$.thesis.status").value("HEALTHY"))
                 .andExpect(jsonPath("$.valuation.action").value("ADD_1_PERCENT_STARTER"))
+                .andExpect(jsonPath("$.fundamentalMetrics.revenueYoy").value("0.14"))
+                .andExpect(jsonPath("$.fundamentalMetrics.revision30d").value("POSITIVE"))
+                .andExpect(jsonPath("$.valuationMetrics.trailingPe").value("24.8"))
+                .andExpect(jsonPath("$.valuationMetrics.historyPercentile5y").value("0.42"))
                 .andExpect(jsonPath("$.earnings.eventCount").value(10))
                 .andExpect(jsonPath("$.journal[0].realizedR").value("1.5"));
         mockMvc.perform(get("/api/v1/positions/{id}/intelligence", OTHER_POSITION)
@@ -399,6 +403,41 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
     }
 
     private void seedPositionIntelligence() {
+        update(
+                """
+                INSERT INTO financial_period (id,instrument_id,fiscal_year,fiscal_quarter,period_type,start_date,end_date,filed_at,accession_number,form_type,source,quality,created_at)
+                SELECT UUID_TO_BIN('30000000-0000-0000-0000-000000000050'),p.instrument_id,2026,2,'QUARTERLY','2026-04-01','2026-06-30','2026-07-25','ui4-period','10-Q','https://example.test/filing','HEALTHY',UTC_TIMESTAMP(6)
+                FROM position p WHERE p.id=UUID_TO_BIN('%s')
+                """
+                        .formatted(OWNER_POSITION));
+        update(
+                """
+                INSERT INTO financial_metric_snapshot (id,instrument_id,period_id,metric_code,value_decimal,unit,calculation_version,source_concepts,mapping_version,aggregation_method,quality,evidence_checksum,data_as_of,created_at)
+                SELECT UUID_TO_BIN('30000000-0000-0000-0000-000000000051'),p.instrument_id,UUID_TO_BIN('30000000-0000-0000-0000-000000000050'),'REVENUE_YOY',0.14,'RATIO','financial-v2',JSON_ARRAY(),'test-v1','DIRECT','HEALTHY',REPEAT('1',64),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)
+                FROM position p WHERE p.id=UUID_TO_BIN('%s')
+                """
+                        .formatted(OWNER_POSITION));
+        update(
+                """
+                INSERT INTO estimate_revision_snapshot (id,instrument_id,period_end,horizon,revision_7d,revision_30d,revision_90d,overall_revision,eps_change_7d,eps_change_30d,eps_change_90d,analyst_count,quality,evidence_checksum,data_as_of,created_at)
+                SELECT UUID_TO_BIN('30000000-0000-0000-0000-000000000052'),p.instrument_id,'2026-12-31','FY1','FLAT','POSITIVE','FLAT','POSITIVE',0,0.018,0,20,'HEALTHY',REPEAT('2',64),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)
+                FROM position p WHERE p.id=UUID_TO_BIN('%s')
+                """
+                        .formatted(OWNER_POSITION));
+        update(
+                """
+                INSERT INTO valuation_metric_history (id,instrument_id,market_date,trailing_pe,forward_pe,ev_sales,fcf_yield,price_sales,market_cap,source,quality,evidence_checksum,data_as_of,created_at)
+                SELECT UUID_TO_BIN('30000000-0000-0000-0000-000000000053'),p.instrument_id,CURRENT_DATE,24.8,21.4,6.2,0.036,5.9,2500000000000,'canonical-financials-v2','HEALTHY',REPEAT('3',64),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)
+                FROM position p WHERE p.id=UUID_TO_BIN('%s')
+                """
+                        .formatted(OWNER_POSITION));
+        update(
+                """
+                INSERT INTO valuation_assessment_snapshot (id,instrument_id,valuation_state,confidence,own_history_percentile_3y,own_history_percentile_5y,relative_valuation,growth_adjusted_valuation,observation_count,quality,strategy_version,config_hash,evidence_checksum,data_as_of,created_at)
+                SELECT UUID_TO_BIN('30000000-0000-0000-0000-000000000054'),p.instrument_id,'FAIR','HIGH',0.38,0.42,NULL,NULL,300,'HEALTHY','3.0.0-draft',REPEAT('4',64),REPEAT('5',64),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)
+                FROM position p WHERE p.id=UUID_TO_BIN('%s')
+                """
+                        .formatted(OWNER_POSITION));
         update(
                 """
                 INSERT INTO position_thesis (id, position_id, summary, confirmation_signals, invalidation_signals, status, expires_at, user_confirmed, created_at, updated_at, version)
