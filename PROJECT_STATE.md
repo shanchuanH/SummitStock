@@ -393,3 +393,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Flyway V37 applies the same deterministic mapping to every existing confirmed position, eliminating historical classification/bucket disagreement.
 - API integration tests prove both core and quality classification paths return the synchronized bucket; the complete real-portfolio vertical scenario remains green.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 194 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Modification Manual V1 — Phase 0 — 2026-08-12
+
+- CI is partitioned into deterministic backend, frontend, browser E2E, supply-chain, and container gates, with a stable aggregate `required` check for branch protection.
+- Java/JUnit execution is explicitly serial and Playwright uses one CI worker with no server reuse, removing shared MySQL and local-server races from the required path.
+- Repository line endings are pinned by `.gitattributes`, fixing clean Windows checkouts that previously failed Spotless before any test executed.
+- All production-integrated test fixtures now reference the active `2.0.0-draft` strategy instead of the retired V1 draft; historical ADR text remains unchanged as design history.
+- OpenAPI and generated TypeScript artifacts were regenerated with the locked toolchain so the contract-drift gate is reproducible.
+- Verification baseline: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 194 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
