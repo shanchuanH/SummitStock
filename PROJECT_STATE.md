@@ -552,3 +552,9 @@ Configure production provider credentials, run the documented deployment smoke c
 - READY requires confirmed classification, a fresh completed price bar, trend, formal stop, confirmed catalyst, event evidence, fresh risk evidence, a live thesis, healthy capital evidence, and available portfolio/cluster capacity inputs.
 - Missing catalyst, event, risk, or capacity evidence yields PARTIAL; missing/invalid thesis or formal stop yields BLOCKED; stale stop, catalyst, event, or risk evidence yields STALE. None of these states can create a precise tactical ADD.
 - Verification: 28 focused readiness and decision tests pass, including READY, missing-catalyst PARTIAL, missing-stop BLOCKED, and stale-risk STALE branches.
+
+## User-Friendly Strategy Manual — Strategy S-4 — 2026-08-13
+
+- Stop recalculation now extracts the latest two separately confirmed swing lows. The earlier pivot is the structure input; the later pivot is passed as a higher-low input only when its price is strictly greater.
+- The prior fallback that substituted an arbitrary 22-bar minimum was removed. One pivot, an equal/lower second pivot, or insufficient confirmation can no longer manufacture a higher-low stop raise.
+- Verification: 8 strategy-core stop/intelligence tests and the new backend swing-structure test pass. Coverage proves distinct 8→9 pivots raise the structural input, while 8→7 and a lone 8 pivot pass no higher low.
