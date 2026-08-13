@@ -1190,6 +1190,7 @@ export interface components {
       action?: string;
       priority?: string;
       confidence?: string;
+      keyReason?: string;
       trend?: string;
       /** Format: date-time */
       nextEvent?: string;

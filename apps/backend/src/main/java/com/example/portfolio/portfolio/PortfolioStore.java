@@ -138,6 +138,8 @@ public class PortfolioStore {
                                COALESCE(r.action,h.recommended_action,'WAIT_FOR_DATA') action,
                                COALESCE(r.priority,'WATCH') priority,
                                COALESCE(r.confidence,h.confidence,'WAIT_FOR_DATA') confidence,
+                               COALESCE(JSON_UNQUOTE(JSON_EXTRACT(r.reasons,'$[0]')),
+                                        JSON_UNQUOTE(JSON_EXTRACT(h.reasons,'$[0]'))) keyReason,
                                CASE WHEN q.last_price IS NULL OR sma.value_double IS NULL THEN 'WAIT_FOR_DATA'
                                     WHEN q.last_price>=sma.value_double THEN 'ABOVE_TREND' ELSE 'BELOW_TREND' END trend,
                                (SELECT MIN(e.event_at) FROM company_event e
@@ -348,6 +350,7 @@ public class PortfolioStore {
             String action,
             String priority,
             String confidence,
+            String keyReason,
             String trend,
             LocalDateTime nextEvent,
             String dataStatus) {}

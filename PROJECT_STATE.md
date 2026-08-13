@@ -476,3 +476,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Action cards now lead with the recommendation, server-supplied quantity when available, primary reason, and current-to-target position. Evidence, risk, confidence, validity, and change conditions remain available in a collapsed disclosure.
 - Portfolio safety uses the brief's actual protected reserve, strategy drawdown, tactical/speculative exposure, and deployable cash. Market state and audit metadata are secondary disclosures rather than the first screen.
 - Verification: frontend ESLint and TypeScript pass; 18 Vitest files / 35 tests pass; production Vite build passes. No recommendation, sizing, risk, or readiness value is hard-coded in the UI.
+
+## User-Friendly Strategy Manual — UI-2 — 2026-08-13
+
+- The holdings inventory is now a six-column desktop decision list and a responsive mobile card layout: holding, system recommendation, position, key reason, next event, and data status. Search supports symbol and company name; task-language filters cover action, event, readiness, and portfolio role.
+- A four-item summary strip uses server brief truth for invested assets, deployable cash, protected living reserve, and today's must-act count. An unavailable brief renders unavailable values rather than client-side estimates.
+- `PortfolioHoldingResponse.keyReason` exposes the first reason from the active deterministic recommendation, falling back to the latest holding analysis reason. The UI never infers a reason from price or weight and explicitly marks a missing reason as not yet formed.
+- Classification confirmation remains scoped to the selected position and version. The mobile layout uses the same semantic table rows, so it does not duplicate controls or rely on forced clicks.
+- Verification: the portfolio MySQL integration suite passes 11 tests, including persisted recommendation reason projection; the OpenAPI export and generated TypeScript client are current; frontend ESLint, workspace typecheck, 18 Vitest files / 36 tests, API-client build, and production Vite build pass.

@@ -236,6 +236,7 @@ public class PortfolioController {
             String action,
             String priority,
             String confidence,
+            String keyReason,
             String trend,
             Instant nextEvent,
             String dataStatus) {
@@ -256,6 +257,7 @@ public class PortfolioController {
                     value.action(),
                     value.priority(),
                     value.confidence(),
+                    value.keyReason(),
                     value.trend(),
                     instant(value.nextEvent()),
                     value.dataStatus());
