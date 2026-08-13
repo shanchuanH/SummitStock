@@ -15,6 +15,8 @@ export type ImportedHolding = {
   rowType: string;
   status: ImportRowStatus;
   warnings: string[];
+  suggestedClassification?: string;
+  classificationReason?: string;
 };
 
 export type ImportPreview = {
@@ -41,7 +43,13 @@ export type RowOverride = {
   symbol?: string;
   assetType?: string;
   rowType?: string;
+  classification?: string;
   ignored: boolean;
+};
+
+export type CashSetup = {
+  location: "IN_FIDELITY" | "EXTERNAL_BANK" | "SPLIT" | "BELOW_TARGET";
+  externalEmergencyAmount?: string;
 };
 
 export type ImportConfirmation = {
@@ -55,4 +63,13 @@ export type ImportConfirmation = {
   cashRowCount: number;
   compensationRowCount: number;
   idempotentReplay: boolean;
+};
+
+export type AnalysisStatus = {
+  runId: string;
+  state: string;
+  stages: Array<{ code: string; label: string; status: string }>;
+  completedStages: number;
+  totalStages: number;
+  updatedAt: string;
 };

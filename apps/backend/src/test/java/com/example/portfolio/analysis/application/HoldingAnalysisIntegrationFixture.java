@@ -117,7 +117,7 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
         update(
                 """
                 INSERT INTO valuation_snapshot (id,position_id,strategy_version,fundamental_health,valuation_discount,earnings_revisions,price_stabilization,portfolio_capacity,discount_tactical_weight,action,rule_ids,evidence_checksum,data_as_of,valid_until,created_at)
-                VALUES (UUID_TO_BIN('99100000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),'1.0.0-draft','HEALTHY',FALSE,'STABLE','STABLE',TRUE,0,'HOLD',JSON_ARRAY('VALUATION.TEST'),SHA2('v1',256),UTC_TIMESTAMP(6),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 DAY),UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('99100000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),'3.0.0-draft','HEALTHY',FALSE,'STABLE','STABLE',TRUE,0,'HOLD',JSON_ARRAY('VALUATION.TEST'),SHA2('v1',256),UTC_TIMESTAMP(6),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 DAY),UTC_TIMESTAMP(6))
                 """);
         update(
                 """
@@ -135,19 +135,19 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
         update(
                 """
                 INSERT INTO stop_snapshot (id,position_id,strategy_version,entry_price,atr,structure_stop,volatility_stop,initial_stop,live_stop,soft_alert,catastrophic_stop,close_confirmed,rule_ids,quality_status,evidence_checksum,data_as_of,created_at)
-                VALUES (UUID_TO_BIN('99400000-0000-0000-0000-000000000003'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'),'1.0.0-draft',20,2,15,14,14,15,16,12,FALSE,JSON_ARRAY('STOP.TEST'),'HEALTHY',SHA2('s3',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('99400000-0000-0000-0000-000000000003'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'),'3.0.0-draft',20,2,15,14,14,15,16,12,FALSE,JSON_ARRAY('STOP.TEST'),'HEALTHY',SHA2('s3',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
                 """);
         update(
                 """
                 INSERT INTO position_risk_snapshot (id,position_id,strategy_version,current_weight,open_risk_fraction,cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at) VALUES
-                (UUID_TO_BIN('99400000-0000-0000-0000-000000000011'),UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),'2.0.0-draft',0.20,0.0001,0,10,'HEALTHY',SHA2('risk1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
-                (UUID_TO_BIN('99400000-0000-0000-0000-000000000012'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),'2.0.0-draft',0.03,0.0001,0,10,'HEALTHY',SHA2('risk2',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
-                (UUID_TO_BIN('99400000-0000-0000-0000-000000000013'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'),'2.0.0-draft',0.01,0.0001,0,10,'HEALTHY',SHA2('risk3',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                (UUID_TO_BIN('99400000-0000-0000-0000-000000000011'),UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),'3.0.0-draft',0.20,0.0001,0,10,'HEALTHY',SHA2('risk1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99400000-0000-0000-0000-000000000012'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),'3.0.0-draft',0.03,0.0001,0,10,'HEALTHY',SHA2('risk2',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99400000-0000-0000-0000-000000000013'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'),'3.0.0-draft',0.01,0.0001,0,10,'HEALTHY',SHA2('risk3',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
                 """);
         update(
                 """
                 INSERT INTO market_regime_snapshot (id,strategy_version,regime_label,total_score,trend_score,momentum_score,breadth_score,stress_score,confidence,tactical_cap_five_percent,quality_status,inputs_json,narratives,rule_ids,evidence_checksum,data_as_of,created_at)
-                VALUES (UUID_TO_BIN('99400000-0000-0000-0000-000000000020'),'2.0.0-draft','HEALTHY',75,75,70,70,10,'HIGH',FALSE,'HEALTHY',JSON_OBJECT(),JSON_ARRAY('fixture healthy regime'),JSON_ARRAY('REGIME.TEST'),SHA2('regime-fixture',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('99400000-0000-0000-0000-000000000020'),'3.0.0-draft','HEALTHY',75,75,70,70,10,'HIGH',FALSE,'HEALTHY',JSON_OBJECT(),JSON_ARRAY('fixture healthy regime'),JSON_ARRAY('REGIME.TEST'),SHA2('regime-fixture',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
                 """);
         update(
                 """

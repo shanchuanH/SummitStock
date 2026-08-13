@@ -2,6 +2,7 @@ package com.example.portfolio.portfolioimport;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
@@ -91,6 +92,9 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         update("DELETE c FROM cash_bucket c JOIN investment_account a ON a.id=c.account_id "
                 + "JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
                 + "' AND a.import_source='FIDELITY_CSV'");
+        update("DELETE s FROM portfolio_cash_setup s JOIN app_user u ON u.id=s.user_id WHERE u.email='" + EMAIL + "'");
+        update("DELETE c FROM cash_bucket c JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL
+                + "' AND c.bucket_type='EMERGENCY'");
         update("DELETE a FROM audit_log a JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
                 + "' AND a.event_type='PORTFOLIO_IMPORT_CONFIRMED'");
         update("DELETE a FROM investment_account a JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
@@ -113,7 +117,28 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
     }
 
     protected JsonNode confirm(UUID batchId, long version, String rowOverrides) throws Exception {
-        var body = "{\"expectedVersion\":" + version + ",\"accountMappings\":[],\"rowOverrides\":" + rowOverrides + "}";
+        var current = mockMvc.perform(
+                        get("/api/v1/portfolio-imports/{batchId}", batchId).with(httpBasic(EMAIL, PASSWORD)))
+                .andReturn();
+        assertSuccessful(current);
+        var preview = json.readTree(current.getResponse().getContentAsString());
+        var additions = new java.util.ArrayList<String>();
+        for (var holding : preview.path("holdings")) {
+            var rowNumber = holding.path("rowNumber").asInt();
+            if (!"HOLDING".equals(holding.path("rowType").asString())
+                    || rowOverrides.contains("\"rowNumber\":" + rowNumber)) continue;
+            var classification = holding.path("suggestedClassification").asString();
+            if ("UNKNOWN".equals(classification)) classification = "QUALITY_STOCK";
+            additions.add("{\"rowNumber\":" + rowNumber + ",\"classification\":\"" + classification
+                    + "\",\"ignored\":false}");
+        }
+        var supplied = rowOverrides.substring(1, rowOverrides.length() - 1).trim();
+        var merged = new java.util.ArrayList<String>();
+        if (!supplied.isBlank()) merged.add(supplied);
+        merged.addAll(additions);
+        var body = "{\"expectedVersion\":" + version + ",\"accountMappings\":[],\"rowOverrides\":["
+                + String.join(",", merged)
+                + "],\"cashSetup\":{\"location\":\"IN_FIDELITY\",\"externalEmergencyAmount\":\"0\"}}";
         var result = mockMvc.perform(post("/api/v1/portfolio-imports/{batchId}/confirm", batchId)
                         .with(httpBasic(EMAIL, PASSWORD))
                         .with(csrf())

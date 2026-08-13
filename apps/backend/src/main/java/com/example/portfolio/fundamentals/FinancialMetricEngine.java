@@ -19,6 +19,7 @@ public final class FinancialMetricEngine {
         growth(values, FinancialMetric.REVENUE_YOY, FinancialMetric.REVENUE, prior);
         growth(values, FinancialMetric.EPS_YOY, FinancialMetric.DILUTED_EPS, prior);
         growth(values, FinancialMetric.SHARE_DILUTION_YOY, FinancialMetric.DILUTED_SHARES, prior);
+        change(values, FinancialMetric.OPERATING_MARGIN_YOY_CHANGE, FinancialMetric.OPERATING_MARGIN, prior);
         cagr(values, FinancialMetric.REVENUE_3Y_CAGR, FinancialMetric.REVENUE, threeYears, 3);
         var quality = required(values)
                 ? com.example.portfolio.market.provider.ProviderModels.QualityStatus.HEALTHY
@@ -51,10 +52,6 @@ public final class FinancialMetricEngine {
         if (cash != null && debt != null) {
             var netCash = cash.subtract(debt);
             values.put(FinancialMetric.NET_CASH, netCash);
-            var fcf = values.get(FinancialMetric.FREE_CASH_FLOW);
-            if (fcf != null && fcf.signum() > 0 && netCash.signum() < 0) {
-                values.put(FinancialMetric.NET_DEBT_TO_FCF, netCash.negate().divide(fcf, MATH));
-            }
         }
     }
 
@@ -83,6 +80,7 @@ public final class FinancialMetricEngine {
                 .map(value -> {
                     var result = new EnumMap<FinancialMetric, BigDecimal>(FinancialMetric.class);
                     value.facts().forEach((metric, fact) -> result.put(metric, fact.value()));
+                    deriveCurrent(result);
                     return Map.copyOf(result);
                 })
                 .orElse(Map.of());
@@ -112,6 +110,16 @@ public final class FinancialMetricEngine {
             var rate = Math.pow(current.divide(previous, MATH).doubleValue(), 1.0 / years) - 1.0;
             values.put(output, BigDecimal.valueOf(rate));
         }
+    }
+
+    private static void change(
+            EnumMap<FinancialMetric, BigDecimal> values,
+            FinancialMetric output,
+            FinancialMetric input,
+            Map<FinancialMetric, BigDecimal> prior) {
+        var current = values.get(input);
+        var previous = prior.get(input);
+        if (current != null && previous != null) values.put(output, current.subtract(previous));
     }
 
     private static boolean required(Map<FinancialMetric, BigDecimal> values) {

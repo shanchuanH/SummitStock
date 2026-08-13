@@ -180,42 +180,119 @@ export function ExecutiveDashboardPage() {
             <UnconfirmedActionState brief={brief.data} />
           )}
           <ActionSection
-            title="必须行动"
-            actions={brief.data.mustAct.slice(0, 3)}
+            title="今日优先动作"
+            actions={brief.data.todayPriorities}
           />
-          <ActionSection title="不要执行" actions={brief.data.doNot} />
-          <ActionSection title="持续观察" actions={brief.data.watch} />
-          <ActionSection title="数据阻塞" actions={brief.data.blocked} />
+          <section className="context-card">
+            <p className="eyebrow">PORTFOLIO HEALTH</p>
+            <h2>组合健康</h2>
+            <dl className="health-metrics owner-health-metrics">
+              <div>
+                <dt>可投资资产</dt>
+                <dd>{money(brief.data.capital.investableAssets)}</dd>
+              </div>
+              <div>
+                <dt>Emergency Cash</dt>
+                <dd>{money(brief.data.capital.emergencyReserve)}</dd>
+              </div>
+              <div>
+                <dt>Strategy Drawdown</dt>
+                <dd>{percent(brief.data.portfolio.drawdown)}</dd>
+              </div>
+              <div>
+                <dt>Tactical + Speculative</dt>
+                <dd>
+                  {percent(
+                    brief.data.summary.tacticalSpeculativeExposureFraction,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>数据完整度</dt>
+                <dd>{percent(brief.data.dataReadiness.completeness)}</dd>
+              </div>
+            </dl>
+          </section>
+          <section className="brief-action-section">
+            <div className="section-title">
+              <h2>最大风险</h2>
+              <span>{brief.data.topRisks.length}</span>
+            </div>
+            {brief.data.topRisks.length ? (
+              <ol className="risk-list">
+                {brief.data.topRisks.map((risk) => (
+                  <li
+                    className="context-card"
+                    key={`${risk.symbol ?? "portfolio"}-${risk.risk}`}
+                  >
+                    <strong>{risk.risk}</strong>
+                    <p>
+                      <b>这意味着什么：</b>
+                      {risk.meaning}
+                    </p>
+                    <p>
+                      <b>现在应该做什么：</b>
+                      {risk.nowAction}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="context-card">
+                当前没有已确认的前三项风险；数据不完整时系统不会把缺失解释为安全。
+              </p>
+            )}
+          </section>
+          <section className="brief-action-section">
+            <div className="section-title">
+              <h2>全部持仓摘要</h2>
+              <span>{brief.data.allHoldings.length}</span>
+            </div>
+            <div className="holdings-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>持仓</th>
+                    <th>分类</th>
+                    <th>优先级</th>
+                    <th>建议</th>
+                    <th>当前仓位</th>
+                    <th>数据</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {brief.data.allHoldings.map((holding) => (
+                    <tr key={holding.positionId}>
+                      <td>
+                        <a href={`/positions/${holding.positionId}`}>
+                          {holding.symbol}
+                        </a>
+                        <small>{holding.companyName}</small>
+                      </td>
+                      <td>{holding.classification ?? "待确认"}</td>
+                      <td>
+                        <span
+                          className={`priority-pill ${holding.priority.toLowerCase()}`}
+                        >
+                          {holding.priority}
+                        </span>
+                      </td>
+                      <td>{holding.action}</td>
+                      <td>{percent(holding.currentWeight)}</td>
+                      <td>{holding.dataStatus}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
           <section className="dashboard-grid">
-            <article className="context-card">
-              <p className="eyebrow">组合概览</p>
-              <h2>{brief.data.summary.openPositions} 个持仓</h2>
-              <dl className="health-metrics">
-                <div>
-                  <dt>流动资产</dt>
-                  <dd>{money(brief.data.summary.totalLiquidAssets)}</dd>
-                </div>
-                <div>
-                  <dt>已投资 / 现金</dt>
-                  <dd>
-                    {money(brief.data.summary.investedValue)} /{" "}
-                    {money(brief.data.summary.trackedCash)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>核心 / 战术</dt>
-                  <dd>
-                    {percent(brief.data.summary.coreExposureFraction)} /{" "}
-                    {percent(brief.data.summary.tacticalExposureFraction)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>集群风险</dt>
-                  <dd>{percent(brief.data.summary.clusterRiskFraction)}</dd>
-                </div>
-              </dl>
-            </article>
             <PortfolioHealthCard health={brief.data.portfolioHealth} />
+            <article className="context-card">
+              <p className="eyebrow">PORTFOLIO</p>
+              <h2>{brief.data.summary.openPositions} 个持仓</h2>
+              <p>全部持仓已按 MUST_ACT → DO_NOT → WATCH → HOLD 排序。</p>
+            </article>
           </section>
           <details className="context-card audit-details">
             <summary>数据与审计依据</summary>

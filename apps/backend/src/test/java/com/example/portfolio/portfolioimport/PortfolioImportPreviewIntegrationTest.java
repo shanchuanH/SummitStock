@@ -33,6 +33,8 @@ class PortfolioImportPreviewIntegrationTest extends PortfolioImportIntegrationSu
                 .isZero();
         assertThat(count("SELECT COUNT(*) FROM position WHERE import_source='FIDELITY_CSV'"))
                 .isZero();
+        assertThat(first.path("holdings").get(0).path("suggestedClassification").asString())
+                .isEqualTo("CORE_BROAD_ETF");
         assertThat(count("SELECT COUNT(*) FROM app_user WHERE email='" + EMAIL + "'"))
                 .isEqualTo(1);
     }

@@ -4,11 +4,15 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
-  verify:
+  backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -18,6 +22,14 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
+      - run: ./mvnw spotless:check
+      - run: ./mvnw verify
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
         with:
           version: 11.9.0
@@ -26,22 +38,73 @@ jobs:
           node-version: "22.22.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: ./mvnw spotless:check
-      - run: ./mvnw verify
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
       - run: pnpm api:check
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.22.0"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @portfolio/web exec playwright install --with-deps chromium
       - run: pnpm --filter @portfolio/web test:e2e
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.22.0"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm audit --audit-level high
       - uses: actions/dependency-review-action@v5
         if: github.event_name == 'pull_request'
         with:
           fail-on-severity: high
-      - run: docker compose -f infra/compose.local.yaml config --quiet
-      - run: docker build -f infra/docker/backend.Dockerfile .
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker compose -f infra/compose.local.yaml config --quiet
+      - run: docker build -f infra/docker/backend.Dockerfile .
+
+  required:
+    if: always()
+    needs: [backend, frontend, e2e, supply-chain, container]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce every required CI partition
+        env:
+          BACKEND: ${{ needs.backend.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+          E2E: ${{ needs.e2e.result }}
+          SUPPLY_CHAIN: ${{ needs.supply-chain.result }}
+          CONTAINER: ${{ needs.container.result }}
+        run: |
+          test "$BACKEND" = success
+          test "$FRONTEND" = success
+          test "$E2E" = success
+          test "$SUPPLY_CHAIN" = success
+          test "$CONTAINER" = success

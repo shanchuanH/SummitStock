@@ -1,12 +1,12 @@
 # Main branch protection
 
-The `main` branch is a release boundary. Configure the repository ruleset so that changes reach it only through a pull request after the `verify` job in `.github/workflows/ci.yml` succeeds.
+The `main` branch is a release boundary. Configure the repository ruleset so that changes reach it only through a pull request after the stable `required` job in `.github/workflows/ci.yml` succeeds. That aggregate job fails unless the isolated backend, frontend, browser, supply-chain, and container partitions all succeed.
 
 Required settings:
 
 - require a pull request before merging;
 - require at least one approving review and dismiss stale approvals;
-- require the `verify` status check to pass and require branches to be up to date;
+- require the `required` status check to pass and require branches to be up to date;
 - require conversation resolution;
 - block force pushes and deletion;
 - apply the ruleset to administrators and automation unless an audited break-glass exception is used.

@@ -28,6 +28,7 @@ class FinancialMetricEngineTest {
                 "2024-12-31",
                 Map.of(
                         FinancialMetric.REVENUE, bd("100"),
+                        FinancialMetric.OPERATING_INCOME, bd("25"),
                         FinancialMetric.DILUTED_EPS, bd("5"),
                         FinancialMetric.DILUTED_SHARES, bd("100")));
         var threeYears = FinancialTestFixtures.period("2022-12-31", Map.of(FinancialMetric.REVENUE, bd("80")));
@@ -40,6 +41,8 @@ class FinancialMetricEngineTest {
         assertThat(result.values().get(FinancialMetric.NET_CASH)).isEqualByComparingTo("30");
         assertThat(result.values().get(FinancialMetric.CURRENT_RATIO)).isEqualByComparingTo("2");
         assertThat(result.values().get(FinancialMetric.SHARE_DILUTION_YOY)).isEqualByComparingTo("0.02");
+        assertThat(result.values().get(FinancialMetric.OPERATING_MARGIN_YOY_CHANGE))
+                .isEqualByComparingTo("-0.05");
     }
 
     @Test

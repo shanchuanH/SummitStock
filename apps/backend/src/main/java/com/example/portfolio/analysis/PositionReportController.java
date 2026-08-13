@@ -21,7 +21,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 @RestController
-@RequestMapping("/api/v1/positions/{positionId}")
+@RequestMapping("/api/v1")
 public final class PositionReportController {
     private final HoldingAnalysisStore store;
     private final HoldingEvidenceAssembler evidenceAssembler;
@@ -34,7 +34,7 @@ public final class PositionReportController {
         this.json = json;
     }
 
-    @GetMapping("/report")
+    @GetMapping({"/positions/{positionId}/report", "/holdings/{positionId}/analyst-report"})
     PositionReportResponse report(@PathVariable UUID positionId, Principal principal) {
         var userId = store.userId(principal.getName());
         var value = store.latestReport(userId, positionId)
@@ -72,7 +72,88 @@ public final class PositionReportController {
                         value.strategyVersion(),
                         value.configHash()),
                 assetEvidence(evidence),
+                analystLayers(value, evidence),
                 instant(value.dataAsOf()));
+    }
+
+    private AnalystLayers analystLayers(
+            HoldingAnalysisStore.PositionReportRow value,
+            com.example.portfolio.analysis.domain.HoldingEvidence evidence) {
+        var action = value.recommendationAction() == null ? value.recommendedAction() : value.recommendationAction();
+        var policy = positionPolicy(evidence);
+        var atCapacity = value.currentWeight() != null
+                && policy.hardMax() != null
+                && value.currentWeight().compareTo(policy.hardMax()) >= 0;
+        return new AnalystLayers(
+                new SystemRecommendation(
+                        action,
+                        value.recommendationPriority(),
+                        value.confidence(),
+                        decimal(value.recommendedQuantityMin()),
+                        decimal(value.recommendedQuantityMax()),
+                        value.exactQuantityAllowed()),
+                new PortfolioRole(
+                        value.classification(),
+                        decimal(value.currentWeight()),
+                        decimal(value.targetWeightMin()),
+                        decimal(value.targetWeightMax()),
+                        decimal(policy.normalMax()),
+                        decimal(policy.hardMax()),
+                        atCapacity,
+                        atCapacity
+                                ? "The holding is at or above its hard portfolio limit; attractive valuation cannot authorize more buying."
+                                : "Portfolio capacity remains subject to total-risk, cluster-risk, cash, and liquidity limits."),
+                new Fundamentals(
+                        evidence.fundamentals().financialHealth(),
+                        evidence.fundamentals().quality().name(),
+                        evidence.fundamentals().dataAsOf(),
+                        evidence.fundamentals().available()),
+                new Valuation(
+                        evidence.valuation().state(),
+                        evidence.valuation().confidence(),
+                        evidence.valuation().observationCount(),
+                        evidence.valuation().independentConfirmation(),
+                        isAttractive(evidence.valuation().state()),
+                        isAttractive(evidence.valuation().state()) && atCapacity),
+                new PriceRiskEarnings(
+                        evidence.indicators().priceState(),
+                        decimal(evidence.stop().formalStop()),
+                        decimal(evidence.stop().liveStop()),
+                        evidence.nextEvent().eventRisk(),
+                        evidence.nextEvent().policyAction(),
+                        evidence.nextEvent().eventAt()),
+                new RationaleAndEvidence(
+                        strings(value.reasons()),
+                        strings(value.risks()),
+                        strings(value.changeConditions()),
+                        new EvidenceDrawer(
+                                strings(value.ruleIds()),
+                                strings(value.evidenceRefs()),
+                                value.strategyVersion(),
+                                value.configHash(),
+                                evidence.quality().name(),
+                                instant(value.dataAsOf()))));
+    }
+
+    private static com.example.portfolio.analysis.domain.StrategyDefinition.PositionPolicy positionPolicy(
+            com.example.portfolio.analysis.domain.HoldingEvidence evidence) {
+        return switch (evidence.position().classification()) {
+            case QUALITY_STOCK, QUALITY_GROWTH_HIGH_VOL -> evidence.strategy().quality();
+            case THEMATIC_ETF -> evidence.strategy().thematicEtf();
+            case TACTICAL_STOCK, CYCLICAL_TACTICAL, TURNAROUND_TACTICAL ->
+                evidence.strategy().tactical();
+            case SPECULATIVE -> evidence.strategy().speculative();
+            default ->
+                new com.example.portfolio.analysis.domain.StrategyDefinition.PositionPolicy(
+                        BigDecimal.ZERO, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ZERO);
+        };
+    }
+
+    private static boolean isAttractive(String valuationState) {
+        return valuationState != null
+                && (valuationState.contains("ATTRACTIVE")
+                        || valuationState.contains("DISCOUNT")
+                        || valuationState.contains("CHEAP"));
     }
 
     private static AssetEvidence assetEvidence(com.example.portfolio.analysis.domain.HoldingEvidence evidence) {
@@ -241,11 +322,67 @@ public final class PositionReportController {
     public record SuppressedCandidate(
             String action, String priority, int riskRank, String ruleId, String reason, List<String> risks) {}
 
+    public record AnalystLayers(
+            SystemRecommendation systemRecommendation,
+            PortfolioRole portfolioRole,
+            Fundamentals fundamentals,
+            Valuation valuation,
+            PriceRiskEarnings priceRiskEarnings,
+            RationaleAndEvidence rationaleAndEvidence) {}
+
+    public record SystemRecommendation(
+            String action,
+            String priority,
+            String confidence,
+            String quantityMin,
+            String quantityMax,
+            boolean exactQuantityAllowed) {}
+
+    public record PortfolioRole(
+            String classification,
+            String currentWeight,
+            String targetWeightMin,
+            String targetWeightMax,
+            String normalMaxWeight,
+            String hardMaxWeight,
+            boolean atHardMax,
+            String capacityExplanation) {}
+
+    public record Fundamentals(String financialHealth, String quality, Instant dataAsOf, boolean available) {}
+
+    public record Valuation(
+            String state,
+            String confidence,
+            int observationCount,
+            boolean independentConfirmation,
+            boolean attractive,
+            boolean attractiveButCannotAdd) {}
+
+    public record PriceRiskEarnings(
+            String priceState,
+            String formalStop,
+            String liveStop,
+            String earningsRisk,
+            String earningsPolicyAction,
+            Instant earningsAt) {}
+
+    public record RationaleAndEvidence(
+            List<String> reasons, List<String> risks, List<String> changeConditions, EvidenceDrawer evidenceDrawer) {}
+
+    public record EvidenceDrawer(
+            List<String> ruleIds,
+            List<String> evidenceRefs,
+            String strategyVersion,
+            String configHash,
+            String dataQuality,
+            Instant dataAsOf) {}
+
     public record PositionReportResponse(
             Position position,
             String readiness,
             Recommendation recommendation,
             AuditEvidence evidence,
             AssetEvidence assetEvidence,
+            AnalystLayers layers,
             Instant dataAsOf) {}
 }

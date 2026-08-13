@@ -117,6 +117,8 @@
         <includes>
           <include>STRATEGY_CONFIG_V1_DRAFT.yaml</include>
           <include>STRATEGY_CONFIG_V2_DRAFT.yaml</include>
+          <include>STRATEGY_CONFIG_V3_DRAFT.yaml</include>
+          <include>CURRENT_HOLDING_CLASSIFICATION_SEED.yaml</include>
           <include>financial-concept-mapping.yaml</include>
         </includes>
       </resource>

@@ -13,10 +13,13 @@ import { PortfolioImportPage } from "./app/portfolio-import/PortfolioImportPage"
 import { RuntimeLayout } from "./app/runtime-layout";
 import {
   DashboardPage,
+  AdvancedResearchPage,
   DataHealthPage,
+  JournalPage,
   OpportunitiesPage,
   ReviewPage,
   SettingsPage,
+  ThesisPage,
 } from "./app/workspace-pages";
 import "./styles.css";
 
@@ -41,8 +44,11 @@ const router = createBrowserRouter([
       { path: "/opportunities", element: <OpportunitiesPage /> },
       { path: "/review", element: <ReviewPage /> },
       { path: "/settings", element: <SettingsPage /> },
-      { path: "/admin/data-health", element: <DataHealthPage /> },
-      { path: "/admin/backtests", element: <BacktestPage /> },
+      { path: "/advanced/research", element: <AdvancedResearchPage /> },
+      { path: "/advanced/data-health", element: <DataHealthPage /> },
+      { path: "/advanced/backtests", element: <BacktestPage /> },
+      { path: "/advanced/thesis", element: <ThesisPage /> },
+      { path: "/advanced/journal", element: <JournalPage /> },
       { path: "/advanced/health", element: <HealthPage /> },
       { path: "/advanced/market-data", element: <MarketInspectionPage /> },
       { path: "/advanced/market-context", element: <MarketContextPage /> },

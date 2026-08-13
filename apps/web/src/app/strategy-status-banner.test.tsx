@@ -25,7 +25,7 @@ describe("StrategyStatusBanner", () => {
   it("visibly marks an explicit draft runtime override", async () => {
     get.mockResolvedValue({
       data: {
-        strategyVersion: "2.0.0-draft",
+        strategyVersion: "3.0.0-draft",
         strategyPublishState: "MISSING",
         productionStrategy: false,
         draftStrategyOverride: true,

@@ -393,3 +393,70 @@ Configure production provider credentials, run the documented deployment smoke c
 - Flyway V37 applies the same deterministic mapping to every existing confirmed position, eliminating historical classification/bucket disagreement.
 - API integration tests prove both core and quality classification paths return the synchronized bucket; the complete real-portfolio vertical scenario remains green.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 194 backend tests. Frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Modification Manual V1 — Phase 0 — 2026-08-12
+
+- CI is partitioned into deterministic backend, frontend, browser E2E, supply-chain, and container gates, with a stable aggregate `required` check for branch protection.
+- Java/JUnit execution is explicitly serial and Playwright uses one CI worker with no server reuse, removing shared MySQL and local-server races from the required path.
+- Repository line endings are pinned by `.gitattributes`, fixing clean Windows checkouts that previously failed Spotless before any test executed.
+- All production-integrated test fixtures now reference the active `2.0.0-draft` strategy instead of the retired V1 draft; historical ADR text remains unchanged as design history.
+- OpenAPI and generated TypeScript artifacts were regenerated with the locked toolchain so the contract-drift gate is reproducible.
+- Verification baseline: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 194 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Modification Manual V1 — Phase 1 — 2026-08-12
+
+- Valuation and financial-health evidence now use four-quarter TTM fundamentals and nearest-forward annual FY1 estimates; negative earnings no longer produce a misleading trailing P/E, margin deterioration uses the configured percentage-point threshold, and leverage requires complete TTM free-cash-flow evidence.
+- Position sizing now applies the minimum of trade-risk, projected total-risk, cluster-risk, sleeve-weight, cash, and liquidity limits. Thematic ETFs receive a non-zero volatility proxy so they participate in portfolio and cluster risk.
+- Flyway V38 freezes initial trade-risk fields and adds external cash-flow plus unitized NAV history. Deposits and withdrawals change units rather than strategy return, and drawdown is calculated from cash-flow-adjusted NAV.
+- Drawdown attribution now compares peak-date and current position values instead of using current market-value weights as a proxy. Profit-cushion R uses immutable entry and initial-stop evidence.
+- Earnings gap percentiles are derived from the actual gap distribution. ETF-dip scoring consumes independent volatility, credit, term-structure, breadth, and trend evidence and uses real time-series confirmation triggers.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 205 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Modification Manual V1 — Phase 2 — 2026-08-12
+
+- Strategy V3 (`3.0.0-draft`) is the active runtime strategy. Its allocation targets are Broad 35%, Tech 15%, International 10%, Quality 15%, Thematic 8%, Tactical 5%, Speculative 2%, and Tactical Reserve 10% within an ordered 8–12% range.
+- The typed definition now owns allocation, emergency cash, drawdown, risk, liquidity participation, thematic risk proxy, stop multipliers, speculative time stop, cash-flow allocation, ETF-dip, freshness, and decision parameters. Runtime sizing, portfolio-risk snapshots, stop calculation/preview, and cash-flow planning consume those typed values.
+- Publication validation fails closed unless allocations sum to 100%, position bounds are ordered, trade risk remains below the absolute cap, cluster risk does not exceed total risk, drawdown thresholds strictly increase, ETF-dip tranches total 100%, Must Act is capped at three, and execution remains manual-only.
+- The active production/test fixtures, application defaults, frontend strategy status, and container artifact assertion now reference V3; V1/V2 files remain only as immutable historical strategy artifacts.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 207 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 3 — 2026-08-12
+
+- Portfolio preview remains read-only while adding config-driven classification suggestions and reasons. Every imported holding requires an explicit owner-confirmed, non-unknown classification before reconciliation or downstream sizing can begin.
+- The onboarding flow now captures emergency-cash location in owner language: held at Fidelity, held at an external bank, split between both, or currently below target. Fidelity-held emergency cash is protected from allocation, and the confirmed setup is stored durably by Flyway V39.
+- Confirmation atomically persists classifications and cash setup, reconciles the portfolio without creating assets, then queues the existing analysis pipeline. An owner-scoped status endpoint exposes the eight required stages from durable job state instead of simulated progress.
+- The web flow includes classification review, cash setup, explicit confirmation, and resumable analysis progress polling. OpenAPI and generated TypeScript contracts include the expanded onboarding and status models.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 208 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 4 — 2026-08-12
+
+- `GET /api/v1/brief/today` is the sole owner-dashboard aggregate. It now returns no more than three cross-priority daily actions, the top three unique risks with explicit meaning and immediate response, and all holdings ordered MUST_ACT, DO_NOT, WATCH, then HOLD.
+- Every action includes company, classification, action, priority, confidence, current and target weights, quantity range, estimated amount, primary reasons and risks, data timestamp, expiry, and change conditions. The only controls are full analysis, handled, and defer; no automatic execution path exists.
+- Owner portfolio health is limited to investable assets, Emergency Cash, strategy drawdown, Tactical plus Speculative exposure, and conservative data completeness. The no-action message remains gated on READY, full coverage, fresh analysis, and empty action queues.
+- Frontend fixtures and generated API contracts cover the expanded aggregate without composing lower-level financial services in React.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 208 backend tests; backend formatting/build gates pass; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 5 — 2026-08-12
+
+- The canonical owner endpoint `GET /api/v1/holdings/{id}/analyst-report` now aggregates the existing deterministic analysis into exactly six layers: system recommendation, portfolio role, fundamentals, valuation, price/risk/earnings, and rationale/risk/change conditions/evidence. The prior position report path remains compatible.
+- Classification-specific Strategy V3 target, normal maximum, and hard maximum are included in portfolio context. The report explicitly separates an attractive security from available portfolio capacity, so a cheap holding at its hard maximum cannot be presented as an add.
+- Rule IDs, evidence references, strategy version, configuration hash, data quality, and timestamps remain behind the Evidence Drawer; missing six-layer evidence fails closed rather than rendering a partial or fabricated report.
+- GOOGL quality-stock, DRAM thematic-ETF, and DXYZ speculative fixtures verify distinct 15%, 10%, and 2% hard limits and the complete six-layer contract. The owner page leads with the conclusion and renders six modules rather than an engineering-first chart wall.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 209 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 6 — 2026-08-12
+
+- Owner-facing readiness now presents conservative completeness as a plain-language percentage alongside market and fundamental coverage. The information hierarchy remains action, reason, owner data, then technical evidence.
+- API failures now use stable problem details for not-found, analysis-not-ready, owner-input-required, and dependency-unavailable cases, including a request ID, retry semantics, and a concrete next action. The web request layer preserves those semantics instead of reducing every failure to a status number.
+- Recommendation acknowledgement remains idempotent and explicitly never submits an execution. Dashboard controls are limited to full analysis, handled, and defer; Evidence Drawer content remains collapsed by default.
+- Browser acceptance runs the owner brief and six-layer holding report in both desktop Chrome and a Pixel 7 mobile viewport, verifies no horizontal page overflow, validates the completeness badge and evidence drawer, and asserts that no trading or order button exists.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 210 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client and production builds pass; Playwright passes 4/4 desktop and mobile journeys.
+
+## Modification Manual V1 — Phase 7 — 2026-08-12
+
+- Regime, Backtest, Thesis, Journal, and Data Health now live behind one protected Advanced Research hub, while the five-item owner navigation and Executive Brief remain the primary workflow.
+- Canonical advanced routes are restored and linked from Settings without exposing worker, strategy-release, or data-health internals as prerequisites for daily decisions.
+- Owner-facing onboarding copy now consistently explains classification confirmation, Emergency Cash, reconciliation, and analysis progress in plain Chinese. The post-preview steps use an explicit responsive flow so cash confirmation and analysis submission remain independently operable on narrow screens.
+- Final browser acceptance covers Fidelity preview recognition of a stock, ETF, and cash; explicit classification and Emergency Cash confirmation; all eight analysis stages; no more than three priority actions; and a holding report that answers sizing, valuation, earnings-risk, evidence, uncertainty, and change-condition questions.
+- The OpenAPI artifact is normalized by the locked generator with no semantic contract change, eliminating formatting-only drift in the required contract gate.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 218 backend tests; frontend ESLint, typecheck, 15 Vitest files / 30 tests, generated-client and production builds pass; Playwright passes 6/6 desktop and mobile journeys; local Docker Compose configuration and whitespace checks pass.

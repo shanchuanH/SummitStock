@@ -30,12 +30,21 @@ public final class PositionSizing {
                 floor(input.deployableCash().max(BigDecimal.ZERO).divide(input.quotePrice(), 12, RoundingMode.DOWN));
 
         BigDecimal byRisk;
+        BigDecimal byTotalRisk;
         BigDecimal byCluster;
-        if (input.stopRequired()) {
-            var riskPerShare = input.entryPrice().subtract(input.formalStop()).abs();
+        var plannedRiskPerShare = input.stopRequired()
+                ? input.entryPrice().subtract(input.formalStop()).abs()
+                : input.riskProxyPerShare();
+        if (plannedRiskPerShare != null) {
+            var riskPerShare = plannedRiskPerShare;
             if (riskPerShare.signum() == 0) return unavailable();
             var riskAmount = input.investableAssets().multiply(input.tradeRiskFraction());
             byRisk = floor(riskAmount.divide(riskPerShare, 12, RoundingMode.DOWN));
+            var remainingTotalRiskAmount = input.investableAssets()
+                    .multiply(input.totalRiskCapFraction())
+                    .subtract(input.currentPortfolioOpenRiskAmount())
+                    .max(BigDecimal.ZERO);
+            byTotalRisk = floor(remainingTotalRiskAmount.divide(riskPerShare, 12, RoundingMode.DOWN));
             var remainingClusterRiskAmount = input.investableAssets()
                     .multiply(input.clusterRiskCapFraction())
                     .subtract(input.currentClusterOpenRiskAmount())
@@ -43,10 +52,14 @@ public final class PositionSizing {
             byCluster = floor(remainingClusterRiskAmount.divide(riskPerShare, 12, RoundingMode.DOWN));
         } else {
             byRisk = byWeight;
+            byTotalRisk = byWeight;
             byCluster = byWeight;
         }
 
-        var maximum = min(byRisk, byWeight, byCash, byCluster);
+        var byLiquidity = input.liquidityMaxShares() == null
+                ? byCash
+                : floor(input.liquidityMaxShares().max(BigDecimal.ZERO));
+        var maximum = min(byRisk, byTotalRisk, byWeight, byCash, byCluster, byLiquidity);
         var targetMinQuantity = input.targetWeightMin() == null
                 ? BigDecimal.ZERO
                 : floor(input.investableAssets()
@@ -63,9 +76,11 @@ public final class PositionSizing {
                     scale(byRisk, input.starterFraction()),
                     scale(byWeight, input.starterFraction()),
                     scale(byCash, input.starterFraction()),
-                    scale(byCluster, input.starterFraction()));
+                    scale(byCluster, input.starterFraction()),
+                    scale(byTotalRisk, input.starterFraction()),
+                    scale(byLiquidity, input.starterFraction()));
         }
-        return new Result(true, minimum, maximum, byRisk, byWeight, byCash, byCluster);
+        return new Result(true, minimum, maximum, byRisk, byWeight, byCash, byCluster, byTotalRisk, byLiquidity);
     }
 
     private static Result sell(Input input) {
@@ -151,7 +166,65 @@ public final class PositionSizing {
             boolean priceFresh,
             boolean riskFresh,
             boolean classificationConfirmed,
-            boolean providerHardError) {}
+            boolean providerHardError,
+            BigDecimal currentPortfolioOpenRiskAmount,
+            BigDecimal totalRiskCapFraction,
+            BigDecimal liquidityMaxShares,
+            BigDecimal riskProxyPerShare) {
+        public Input(
+                RecommendationAction action,
+                BigDecimal investableAssets,
+                BigDecimal tradeRiskFraction,
+                BigDecimal entryPrice,
+                BigDecimal formalStop,
+                BigDecimal quotePrice,
+                BigDecimal currentQuantity,
+                BigDecimal currentMarketValue,
+                BigDecimal targetWeightMin,
+                BigDecimal weightCap,
+                BigDecimal trimTargetWeight,
+                BigDecimal deployableCash,
+                BigDecimal currentClusterOpenRiskAmount,
+                BigDecimal clusterRiskCapFraction,
+                BigDecimal starterFraction,
+                boolean stopRequired,
+                EvidenceQuality priceQuality,
+                EvidenceQuality capitalQuality,
+                EvidenceQuality riskQuality,
+                boolean priceFresh,
+                boolean riskFresh,
+                boolean classificationConfirmed,
+                boolean providerHardError) {
+            this(
+                    action,
+                    investableAssets,
+                    tradeRiskFraction,
+                    entryPrice,
+                    formalStop,
+                    quotePrice,
+                    currentQuantity,
+                    currentMarketValue,
+                    targetWeightMin,
+                    weightCap,
+                    trimTargetWeight,
+                    deployableCash,
+                    currentClusterOpenRiskAmount,
+                    clusterRiskCapFraction,
+                    starterFraction,
+                    stopRequired,
+                    priceQuality,
+                    capitalQuality,
+                    riskQuality,
+                    priceFresh,
+                    riskFresh,
+                    classificationConfirmed,
+                    providerHardError,
+                    BigDecimal.ZERO,
+                    BigDecimal.ONE,
+                    null,
+                    null);
+        }
+    }
 
     public record Result(
             boolean exactQuantityAllowed,
@@ -160,5 +233,27 @@ public final class PositionSizing {
             BigDecimal quantityByRisk,
             BigDecimal quantityByWeightCap,
             BigDecimal quantityByAvailableCash,
-            BigDecimal quantityByClusterCap) {}
+            BigDecimal quantityByClusterCap,
+            BigDecimal quantityByTotalRiskCap,
+            BigDecimal quantityByLiquidity) {
+        public Result(
+                boolean exactQuantityAllowed,
+                BigDecimal quantityMin,
+                BigDecimal quantityMax,
+                BigDecimal quantityByRisk,
+                BigDecimal quantityByWeightCap,
+                BigDecimal quantityByAvailableCash,
+                BigDecimal quantityByClusterCap) {
+            this(
+                    exactQuantityAllowed,
+                    quantityMin,
+                    quantityMax,
+                    quantityByRisk,
+                    quantityByWeightCap,
+                    quantityByAvailableCash,
+                    quantityByClusterCap,
+                    null,
+                    null);
+        }
+    }
 }

@@ -25,5 +25,7 @@ class EarningsReactionStatsTest {
         assertThat(result.p90AbsMove()).isEqualByComparingTo("0.09");
         assertThat(result.worstDownsideGap()).isEqualByComparingTo("-0.05");
         assertThat(result.bestUpsideGap()).isEqualByComparingTo("0.04");
+        assertThat(result.p75AbsGap()).isEqualByComparingTo("0.04");
+        assertThat(result.p90AbsGap()).isEqualByComparingTo("0.04");
     }
 }

@@ -1,5 +1,6 @@
 package com.example.portfolio.portfolio;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.strategy.dip.ActiveSleeveAccountability;
 import com.example.portfolio.strategy.dip.CashflowAllocator;
 import com.example.portfolio.strategy.dip.EtfDipEngine;
@@ -28,10 +29,13 @@ import org.springframework.web.server.ResponseStatusException;
 public class DipCashflowController {
     private final DipCashflowStore store;
     private final Optional<DebugApiAccess> debugAccess;
+    private final PublishedStrategyService strategies;
 
-    public DipCashflowController(DipCashflowStore store, Optional<DebugApiAccess> debugAccess) {
+    public DipCashflowController(
+            DipCashflowStore store, Optional<DebugApiAccess> debugAccess, PublishedStrategyService strategies) {
         this.store = store;
         this.debugAccess = debugAccess;
+        this.strategies = strategies;
     }
 
     @GetMapping("/etf-dip/status")
@@ -77,7 +81,11 @@ public class DipCashflowController {
     @PostMapping("/cashflow/plan")
     CashflowPlanResponse cashflow(@Valid @RequestBody CashflowPlanRequest r) {
         var p = CashflowAllocator.allocate(
-                r.monthlyTakeHome(), r.monthlyExpenses(), r.emergencyCash(), r.qualitySignal());
+                r.monthlyTakeHome(),
+                r.monthlyExpenses(),
+                r.emergencyCash(),
+                r.qualitySignal(),
+                strategies.current().cashflowAllocatorPolicy());
         return new CashflowPlanResponse(
                 decimal(p.surplus()),
                 decimal(p.emergency()),

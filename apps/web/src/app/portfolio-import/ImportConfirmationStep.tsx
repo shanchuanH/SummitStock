@@ -15,24 +15,22 @@ export function ImportConfirmationStep({
 }) {
   return (
     <section className="context-card import-confirm-card">
-      <p className="eyebrow">STEP 3 / CONFIRM</p>
-      <h2>Reconcile this full account snapshot</h2>
+      <p className="eyebrow">第 5 步 / 确认并分析</p>
+      <h2>确认这是账户的完整快照</h2>
       <p>
-        Existing matching positions will be updated, historical snapshots will
-        be retained, and missing holdings in these imported accounts will be
-        closed.
+        匹配的持仓会更新，历史快照会保留；本次完整账户快照中已不存在的持仓会被关闭。
       </p>
       {!ready ? (
         <p className="import-warning" role="alert">
-          Correct or explicitly ignore every error row before confirming.
+          请先修正每一行错误、确认全部分类和生活备用金位置。
         </p>
       ) : null}
       <div className="import-actions">
         <button disabled={!ready || busy} onClick={onConfirm} type="button">
-          {busy ? "Confirming…" : "Confirm and queue analysis"}
+          {busy ? "正在确认…" : "确认并开始分析"}
         </button>
         <button disabled={busy} onClick={onReset} type="button">
-          Start over
+          重新开始
         </button>
       </div>
       <small>

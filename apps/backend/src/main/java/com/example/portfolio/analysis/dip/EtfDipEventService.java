@@ -61,6 +61,10 @@ public class EtfDipEventService {
             var triggers = triggerCodes(evidence);
             boolean complete = evidence.instrumentDrawdown() != null
                     && evidence.portfolioDrawdown() != null
+                    && evidence.volatilityStress() != null
+                    && evidence.creditStress() != null
+                    && evidence.vix() != null
+                    && evidence.vix3m() != null
                     && evidence.dataAsOf() != null
                     && evidence.quality() != EvidenceQuality.MISSING;
             boolean emergencyProtected = capital.emergencyReserve().compareTo(strategy.emergencyCashFloor()) >= 0;
@@ -70,15 +74,15 @@ public class EtfDipEventService {
                             evidence.marketDriven(),
                             complete,
                             emergencyProtected,
-                            drawdownScore(evidence.instrumentDrawdown()),
-                            evidence.stressLevel(),
+                            drawdownScore(evidence.portfolioDrawdown()),
+                            score(evidence.volatilityStress()),
                             1 - evidence.breadth50(),
-                            evidence.stressLevel(),
-                            evidence.stressLevel(),
+                            score(evidence.creditStress()),
+                            volatilityTermScore(evidence.vix(), evidence.vix3m()),
                             1 - Math.clamp(evidence.trendScore() / 40.0, 0, 1),
                             triggers.contains("RSI_CROSS_40"),
                             triggers.contains("BREAKOUT_5_DAY"),
-                            triggers.contains("ABOVE_EMA_20"),
+                            triggers.contains("EMA20_RECLAIM"),
                             triggers.contains("BREADTH_IMPROVING"),
                             triggers.contains("VIX_FALLING"),
                             triggers.contains("CREDIT_STABLE"),
@@ -162,12 +166,17 @@ public class EtfDipEventService {
                         ), latest_regime AS (
                           SELECT r.* FROM market_regime_snapshot r ORDER BY r.data_as_of DESC,r.created_at DESC LIMIT 1
                         )
-                        SELECT BIN_TO_UUID(i.id) instrumentId,i.symbol,
+                        SELECT DISTINCT BIN_TO_UUID(i.id) instrumentId,i.symbol,
                                GREATEST(1-(SELECT b.close_price FROM price_bar b WHERE b.instrument_id=i.id AND b.adjusted=TRUE
                                   ORDER BY b.market_date DESC LIMIT 1)/(SELECT MAX(h.close_price) FROM price_bar h
                                   WHERE h.instrument_id=i.id AND h.adjusted=TRUE),0) instrumentDrawdown,
                                d.drawdown_fraction portfolioDrawdown,d.market_driven marketDriven,
                                d.breadth50,d.stress_level stressLevel,r.trend_score trendScore,
+                               mf.volatility_stress volatilityStress,mf.credit_stress creditStress,
+                               (SELECT m.value_decimal FROM macro_observation m WHERE m.series_code='VIXCLS'
+                                  AND m.observation_date<=DATE(d.data_as_of) ORDER BY m.observation_date DESC LIMIT 1) vix,
+                               (SELECT m.value_decimal FROM macro_observation m WHERE m.series_code='VIX3M'
+                                  AND m.observation_date<=DATE(d.data_as_of) ORDER BY m.observation_date DESC LIMIT 1) vix3m,
                                CASE WHEN d.quality_status='HEALTHY' AND r.quality_status<>'MISSING' THEN 'HEALTHY'
                                     WHEN d.quality_status='MISSING' OR r.quality_status='MISSING' THEN 'MISSING'
                                     ELSE 'PARTIAL' END quality,
@@ -180,15 +189,32 @@ public class EtfDipEventService {
                                   ORDER BY b.market_date DESC LIMIT 1) latestClose,
                                (SELECT s.value_double FROM indicator_snapshot s WHERE s.instrument_id=i.id
                                   AND s.indicator_code='EMA_20' ORDER BY s.market_date DESC LIMIT 1) ema20,
+                               (SELECT b.close_price FROM price_bar b WHERE b.instrument_id=i.id AND b.adjusted=TRUE
+                                  ORDER BY b.market_date DESC LIMIT 1 OFFSET 1) priorClose,
+                               (SELECT s.value_double FROM indicator_snapshot s WHERE s.instrument_id=i.id
+                                  AND s.indicator_code='EMA_20' ORDER BY s.market_date DESC LIMIT 1 OFFSET 1) priorEma20,
+                               (SELECT b.pct_above_sma50 FROM breadth_snapshot b
+                                  ORDER BY b.market_date DESC LIMIT 1 OFFSET 1) priorBreadth50,
+                               (SELECT b.pct_above_sma50 FROM breadth_snapshot b
+                                  ORDER BY b.market_date DESC LIMIT 1 OFFSET 2) secondPriorBreadth50,
+                               (SELECT m.value_decimal FROM macro_observation m WHERE m.series_code='VIXCLS'
+                                  AND m.observation_date<DATE(d.data_as_of) ORDER BY m.observation_date DESC LIMIT 1) priorVix,
+                               (SELECT m.value_decimal FROM macro_observation m WHERE m.series_code='VIXCLS'
+                                  AND m.observation_date<DATE(d.data_as_of) ORDER BY m.observation_date DESC LIMIT 1 OFFSET 1) secondPriorVix,
+                               (SELECT m.value_decimal FROM macro_observation m WHERE m.series_code='BAMLH0A0HYM2'
+                                  AND m.observation_date<DATE(d.data_as_of) ORDER BY m.observation_date DESC LIMIT 1) priorHySpread,
+                               (SELECT m.value_decimal FROM macro_observation m WHERE m.series_code='BAMLH0A0HYM2'
+                                  AND m.observation_date<=DATE(d.data_as_of) ORDER BY m.observation_date DESC LIMIT 1) hySpread,
                                (SELECT MAX(x.close_price) FROM (SELECT b.close_price FROM price_bar b
                                   WHERE b.instrument_id=i.id AND b.adjusted=TRUE ORDER BY b.market_date DESC LIMIT 5 OFFSET 1) x)
                                   priorFiveHigh
                         FROM position p JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
                         JOIN latest_drawdown d JOIN latest_regime r
+                        LEFT JOIN macro_factor_snapshot mf ON mf.market_date=(SELECT MAX(x.market_date)
+                          FROM macro_factor_snapshot x WHERE x.market_date<=DATE(d.data_as_of))
                         WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                           AND p.classification IN ('CORE_BROAD_ETF','CORE_TECH_ETF')
-                        GROUP BY i.id,i.symbol,d.id,r.id
                         """)
                 .param("userId", userId.toString())
                 .query(DipEvidence.class)
@@ -281,9 +307,22 @@ public class EtfDipEventService {
                 && value.latestClose().compareTo(value.priorFiveHigh()) > 0) result.add("BREAKOUT_5_DAY");
         if (value.latestClose() != null
                 && value.ema20() != null
-                && value.latestClose().doubleValue() > value.ema20()) result.add("ABOVE_EMA_20");
-        if (value.breadth50() >= 0.50) result.add("BREADTH_IMPROVING");
-        if (value.stressLevel() < 0.50) result.add("CREDIT_STABLE");
+                && value.priorClose() != null
+                && value.priorEma20() != null
+                && value.latestClose().doubleValue() > value.ema20()
+                && value.priorClose().doubleValue() <= value.priorEma20()) result.add("EMA20_RECLAIM");
+        if (value.priorBreadth50() != null
+                && value.secondPriorBreadth50() != null
+                && value.breadth50() > value.priorBreadth50()
+                && value.priorBreadth50() > value.secondPriorBreadth50()) result.add("BREADTH_IMPROVING");
+        if (value.vix() != null
+                && value.priorVix() != null
+                && value.secondPriorVix() != null
+                && value.vix().compareTo(value.priorVix()) < 0
+                && value.priorVix().compareTo(value.secondPriorVix()) < 0) result.add("VIX_FALLING");
+        if (value.hySpread() != null
+                && value.priorHySpread() != null
+                && value.hySpread().compareTo(value.priorHySpread()) <= 0) result.add("CREDIT_STABLE");
         return List.copyOf(result);
     }
 
@@ -308,6 +347,16 @@ public class EtfDipEventService {
 
     private static double drawdownScore(BigDecimal value) {
         return value == null ? 0 : Math.clamp(value.doubleValue() / 0.12, 0, 1);
+    }
+
+    static double volatilityTermScore(BigDecimal vix, BigDecimal vix3m) {
+        if (vix == null || vix3m == null || vix3m.signum() <= 0) return 0;
+        var ratio = vix.divide(vix3m, java.math.MathContext.DECIMAL64).doubleValue();
+        return Math.clamp((ratio - 0.90) / 0.20, 0, 1);
+    }
+
+    private static double score(BigDecimal value) {
+        return value == null ? 0 : Math.clamp(value.doubleValue(), 0, 1);
     }
 
     private static BigDecimal zero(BigDecimal value) {
@@ -338,6 +387,10 @@ public class EtfDipEventService {
             double breadth50,
             double stressLevel,
             double trendScore,
+            BigDecimal volatilityStress,
+            BigDecimal creditStress,
+            BigDecimal vix,
+            BigDecimal vix3m,
             EvidenceQuality quality,
             LocalDateTime dataAsOf,
             LocalDate marketDate,
@@ -345,6 +398,14 @@ public class EtfDipEventService {
             Double priorRsi,
             BigDecimal latestClose,
             Double ema20,
+            BigDecimal priorClose,
+            Double priorEma20,
+            Double priorBreadth50,
+            Double secondPriorBreadth50,
+            BigDecimal priorVix,
+            BigDecimal secondPriorVix,
+            BigDecimal priorHySpread,
+            BigDecimal hySpread,
             BigDecimal priorFiveHigh) {}
 
     record LastTranche(int completed, LocalDate lastMarketDate) {}

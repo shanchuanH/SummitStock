@@ -6,7 +6,7 @@ COPY config ./config
 COPY apps/backend ./apps/backend
 RUN mvn -B -pl apps/backend -am -DskipTests package \
     && jar tf apps/backend/target/backend-0.1.0-SNAPSHOT.jar \
-      | grep -q '^BOOT-INF/classes/strategy/STRATEGY_CONFIG_V2_DRAFT.yaml$'
+      | grep -q '^BOOT-INF/classes/strategy/STRATEGY_CONFIG_V3_DRAFT.yaml$'
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app

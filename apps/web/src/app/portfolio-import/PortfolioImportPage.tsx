@@ -4,7 +4,13 @@ import { FidelityUploadStep } from "./FidelityUploadStep";
 import { ImportConfirmationStep } from "./ImportConfirmationStep";
 import { ImportPreviewTable } from "./ImportPreviewTable";
 import { ImportResult } from "./ImportResult";
-import type { ImportConfirmation, ImportPreview, RowOverride } from "./types";
+import { CashSetupStep } from "./CashSetupStep";
+import type {
+  CashSetup,
+  ImportConfirmation,
+  ImportPreview,
+  RowOverride,
+} from "./types";
 
 type CsrfToken = { headerName: string; token: string };
 
@@ -49,13 +55,33 @@ export function PortfolioImportPage() {
   const [overrides, setOverrides] = useState<Record<number, RowOverride>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [cashSetup, setCashSetup] = useState<CashSetup>();
+  const [classificationsReviewed, setClassificationsReviewed] = useState(false);
 
   async function request(factory: () => Promise<ImportPreview>) {
     setBusy(true);
     setError(undefined);
     try {
-      setPreview(await factory());
-      setOverrides({});
+      const value = await factory();
+      setPreview(value);
+      const initialOverrides: Record<number, RowOverride> = {};
+      for (const row of value.holdings.filter(
+        (holding) => holding.rowType === "HOLDING",
+      )) {
+        initialOverrides[row.rowNumber] = {
+          rowNumber: row.rowNumber,
+          rowType: row.rowType,
+          ignored: false,
+          ...(row.symbol === undefined ? {} : { symbol: row.symbol }),
+          ...(row.assetType === undefined ? {} : { assetType: row.assetType }),
+          ...(row.suggestedClassification === undefined
+            ? {}
+            : { classification: row.suggestedClassification }),
+        };
+      }
+      setOverrides(initialOverrides);
+      setCashSetup(undefined);
+      setClassificationsReviewed(false);
     } catch (value) {
       setError(
         value instanceof Error ? value.message : "Import preview failed.",
@@ -69,6 +95,8 @@ export function PortfolioImportPage() {
     setPreview(undefined);
     setResult(undefined);
     setOverrides({});
+    setCashSetup(undefined);
+    setClassificationsReviewed(false);
     setError(undefined);
   }
   const errorsReady =
@@ -86,6 +114,21 @@ export function PortfolioImportPage() {
           )
         );
       }) ?? false;
+  const classificationsReady =
+    preview?.holdings.every((row) => {
+      const value = overrides[row.rowNumber];
+      if (value?.ignored) return true;
+      if ((value?.rowType ?? row.rowType) !== "HOLDING")
+        return row.status !== "ERROR";
+      return Boolean(
+        value?.classification && value.classification !== "UNKNOWN",
+      );
+    }) ?? false;
+  const cashReady =
+    cashSetup !== undefined &&
+    (cashSetup.location === "IN_FIDELITY" ||
+      cashSetup.location === "EXTERNAL_BANK" ||
+      Boolean(cashSetup.externalEmergencyAmount));
 
   async function confirm() {
     if (!preview) return;
@@ -99,6 +142,7 @@ export function PortfolioImportPage() {
             expectedVersion: preview.version,
             accountMappings: [],
             rowOverrides: Object.values(overrides),
+            cashSetup,
           },
         ),
       );
@@ -121,7 +165,7 @@ export function PortfolioImportPage() {
       </section>
       {error ? (
         <aside className="error" role="alert">
-          <strong>Import stopped</strong>
+          <strong>导入已停止</strong>
           <span>{error}</span>
         </aside>
       ) : null}
@@ -149,7 +193,7 @@ export function PortfolioImportPage() {
           }
         />
       ) : (
-        <>
+        <div className="import-review-flow">
           <ImportPreviewTable
             onOverride={(value) => {
               setOverrides((current) => ({
@@ -160,14 +204,33 @@ export function PortfolioImportPage() {
             overrides={overrides}
             preview={preview}
           />
+          <section className="context-card import-classification-review">
+            <p className="eyebrow">第 3 步 / 分类确认</p>
+            <label>
+              <input
+                checked={classificationsReviewed}
+                onChange={(event) => {
+                  setClassificationsReviewed(event.target.checked);
+                }}
+                type="checkbox"
+              />
+              我已确认每个持仓在组合中的角色。
+            </label>
+          </section>
+          <CashSetupStep onChange={setCashSetup} value={cashSetup} />
           <ImportConfirmationStep
             busy={busy}
             onConfirm={() => void confirm()}
             onReset={reset}
             preview={preview}
-            ready={errorsReady}
+            ready={
+              errorsReady &&
+              classificationsReady &&
+              classificationsReviewed &&
+              cashReady
+            }
           />
-        </>
+        </div>
       )}
       <footer>
         <span>仅分析导入文件</span>

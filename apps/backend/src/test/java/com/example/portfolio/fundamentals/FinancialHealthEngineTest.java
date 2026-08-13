@@ -41,6 +41,30 @@ class FinancialHealthEngineTest {
         assertThat(result.negatives()).isEmpty();
     }
 
+    @Test
+    void positiveButMateriallyDeterioratingMarginIsNotHealthy() {
+        var values = Map.ofEntries(
+                Map.entry(FinancialMetric.REVENUE, bd("120")),
+                Map.entry(FinancialMetric.REVENUE_YOY, bd("0.10")),
+                Map.entry(FinancialMetric.OPERATING_INCOME, bd("18")),
+                Map.entry(FinancialMetric.NET_INCOME, bd("12")),
+                Map.entry(FinancialMetric.OPERATING_MARGIN, bd("0.15")),
+                Map.entry(FinancialMetric.OPERATING_MARGIN_YOY_CHANGE, bd("-0.05")),
+                Map.entry(FinancialMetric.NET_MARGIN, bd("0.10")),
+                Map.entry(FinancialMetric.FREE_CASH_FLOW, bd("15")),
+                Map.entry(FinancialMetric.FCF_MARGIN, bd("0.125")),
+                Map.entry(FinancialMetric.NET_CASH, bd("20")),
+                Map.entry(FinancialMetric.SHARE_DILUTION_YOY, bd("0.01")));
+
+        var result = new FinancialHealthEngine()
+                .evaluate(
+                        new FinancialMetricEngine.MetricResult(values, ProviderModels.QualityStatus.HEALTHY), policy());
+
+        assertThat(result.profitability()).isEqualTo(FinancialHealthEngine.Status.WEAKENING);
+        assertThat(result.overall()).isNotEqualTo(FinancialHealthEngine.Status.HEALTHY);
+        assertThat(result.negatives()).contains("Operating margin deteriorated materially year over year");
+    }
+
     static FinancialHealthEngine.Policy policy() {
         return new FinancialHealthEngine.Policy(bd("0.15"), bd("0.05"), bd("0.03"), bd("0.10"), bd("0.03"), bd("3.0"));
     }

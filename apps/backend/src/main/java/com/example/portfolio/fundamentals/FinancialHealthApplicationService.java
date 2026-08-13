@@ -3,8 +3,10 @@ package com.example.portfolio.fundamentals;
 import com.example.portfolio.analysis.application.StrategyDefinitionLoader;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.market.provider.ProviderModels;
+import java.math.MathContext;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +46,7 @@ public class FinancialHealthApplicationService {
             rows.stream()
                     .filter(row -> row.periodId().equals(latest.periodId()))
                     .forEach(row -> values.put(FinancialMetric.valueOf(row.metricCode()), row.value()));
+            addTtmLeverage(values, rows);
             var quality = rows.stream()
                             .filter(row -> row.periodId().equals(latest.periodId()))
                             .allMatch(row -> "HEALTHY".equals(row.quality()))
@@ -65,5 +68,28 @@ public class FinancialHealthApplicationService {
                     FinancialEvidenceStore.sha256(evidence + "|" + strategy.configHash()));
         }
         return affected;
+    }
+
+    static void addTtmLeverage(
+            EnumMap<FinancialMetric, java.math.BigDecimal> values,
+            java.util.List<FinancialEvidenceStore.MetricPeriod> rows) {
+        var netCash = values.get(FinancialMetric.NET_CASH);
+        if (netCash == null || netCash.signum() >= 0) return;
+        var quarterlyFcf = new LinkedHashMap<java.util.UUID, FinancialEvidenceStore.MetricPeriod>();
+        rows.stream()
+                .filter(row -> "QUARTERLY".equals(row.periodType()))
+                .filter(row -> FinancialMetric.FREE_CASH_FLOW.name().equals(row.metricCode()))
+                .sorted(Comparator.comparing(FinancialEvidenceStore.MetricPeriod::endDate)
+                        .thenComparing(FinancialEvidenceStore.MetricPeriod::filedAt)
+                        .reversed())
+                .forEach(row -> quarterlyFcf.putIfAbsent(row.periodId(), row));
+        var latestFour = quarterlyFcf.values().stream().limit(4).toList();
+        if (latestFour.size() != 4) return;
+        var ttmFcf = latestFour.stream()
+                .map(FinancialEvidenceStore.MetricPeriod::value)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        if (ttmFcf.signum() > 0) {
+            values.put(FinancialMetric.NET_DEBT_TO_FCF, netCash.negate().divide(ttmFcf, MathContext.DECIMAL128));
+        }
     }
 }

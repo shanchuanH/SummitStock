@@ -76,7 +76,11 @@ public record HoldingEvidence(
         }
     }
 
-    public record PriceBar(LocalDate marketDate, BigDecimal close, boolean completed) {}
+    public record PriceBar(LocalDate marketDate, BigDecimal close, BigDecimal volume, boolean completed) {
+        public PriceBar(LocalDate marketDate, BigDecimal close, boolean completed) {
+            this(marketDate, close, null, completed);
+        }
+    }
 
     public record IndicatorSet(boolean trendAvailable, boolean aboveTrend, Double rsi, Double atr, String priceState) {
         public IndicatorSet(boolean trendAvailable, boolean aboveTrend, Double rsi, Double atr) {

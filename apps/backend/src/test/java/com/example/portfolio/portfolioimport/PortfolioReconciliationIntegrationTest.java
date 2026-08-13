@@ -26,7 +26,12 @@ class PortfolioReconciliationIntegrationTest extends PortfolioImportIntegrationS
                 .startsWith("11");
         assertThat(jdbc.sql("SELECT CAST(current_amount AS CHAR) FROM cash_bucket c "
                                 + "JOIN investment_account a ON a.id=c.account_id "
-                                + "WHERE a.external_account_key LIKE '***5678|%'")
+                                + "WHERE a.external_account_key LIKE '***5678|%' AND c.bucket_type='ALLOCATED_TRADE'")
+                        .query(String.class)
+                        .single())
+                .startsWith("0");
+        assertThat(jdbc.sql("SELECT CAST(current_amount AS CHAR) FROM cash_bucket c JOIN app_user u ON u.id=c.user_id "
+                                + "WHERE u.email='" + EMAIL + "' AND c.bucket_type='EMERGENCY'")
                         .query(String.class)
                         .single())
                 .startsWith("13000");

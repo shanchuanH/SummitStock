@@ -66,6 +66,17 @@ public class MarketContextService {
             String positionAttributionJson,
             String clusterAttributionJson,
             Instant dataAsOf) {
+        return calculateDrawdown(
+                userId, input, positionAttributionJson, clusterAttributionJson, dataAsOf, input.currentEquity());
+    }
+
+    public SavedDrawdown calculateDrawdown(
+            UUID userId,
+            DrawdownEngine.Input input,
+            String positionAttributionJson,
+            String clusterAttributionJson,
+            Instant dataAsOf,
+            BigDecimal accountEquity) {
         var strategy = strategies.current();
         var result = DrawdownEngine.classify(
                 input,
@@ -81,7 +92,7 @@ public class MarketContextService {
                 UUID.randomUUID(),
                 userId,
                 properties.strategyVersion(),
-                input.currentEquity(),
+                accountEquity,
                 result.highWaterMark(),
                 BigDecimal.valueOf(result.drawdown()),
                 result.state().name(),

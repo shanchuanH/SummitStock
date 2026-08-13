@@ -41,6 +41,10 @@ dd { margin: 7px 0 0; font-weight: 700; }
 .action-evidence h3 { font-size: 13px; color: var(--muted); }
 .action-evidence li { margin: 7px 0; color: var(--muted); }
 .report-link, .market-link { display: inline-block; margin-top: 8px; font-weight: 700; }
+.action-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; }
+.action-buttons .report-link { margin: 0; padding: 9px 13px; border: 1px solid var(--green); border-radius: 6px; }
+.risk-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.risk-list .context-card { padding: 18px; }
 .acknowledgement { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .acknowledgement summary { cursor: pointer; color: var(--muted); }
 .acknowledgement label, .login-form label { display: grid; gap: 7px; margin: 14px 0; color: var(--muted); font-size: 13px; }
@@ -49,6 +53,9 @@ button { padding: 9px 13px; color: var(--text); background: var(--surface-2); bo
 button:hover, button.active { border-color: var(--green); color: var(--green); }
 .acknowledgement button + button { margin-left: 8px; }
 .status-pill, .priority-pill { display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid var(--border); border-radius: 99px; color: var(--muted); font-size: 11px; }
+.data-completeness-badge { display: inline-flex; padding: 5px 9px; border: 1px solid var(--amber); border-radius: 99px; color: var(--amber); font-size: 12px; }
+.data-completeness-badge[data-status="complete"] { border-color: var(--green); color: var(--green); }
+.evidence-drawer { margin-top: 18px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 .priority-pill.must_act { color: var(--red); border-color: var(--red); }
 .priority-pill.do_not { color: var(--amber); border-color: var(--amber); }
 .priority-pill.watch { color: var(--blue); border-color: var(--blue); }

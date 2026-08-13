@@ -94,7 +94,7 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
         assertThat(store.latestRegime())
                 .get()
                 .extracting(MarketContextStore.RegimeView::strategyVersion)
-                .isEqualTo("2.0.0-draft");
+                .isEqualTo("3.0.0-draft");
         assertThat(store.latestDrawdown("admin@example.local")).get().satisfies(value -> {
             assertThat(value.marketDriven()).isTrue();
             assertThat(value.sourceClassification()).isEqualTo("MARKET_DRIVEN");
@@ -103,7 +103,7 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
         mockMvc.perform(get("/api/v1/market/regime"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("READY"))
-                .andExpect(jsonPath("$.snapshot.strategyVersion").value("2.0.0-draft"));
+                .andExpect(jsonPath("$.snapshot.strategyVersion").value("3.0.0-draft"));
         mockMvc.perform(get("/api/v1/portfolio/drawdown").with(httpBasic("admin@example.local", "change-before-use")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.snapshot.drawdownFraction").value("0.15"))

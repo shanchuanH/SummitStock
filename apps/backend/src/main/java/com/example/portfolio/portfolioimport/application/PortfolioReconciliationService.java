@@ -1,7 +1,9 @@
 package com.example.portfolio.portfolioimport.application;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.market.InstrumentResolutionService;
 import com.example.portfolio.portfolioimport.infrastructure.PortfolioImportStore;
+import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -25,12 +27,17 @@ public class PortfolioReconciliationService {
     private final JdbcClient jdbc;
     private final Clock clock;
     private final InstrumentResolutionService instrumentResolution;
+    private final PublishedStrategyService strategies;
 
     public PortfolioReconciliationService(
-            JdbcClient jdbc, Clock clock, InstrumentResolutionService instrumentResolution) {
+            JdbcClient jdbc,
+            Clock clock,
+            InstrumentResolutionService instrumentResolution,
+            PublishedStrategyService strategies) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.instrumentResolution = instrumentResolution;
+        this.strategies = strategies;
     }
 
     public ReconciliationResult reconcile(
@@ -47,6 +54,24 @@ public class PortfolioReconciliationService {
         if (rows.stream().anyMatch(row -> "ERROR".equals(row.status()))) {
             throw new ResponseStatusException(
                     HttpStatus.UNPROCESSABLE_ENTITY, "All import errors must be corrected or ignored");
+        }
+        for (var row : rows) {
+            if (!"HOLDING".equals(row.rowType()) || "IGNORED".equals(row.status())) continue;
+            var override = overrides.get(row.rowNumber());
+            if (override == null
+                    || override.classification() == null
+                    || override.classification().isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.UNPROCESSABLE_ENTITY, "Every holding classification must be confirmed");
+            }
+            try {
+                if (HoldingClassification.valueOf(override.classification()) == HoldingClassification.UNKNOWN) {
+                    throw new IllegalArgumentException();
+                }
+            } catch (IllegalArgumentException exception) {
+                throw new ResponseStatusException(
+                        HttpStatus.UNPROCESSABLE_ENTITY, "Every holding classification must be confirmed", exception);
+            }
         }
 
         var mappings = new HashMap<String, PortfolioImportConfirmationService.AccountMapping>();
@@ -78,7 +103,13 @@ public class PortfolioReconciliationService {
             if ("IGNORED".equals(row.status())) continue;
             var accountId = accountIds.get(accountKey(row));
             switch (row.rowType()) {
-                case "HOLDING" -> positionIds.add(upsertPosition(email, accountId, batchId, row));
+                case "HOLDING" ->
+                    positionIds.add(upsertPosition(
+                            email,
+                            accountId,
+                            batchId,
+                            row,
+                            overrides.get(row.rowNumber()).classification()));
                 case "CASH" -> cashByAccount.merge(accountId, row.currentValue(), BigDecimal::add);
                 case "UNVESTED_COMPENSATION" -> {
                     upsertCompensation(userId, accountId, batchId, row);
@@ -89,6 +120,7 @@ public class PortfolioReconciliationService {
             }
         }
         cashByAccount.forEach((accountId, amount) -> upsertCash(userId, accountId, amount));
+        applyCashSetup(userId, batchId, cashByAccount, command.cashSetup());
         return new ReconciliationResult(positionIds.size(), closed, cashByAccount.size(), compensationKeys.size());
     }
 
@@ -236,8 +268,14 @@ public class PortfolioReconciliationService {
                 .update();
     }
 
-    private UUID upsertPosition(String email, UUID accountId, UUID batchId, PortfolioImportStore.ImportRow row) {
+    private UUID upsertPosition(
+            String email,
+            UUID accountId,
+            UUID batchId,
+            PortfolioImportStore.ImportRow row,
+            String classificationValue) {
         var resolution = instrumentResolution.resolve(email, row.symbol(), row.assetType());
+        var classification = HoldingClassification.valueOf(classificationValue);
         var instrumentId = resolution.instrumentId();
         var id = UUID.randomUUID();
         jdbc.sql(
@@ -247,10 +285,11 @@ public class PortfolioReconciliationService {
                             quantity, average_cost, market_value, status, opened_at, closed_at, created_at,
                             updated_at, version, external_position_key, import_source, data_as_of, data_readiness
                         ) VALUES (
-                            UUID_TO_BIN(:id), UUID_TO_BIN(:accountId), UUID_TO_BIN(:instrumentId), 'CORE', 'UNKNOWN', FALSE,
+                            UUID_TO_BIN(:id), UUID_TO_BIN(:accountId), UUID_TO_BIN(:instrumentId), :bucket, :classification, TRUE,
                             :quantity, :averageCost, :marketValue, 'OPEN', :now, NULL, :now, :now, 0,
                             :externalKey, 'FIDELITY_CSV', :dataAsOf, :dataReadiness
-                        ) ON DUPLICATE KEY UPDATE instrument_id=VALUES(instrument_id), quantity=VALUES(quantity),
+                        ) ON DUPLICATE KEY UPDATE instrument_id=VALUES(instrument_id), bucket=VALUES(bucket),
+                            classification=VALUES(classification), classification_confirmed=TRUE, quantity=VALUES(quantity),
                             average_cost=VALUES(average_cost), market_value=VALUES(market_value), status='OPEN',
                             closed_at=NULL, data_as_of=VALUES(data_as_of), data_readiness=VALUES(data_readiness),
                             updated_at=VALUES(updated_at), version=version+1
@@ -258,6 +297,8 @@ public class PortfolioReconciliationService {
                 .param("id", id.toString())
                 .param("accountId", accountId.toString())
                 .param("instrumentId", instrumentId.toString())
+                .param("bucket", bucket(classification))
+                .param("classification", classification.name())
                 .param("quantity", row.quantity())
                 .param("averageCost", row.averageCost())
                 .param("marketValue", row.currentValue())
@@ -298,6 +339,103 @@ public class PortfolioReconciliationService {
                 .param("now", clock.instant())
                 .update();
         return positionId;
+    }
+
+    private void applyCashSetup(
+            UUID userId,
+            UUID batchId,
+            LinkedHashMap<UUID, BigDecimal> importedCash,
+            PortfolioImportConfirmationService.CashSetup setup) {
+        var target = strategies.current().emergencyCashFloor();
+        var fidelityAvailable = importedCash.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        var requestedExternal = setup.externalEmergencyAmount().min(target);
+        BigDecimal fidelityEmergency;
+        BigDecimal externalEmergency;
+        switch (setup.location()) {
+            case IN_FIDELITY -> {
+                fidelityEmergency = target.min(fidelityAvailable);
+                externalEmergency = BigDecimal.ZERO;
+            }
+            case EXTERNAL_BANK -> {
+                fidelityEmergency = BigDecimal.ZERO;
+                externalEmergency = target;
+            }
+            case SPLIT -> {
+                externalEmergency = requestedExternal;
+                fidelityEmergency =
+                        target.subtract(externalEmergency).max(BigDecimal.ZERO).min(fidelityAvailable);
+            }
+            case BELOW_TARGET -> {
+                fidelityEmergency = BigDecimal.ZERO;
+                externalEmergency = requestedExternal;
+            }
+            default -> throw new IllegalStateException("Unsupported safety-cash location");
+        }
+        protectFidelityCash(userId, fidelityEmergency);
+        var confirmed = fidelityEmergency.add(externalEmergency);
+        jdbc.sql("DELETE FROM cash_bucket WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='EMERGENCY'")
+                .param("userId", userId.toString())
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT INTO cash_bucket (
+                          id,user_id,account_id,bucket_type,target_amount,current_amount,currency,as_of,updated_at,version)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),NULL,'EMERGENCY',:target,:amount,'USD',CURRENT_DATE,:now,0)
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("userId", userId.toString())
+                .param("target", target)
+                .param("amount", confirmed)
+                .param("now", clock.instant())
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT INTO portfolio_cash_setup (
+                          id,user_id,import_batch_id,location_code,emergency_target,fidelity_emergency_amount,
+                          external_emergency_amount,confirmed_total,created_at)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:batchId),:location,:target,
+                                :fidelity,:external,:confirmed,:now)
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("userId", userId.toString())
+                .param("batchId", batchId.toString())
+                .param("location", setup.location().name())
+                .param("target", target)
+                .param("fidelity", fidelityEmergency)
+                .param("external", externalEmergency)
+                .param("confirmed", confirmed)
+                .param("now", clock.instant())
+                .update();
+    }
+
+    private void protectFidelityCash(UUID userId, BigDecimal amount) {
+        var remaining = amount;
+        for (var bucket : jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(id) id,current_amount amount FROM cash_bucket
+                        WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='ALLOCATED_TRADE'
+                        ORDER BY current_amount DESC,id
+                        """)
+                .param("userId", userId.toString())
+                .query(CashBucket.class)
+                .list()) {
+            if (remaining.signum() == 0) break;
+            var protectedAmount = remaining.min(bucket.amount());
+            jdbc.sql(
+                            "UPDATE cash_bucket SET current_amount=current_amount-:amount,updated_at=:now,version=version+1 WHERE id=UUID_TO_BIN(:id)")
+                    .param("amount", protectedAmount)
+                    .param("now", clock.instant())
+                    .param("id", bucket.id().toString())
+                    .update();
+            remaining = remaining.subtract(protectedAmount);
+        }
+    }
+
+    private static String bucket(HoldingClassification classification) {
+        return switch (classification) {
+            case CORE_BROAD_ETF, CORE_TECH_ETF, CASH_EQUIVALENT -> "CORE";
+            default -> "TACTICAL_OVERLAY";
+        };
     }
 
     private void upsertCash(UUID userId, UUID accountId, BigDecimal amount) {
@@ -418,4 +556,6 @@ public class PortfolioReconciliationService {
 
     public record ReconciliationResult(
             int openPositionCount, int closedPositionCount, int cashRowCount, int compensationRowCount) {}
+
+    record CashBucket(UUID id, BigDecimal amount) {}
 }

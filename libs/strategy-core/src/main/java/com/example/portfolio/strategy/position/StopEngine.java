@@ -13,15 +13,19 @@ public final class StopEngine {
     private StopEngine() {}
 
     public static Result calculate(Input input) {
+        return calculate(input, Policy.defaults());
+    }
+
+    public static Result calculate(Input input, Policy policy) {
         requirePositive(input.entry(), "entry");
         requirePositive(input.atr(), "atr");
         if (isCoreEtf(input.classification())) {
             return new Result(
                     false, null, null, null, null, null, null, false, false, List.of(RuleIds.STOP_CORE_ETF_EXEMPT));
         }
-        var structureStop = input.confirmedSwingLow().subtract(input.atr().multiply(QUARTER));
+        var structureStop = input.confirmedSwingLow().subtract(input.atr().multiply(policy.structureBufferAtr()));
         var k = input.volatilityAtrMultiplier() == null
-                ? multiplier(input.classification())
+                ? policy.multiplier(input.classification())
                 : input.volatilityAtrMultiplier();
         requirePositive(k, "volatilityAtrMultiplier");
         var volatilityStop = input.entry().subtract(input.atr().multiply(k));
@@ -32,11 +36,11 @@ public final class StopEngine {
         var liveStop = maximum(
                 input.previousLiveStop(),
                 chandelier,
-                input.ema20().subtract(input.atr().multiply(HALF)),
-                input.confirmedHigherLow().subtract(input.atr().multiply(QUARTER)),
+                input.ema20().subtract(input.atr().multiply(policy.trailingEmaBufferAtr())),
+                input.confirmedHigherLow().subtract(input.atr().multiply(policy.structureBufferAtr())),
                 initialStop);
-        var softAlert = liveStop.add(input.atr().multiply(HALF));
-        var catastrophic = liveStop.subtract(input.atr().multiply(THREE_QUARTERS));
+        var softAlert = liveStop.add(input.atr().multiply(policy.softAlertAtr()));
+        var catastrophic = liveStop.subtract(input.atr().multiply(policy.catastrophicAtr()));
         var closeConfirmed = input.dailyClose().compareTo(liveStop) < 0;
         var rules = new java.util.ArrayList<String>();
         rules.add(RuleIds.STOP_INITIAL);
@@ -61,12 +65,32 @@ public final class StopEngine {
                 || classification == HoldingClassification.CORE_TECH_ETF;
     }
 
-    private static BigDecimal multiplier(HoldingClassification classification) {
-        return switch (classification) {
-            case QUALITY_STOCK, QUALITY_GROWTH_HIGH_VOL -> new BigDecimal("2.5");
-            case SPECULATIVE -> new BigDecimal("3.5");
-            default -> new BigDecimal("3.0");
-        };
+    public record Policy(
+            BigDecimal structureBufferAtr,
+            BigDecimal qualityVolatilityAtr,
+            BigDecimal tacticalVolatilityAtr,
+            BigDecimal speculativeVolatilityAtr,
+            BigDecimal trailingEmaBufferAtr,
+            BigDecimal softAlertAtr,
+            BigDecimal catastrophicAtr) {
+        public BigDecimal multiplier(HoldingClassification classification) {
+            return switch (classification) {
+                case QUALITY_STOCK, QUALITY_GROWTH_HIGH_VOL -> qualityVolatilityAtr;
+                case SPECULATIVE -> speculativeVolatilityAtr;
+                default -> tacticalVolatilityAtr;
+            };
+        }
+
+        public static Policy defaults() {
+            return new Policy(
+                    QUARTER,
+                    new BigDecimal("2.5"),
+                    new BigDecimal("3.0"),
+                    new BigDecimal("3.5"),
+                    HALF,
+                    HALF,
+                    THREE_QUARTERS);
+        }
     }
 
     private static BigDecimal maximum(BigDecimal... values) {

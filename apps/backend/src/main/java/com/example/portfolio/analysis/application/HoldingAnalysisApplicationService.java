@@ -136,20 +136,26 @@ public final class HoldingAnalysisApplicationService {
         }
         if (!sizing.exactQuantityAllowed()
                 || sizing.quantityMax() == null
-                || evidence.stop().formalStop() == null
                 || evidence.quote().last() == null
                 || evidence.portfolioEquity().amount().signum() <= 0) {
             return new RiskProjection(before, null, "PROJECTED_RISK_INPUT_MISSING");
         }
-        var riskPerShare =
-                evidence.quote().last().subtract(evidence.stop().formalStop()).abs();
+        var riskPerShare = evidence.stop().formalStop() == null
+                ? themeRiskProxyPerShare(evidence)
+                : evidence.quote().last().subtract(evidence.stop().formalStop()).abs();
+        if (riskPerShare == null) return new RiskProjection(before, null, "PROJECTED_RISK_INPUT_MISSING");
         var delta = riskPerShare
                 .multiply(sizing.quantityMax())
                 .divide(evidence.portfolioEquity().amount(), 10, RoundingMode.HALF_UP);
         var after = com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
                 ? before.add(delta)
                 : before.subtract(delta).max(BigDecimal.ZERO);
-        return new RiskProjection(before, after, "PROJECTED_FROM_FORMAL_STOP_AND_MAX_QUANTITY");
+        return new RiskProjection(
+                before,
+                after,
+                evidence.stop().formalStop() == null
+                        ? "PROJECTED_FROM_THEME_RISK_PROXY_AND_MAX_QUANTITY"
+                        : "PROJECTED_FROM_FORMAL_STOP_AND_MAX_QUANTITY");
     }
 
     private static NarrativeInput narrativeInput(
@@ -257,7 +263,11 @@ public final class HoldingAnalysisApplicationService {
                                 now,
                                 evidence.strategy().freshness().macroDailyDays()),
                         evidence.position().classificationConfirmed(),
-                        evidence.providerHardError()),
+                        evidence.providerHardError(),
+                        investableAssets.multiply(evidence.totalOpenRisk()),
+                        evidence.strategy().totalOpenRiskMax(),
+                        liquidityMaxShares(evidence),
+                        themeRiskProxyPerShare(evidence)),
                 evidence.strategy().exactQuantityRequiresHealthyPrice(),
                 evidence.strategy().exactQuantityRequiresReadyRisk());
     }
@@ -315,6 +325,32 @@ public final class HoldingAnalysisApplicationService {
                     SPECULATIVE -> true;
             default -> false;
         };
+    }
+
+    private static BigDecimal liquidityMaxShares(HoldingEvidence evidence) {
+        var volumes = evidence.completedBars().stream()
+                .map(HoldingEvidence.PriceBar::volume)
+                .filter(java.util.Objects::nonNull)
+                .filter(value -> value.signum() > 0)
+                .limit(20)
+                .sorted()
+                .toList();
+        if (volumes.isEmpty()) return null;
+        var median = volumes.get(volumes.size() / 2);
+        return median.multiply(evidence.strategy().executionRisk().liquidityParticipationMax());
+    }
+
+    private static BigDecimal themeRiskProxyPerShare(HoldingEvidence evidence) {
+        if (evidence.position().classification() != HoldingClassification.THEMATIC_ETF) return null;
+        if (evidence.indicators().atr() != null && evidence.indicators().atr() > 0) {
+            return BigDecimal.valueOf(evidence.indicators().atr())
+                    .multiply(evidence.strategy().executionRisk().thematicAtrRiskMultiple());
+        }
+        return evidence.quote().last() == null
+                ? null
+                : evidence.quote()
+                        .last()
+                        .multiply(evidence.strategy().executionRisk().thematicFallbackRiskFraction());
     }
 
     private static Policy policy(HoldingClassification classification, StrategyDefinition strategy) {

@@ -24,6 +24,8 @@ const preview = {
       rowType: "HOLDING",
       status: "VALID",
       warnings: [],
+      suggestedClassification: "CORE_BROAD_ETF",
+      classificationReason: "Recognized broad-market ETF.",
     },
     {
       rowNumber: 3,
@@ -98,6 +100,22 @@ describe("PortfolioImportPageTest", () => {
         return json({ headerName: "X-CSRF-TOKEN", token: "secure-token" });
       if (path.endsWith("/fidelity/preview")) return json(preview);
       if (path.endsWith("/confirm")) return json(confirmation);
+      if (path.includes("/analysis/status/"))
+        return json({
+          runId: confirmation.analysisRunId,
+          state: "ANALYSIS_RUNNING",
+          completedStages: 1,
+          totalStages: 8,
+          updatedAt: "2026-08-12T20:00:00Z",
+          stages: [
+            {
+              code: "HOLDINGS",
+              label: "Holdings imported",
+              status: "COMPLETE",
+            },
+            { code: "PRICES", label: "Prices", status: "RUNNING" },
+          ],
+        });
       throw new Error(`Unexpected fetch ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -124,18 +142,20 @@ describe("PortfolioImportPageTest", () => {
       await screen.findByText("5412.05", { exact: false }),
     ).toBeInTheDocument();
     const confirm = screen.getByRole("button", {
-      name: /confirm and queue analysis/i,
+      name: /确认并开始分析/i,
     });
     expect(confirm).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /ignore/i }));
+    await user.click(screen.getByRole("checkbox", { name: /确认每个持仓/i }));
+    await user.click(screen.getByRole("radio", { name: /^在外部银行$/i }));
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
     expect(
-      await screen.findByRole("heading", { name: /analysis has been queued/i }),
+      await screen.findByRole("heading", { name: /分析已开始/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("ANALYSIS_QUEUED")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it("allows an unknown holding to be corrected instead of ignored", async () => {
@@ -147,13 +167,19 @@ describe("PortfolioImportPageTest", () => {
     );
 
     const confirm = await screen.findByRole("button", {
-      name: /confirm and queue analysis/i,
+      name: /确认并开始分析/i,
     });
     await user.type(screen.getByLabelText("Symbol row 3"), "DXYZ");
     await user.selectOptions(
       screen.getByLabelText("Asset type row 3"),
       "EQUITY",
     );
+    await user.selectOptions(
+      screen.getByLabelText("Classification row 3"),
+      "SPECULATIVE",
+    );
+    await user.click(screen.getByRole("checkbox", { name: /确认每个持仓/i }));
+    await user.click(screen.getByRole("radio", { name: /^在外部银行$/i }));
     expect(confirm).toBeEnabled();
   });
 });

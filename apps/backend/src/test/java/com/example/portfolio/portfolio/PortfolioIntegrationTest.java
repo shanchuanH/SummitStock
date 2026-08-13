@@ -412,19 +412,19 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
         update(
                 """
                 INSERT INTO stop_snapshot (id, position_id, strategy_version, entry_price, atr, structure_stop, volatility_stop, initial_stop, live_stop, soft_alert, catastrophic_stop, close_confirmed, rule_ids, quality_status, evidence_checksum, data_as_of, created_at)
-                VALUES (UUID_TO_BIN('30000000-0000-0000-0000-000000000001'), UUID_TO_BIN('%s'), '1.0.0-draft', 100, 4, 91, 90, 90, 94, 96, 91, TRUE, JSON_ARRAY('STOP.CLOSE_CONFIRMED.001'), 'HEALTHY', REPEAT('c',64), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('30000000-0000-0000-0000-000000000001'), UUID_TO_BIN('%s'), '3.0.0-draft', 100, 4, 91, 90, 90, 94, 96, 91, TRUE, JSON_ARRAY('STOP.CLOSE_CONFIRMED.001'), 'HEALTHY', REPEAT('c',64), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
                 """
                         .formatted(OWNER_POSITION));
         update(
                 """
                 INSERT INTO valuation_snapshot (id, position_id, strategy_version, fundamental_health, valuation_discount, earnings_revisions, price_stabilization, portfolio_capacity, discount_tactical_weight, action, rule_ids, evidence_checksum, data_as_of, valid_until, created_at)
-                VALUES (UUID_TO_BIN('30000000-0000-0000-0000-000000000020'), UUID_TO_BIN('%s'), '1.0.0-draft', 'HEALTHY', TRUE, 'IMPROVING', 'CONFIRMED', TRUE, 0, 'ADD_1_PERCENT_STARTER', JSON_ARRAY(), REPEAT('d',64), UTC_TIMESTAMP(6), '2099-01-01', UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('30000000-0000-0000-0000-000000000020'), UUID_TO_BIN('%s'), '3.0.0-draft', 'HEALTHY', TRUE, 'IMPROVING', 'CONFIRMED', TRUE, 0, 'ADD_1_PERCENT_STARTER', JSON_ARRAY(), REPEAT('d',64), UTC_TIMESTAMP(6), '2099-01-01', UTC_TIMESTAMP(6))
                 """
                         .formatted(OWNER_POSITION));
         update(
                 """
                 INSERT INTO earnings_risk_snapshot (id, position_id, strategy_version, event_count, next_event_at, downside_tail_fraction, gap_p75_fraction, gap_p90_fraction, profit_cushion_r, action, rule_ids, evidence_checksum, data_as_of, valid_until, created_at)
-                VALUES (UUID_TO_BIN('30000000-0000-0000-0000-000000000030'), UUID_TO_BIN('%s'), '1.0.0-draft', 10, '2099-01-01', -0.08, 0.06, 0.10, 1.5, 'HOLD_THROUGH_EVENT', JSON_ARRAY('EARNINGS.QUALITY.001'), REPEAT('e',64), UTC_TIMESTAMP(6), '2099-01-01', UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('30000000-0000-0000-0000-000000000030'), UUID_TO_BIN('%s'), '3.0.0-draft', 10, '2099-01-01', -0.08, 0.06, 0.10, 1.5, 'HOLD_THROUGH_EVENT', JSON_ARRAY('EARNINGS.QUALITY.001'), REPEAT('e',64), UTC_TIMESTAMP(6), '2099-01-01', UTC_TIMESTAMP(6))
                 """
                         .formatted(OWNER_POSITION));
         update(
@@ -441,7 +441,7 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 INSERT INTO recommendation (id, user_id, position_id, strategy_version, action, priority,
                     confidence, reasons, risks, change_conditions, rule_ids, evidence_checksum,
                     data_as_of, valid_until, status, created_at)
-                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '1.0.0-draft', '%s', '%s',
+                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '3.0.0-draft', '%s', '%s',
                     'HIGH', JSON_ARRAY('reason'), JSON_ARRAY('risk'), JSON_ARRAY('condition'), JSON_ARRAY('RISK.WEIGHT.001'),
                     SHA2('recommendation-%s', 256), UTC_TIMESTAMP(6), '2099-01-01 00:00:00', 'ACTIVE', UTC_TIMESTAMP(6))
                 """
