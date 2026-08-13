@@ -62,12 +62,12 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
                   className={`import-row--${row.status.toLowerCase()}`}
                   key={row.rowNumber}
                 >
-                  <td>{row.rowNumber}</td>
-                  <td>
+                  <td data-label="行号">{row.rowNumber}</td>
+                  <td data-label="账户">
                     {row.accountName ?? "Unknown"}
                     <small>{row.accountNumberMasked}</small>
                   </td>
-                  <td>
+                  <td data-label="代码">
                     {row.status === "ERROR" && !override?.ignored ? (
                       <input
                         aria-label={`Symbol row ${String(row.rowNumber)}`}
@@ -86,7 +86,7 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
                       (row.symbol ?? "—")
                     )}
                   </td>
-                  <td>
+                  <td data-label="类型">
                     {row.status === "ERROR" && !override?.ignored ? (
                       <select
                         aria-label={`Asset type row ${String(row.rowNumber)}`}
@@ -110,10 +110,10 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
                       row.assetType
                     )}
                   </td>
-                  <td>{row.quantity ?? "—"}</td>
-                  <td>{row.currentValue ?? "—"}</td>
-                  <td>{row.costBasis ?? "Missing"}</td>
-                  <td>
+                  <td data-label="数量">{row.quantity ?? "—"}</td>
+                  <td data-label="市值">{row.currentValue ?? "—"}</td>
+                  <td data-label="成本">{row.costBasis ?? "Missing"}</td>
+                  <td data-label="组合角色">
                     {(override?.rowType ?? row.rowType) === "HOLDING" &&
                     !override?.ignored ? (
                       <label>
@@ -159,7 +159,7 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
                       "Not applicable"
                     )}
                   </td>
-                  <td>
+                  <td data-label="状态">
                     <strong>
                       {override?.ignored ? "IGNORED" : row.status}
                     </strong>
@@ -184,18 +184,18 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
             })}
             {preview.cash.map((row) => (
               <tr className="import-row--valid" key={row.rowNumber}>
-                <td>{row.rowNumber}</td>
-                <td>
+                <td data-label="行号">{row.rowNumber}</td>
+                <td data-label="账户">
                   {row.accountName}
                   <small>{row.accountNumberMasked}</small>
                 </td>
-                <td>{row.symbol}</td>
-                <td>Cash-like</td>
-                <td>—</td>
-                <td>{row.currentValue}</td>
-                <td>—</td>
-                <td>生活备用金</td>
-                <td>
+                <td data-label="代码">{row.symbol}</td>
+                <td data-label="类型">Cash-like</td>
+                <td data-label="数量">—</td>
+                <td data-label="市值">{row.currentValue}</td>
+                <td data-label="成本">—</td>
+                <td data-label="组合角色">生活备用金</td>
+                <td data-label="状态">
                   <strong>{row.status}</strong>
                 </td>
               </tr>

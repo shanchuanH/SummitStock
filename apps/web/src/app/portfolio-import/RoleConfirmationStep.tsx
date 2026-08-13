@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { presentClassification } from "../presentation/classification-presentation";
 import type { ImportPreview, RowOverride } from "./types";
 
@@ -18,6 +19,7 @@ export function RoleConfirmationStep({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const [activeHolding, setActiveHolding] = useState(0);
   const holdings = preview.holdings.filter(
     (row) =>
       !overrides[row.rowNumber]?.ignored &&
@@ -40,13 +42,18 @@ export function RoleConfirmationStep({
       <p>
         角色来自导入识别结果；你可以更改。角色会决定后续策略限制，但不会触发交易。
       </p>
+      <p className="import-role-mobile-progress" aria-live="polite">
+        正在确认第 {Math.min(activeHolding + 1, holdings.length)} 个，共{" "}
+        {holdings.length} 个
+      </p>
       <div className="import-role-list">
-        {holdings.map((row) => {
+        {holdings.map((row, index) => {
           const override = overrides[row.rowNumber];
           const classification = override?.classification ?? "UNKNOWN";
           return (
             <article
               className="context-card import-role-card"
+              data-mobile-active={index === activeHolding ? "true" : "false"}
               key={row.rowNumber}
             >
               <header>
@@ -104,6 +111,28 @@ export function RoleConfirmationStep({
             </article>
           );
         })}
+      </div>
+      <div className="import-role-mobile-nav" aria-label="逐项确认持仓">
+        <button
+          type="button"
+          disabled={activeHolding === 0}
+          onClick={() => {
+            setActiveHolding((current) => Math.max(0, current - 1));
+          }}
+        >
+          上一个持仓
+        </button>
+        <button
+          type="button"
+          disabled={activeHolding >= holdings.length - 1}
+          onClick={() => {
+            setActiveHolding((current) =>
+              Math.min(holdings.length - 1, current + 1),
+            );
+          }}
+        >
+          下一个持仓
+        </button>
       </div>
       <div className="import-actions">
         <button type="button" onClick={onBack}>

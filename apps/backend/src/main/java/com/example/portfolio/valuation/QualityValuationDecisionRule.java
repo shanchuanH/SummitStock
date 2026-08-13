@@ -16,13 +16,11 @@ public final class QualityValuationDecisionRule {
         var belowNormalMax = input.currentWeight().compareTo(input.normalMax()) < 0;
         if (belowNormalMax
                 && input.valuation() == ValuationEngineV2.ValuationState.DEEP_DISCOUNT
+                && stabilized(input.priceState())
                 && (input.priorStarterCount() == 0 || input.independentConfirmation())) {
             return Decision.STARTER_BUY;
         }
-        if (belowNormalMax
-                && acceptableNormalValuation(input.valuation())
-                && atLeastFlat(input.revision())
-                && (input.priceState() == PriceState.UPTREND || input.priceState() == PriceState.REVERSAL_CONFIRMED)) {
+        if (belowNormalMax && normalAddValuationGate(input.valuation(), input.revision(), input.priceState())) {
             return Decision.ADD;
         }
         return Decision.HOLD;
@@ -32,16 +30,42 @@ public final class QualityValuationDecisionRule {
         return value == ValuationEngineV2.CompanyHealth.STRONG || value == ValuationEngineV2.CompanyHealth.HEALTHY;
     }
 
-    private static boolean acceptableNormalValuation(ValuationEngineV2.ValuationState value) {
-        return value == ValuationEngineV2.ValuationState.DEEP_DISCOUNT
-                || value == ValuationEngineV2.ValuationState.ATTRACTIVE
-                || value == ValuationEngineV2.ValuationState.FAIR;
+    private static boolean normalAddValuationGate(
+            ValuationEngineV2.ValuationState valuation,
+            EstimateRevisionEngine.RevisionState revision,
+            PriceState priceState) {
+        if (valuation == ValuationEngineV2.ValuationState.ATTRACTIVE) {
+            return atLeastFlat(revision) && confirmed(priceState);
+        }
+        if (valuation == ValuationEngineV2.ValuationState.FAIR) {
+            return improving(revision) && strongConfirmation(priceState);
+        }
+        return false;
     }
 
     private static boolean atLeastFlat(EstimateRevisionEngine.RevisionState value) {
         return value == EstimateRevisionEngine.RevisionState.STRONGLY_POSITIVE
                 || value == EstimateRevisionEngine.RevisionState.POSITIVE
                 || value == EstimateRevisionEngine.RevisionState.FLAT;
+    }
+
+    private static boolean stabilized(PriceState value) {
+        return value == PriceState.NEUTRAL || value == PriceState.REVERSAL_SETUP || confirmed(value);
+    }
+
+    private static boolean confirmed(PriceState value) {
+        return value == PriceState.UPTREND
+                || value == PriceState.STRONG_UPTREND
+                || value == PriceState.REVERSAL_CONFIRMED;
+    }
+
+    private static boolean improving(EstimateRevisionEngine.RevisionState value) {
+        return value == EstimateRevisionEngine.RevisionState.STRONGLY_POSITIVE
+                || value == EstimateRevisionEngine.RevisionState.POSITIVE;
+    }
+
+    private static boolean strongConfirmation(PriceState value) {
+        return value == PriceState.STRONG_UPTREND || value == PriceState.REVERSAL_CONFIRMED;
     }
 
     public enum Decision {
@@ -52,9 +76,14 @@ public final class QualityValuationDecisionRule {
     }
 
     public enum PriceState {
+        STRONG_UPTREND,
         UPTREND,
+        NEUTRAL,
+        WEAK,
+        REVERSAL_SETUP,
         REVERSAL_CONFIRMED,
         DOWNTREND,
+        BREAKDOWN,
         MISSING
     }
 

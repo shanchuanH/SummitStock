@@ -301,6 +301,10 @@
   display: grid;
   gap: 14px;
 }
+.import-role-mobile-progress,
+.import-role-mobile-nav {
+  display: none;
+}
 .import-role-card header {
   display: flex;
   justify-content: space-between;
@@ -744,6 +748,103 @@
   }
   .import-stepper li span {
     font-size: 12px;
+  }
+  .import-shell .workspace-heading {
+    padding-top: 20px;
+  }
+  .import-shell .workspace-heading p:last-child {
+    margin-bottom: 0;
+  }
+  .import-stepper {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin: 12px -12px 18px;
+    padding: 6px 12px 0;
+    background: var(--bg);
+  }
+  .import-stepper li {
+    min-height: var(--touch-target);
+    padding: 6px 2px;
+  }
+  .import-table-wrap {
+    overflow: visible;
+  }
+  .import-table,
+  .import-table tbody {
+    display: block;
+  }
+  .import-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .import-table tr:not(.import-row--valid) {
+    display: grid;
+    gap: 10px;
+    margin: 12px 0;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+  }
+  .import-table tr:not(.import-row--valid) td {
+    display: grid;
+    grid-template-columns: minmax(86px, 0.35fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .import-table tr:not(.import-row--valid) td::before {
+    color: var(--muted);
+    font-size: 12px;
+    content: attr(data-label);
+  }
+  .import-table input,
+  .import-table select {
+    width: 100%;
+  }
+  .import-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .import-tabs button {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+  .file-drop {
+    padding: 18px;
+  }
+  .import-role-mobile-progress {
+    display: block;
+    color: var(--muted);
+  }
+  .import-role-card[data-mobile-active="false"] {
+    display: none;
+  }
+  .import-role-mobile-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .import-role-mobile-nav button,
+  .import-actions button {
+    width: 100%;
+  }
+  .import-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .import-confirm-card .import-actions {
+    grid-template-columns: 1fr;
+  }
+  .import-cash-card fieldset {
+    padding-inline: 14px;
   }
   .manual-grid,
   .cash-impact-summary,

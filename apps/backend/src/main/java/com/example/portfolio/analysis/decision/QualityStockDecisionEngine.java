@@ -74,20 +74,22 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
                 && e.strategy().deepDiscountStarterEnabled()
                 && !"STRONGLY_NEGATIVE".equals(e.fundamentals().estimateRevision())
                 && "DEEP_DISCOUNT".equals(e.valuation().state())
+                && stabilizedPrice(e.indicators().priceState())
+                && (e.valuation().priorStarterCount() == 0 || e.valuation().independentConfirmation())
                 && belowNormal(context)) {
             values.add(of(
                     RecommendationAction.STARTER_BUY,
                     "NORMAL",
                     10,
                     "QUALITY.DEEP_DISCOUNT.STARTER",
-                    "Healthy ownership evidence and deep discount permit a limited starter.",
-                    "Weak trend limits sizing and later adds require confirmation."));
+                    "Healthy ownership evidence, deep discount, and price stabilization permit a limited starter.",
+                    "A renewed decline blocks the starter; later starters require independent confirmation."));
         }
         if (healthy(health)
-                && acceptableValuation(e.valuation().state())
-                && atLeastFlat(e.fundamentals().estimateRevision())
-                && !"DEEP_DISCOUNT".equals(e.valuation().state())
-                && confirmedPrice(e.indicators().priceState())
+                && normalAddValuationGate(
+                        e.valuation().state(),
+                        e.fundamentals().estimateRevision(),
+                        e.indicators().priceState())
                 && belowNormal(context)) {
             values.add(of(
                     RecommendationAction.ADD,
@@ -129,8 +131,14 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
         return "HEALTHY".equals(v) || "STRONG".equals(v);
     }
 
-    private static boolean acceptableValuation(String v) {
-        return "DEEP_DISCOUNT".equals(v) || "ATTRACTIVE".equals(v) || "FAIR".equals(v);
+    private static boolean normalAddValuationGate(String valuation, String revision, String priceState) {
+        if ("ATTRACTIVE".equals(valuation)) {
+            return atLeastFlat(revision) && confirmedPrice(priceState);
+        }
+        if ("FAIR".equals(valuation)) {
+            return improvingRevision(revision) && strongPriceConfirmation(priceState);
+        }
+        return false;
     }
 
     private static boolean atLeastFlat(String v) {
@@ -139,5 +147,17 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
 
     private static boolean confirmedPrice(String v) {
         return "UPTREND".equals(v) || "STRONG_UPTREND".equals(v) || "REVERSAL_CONFIRMED".equals(v);
+    }
+
+    private static boolean stabilizedPrice(String v) {
+        return "NEUTRAL".equals(v) || "REVERSAL_SETUP".equals(v) || confirmedPrice(v);
+    }
+
+    private static boolean improvingRevision(String v) {
+        return "POSITIVE".equals(v) || "STRONGLY_POSITIVE".equals(v);
+    }
+
+    private static boolean strongPriceConfirmation(String v) {
+        return "STRONG_UPTREND".equals(v) || "REVERSAL_CONFIRMED".equals(v);
     }
 }

@@ -376,7 +376,8 @@ test("holding report leads with the decision and keeps technical evidence in a d
 test("final owner journey imports stock, ETF and cash before analysis and decision review", async ({
   page,
 }, testInfo) => {
-  if (testInfo.project.name === "mobile-chromium") {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  if (mobile) {
     await page.setViewportSize({ width: 375, height: 812 });
   }
   await page.goto("/portfolio/import");
@@ -392,13 +393,44 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await expect(recognizedRows.getByText("SPAXX")).toBeVisible();
   await expect(recognizedRows).toContainText("2000");
   await expect(recognizedRows).toContainText("2500");
+  if (mobile) {
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+  }
   await page.getByRole("button", { name: "继续确认角色" }).click();
-  for (const confirmation of await page
-    .getByRole("checkbox", {
-      name: "我确认这个角色适合该持仓",
-    })
-    .all()) {
-    await confirmation.check();
+  if (mobile) {
+    await expect(
+      page.locator('.import-role-card[data-mobile-active="true"]'),
+    ).toHaveCount(1);
+    await page
+      .locator('.import-role-card[data-mobile-active="true"]')
+      .getByRole("checkbox", { name: "我确认这个角色适合该持仓" })
+      .check();
+    await page.getByRole("button", { name: "下一个持仓" }).click();
+    await page
+      .locator('.import-role-card[data-mobile-active="true"]')
+      .getByRole("checkbox", { name: "我确认这个角色适合该持仓" })
+      .check();
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+  } else {
+    for (const confirmation of await page
+      .getByRole("checkbox", {
+        name: "我确认这个角色适合该持仓",
+      })
+      .all()) {
+      await confirmation.check();
+    }
   }
   await page.getByRole("button", { name: "继续设置备用金" }).click();
   await page.getByRole("radio", { name: /Fidelity 现金/ }).check();

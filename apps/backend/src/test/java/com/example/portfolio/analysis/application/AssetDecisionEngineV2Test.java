@@ -69,8 +69,16 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
-    void deepDiscountWithWeakTrendPermitsOnlyStarter() {
+    void deepDiscountWithWeakTrendDoesNotPermitStarter() {
         var evidence = qualityEvidence("STRONG", "DEEP_DISCOUNT", "FLAT", "DOWNTREND", "0.01");
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void deepDiscountAfterPriceStabilizationPermitsOnlyStarter() {
+        var evidence = qualityEvidence("STRONG", "DEEP_DISCOUNT", "FLAT", "REVERSAL_SETUP", "0.01");
 
         assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
                 .isEqualTo(RecommendationAction.STARTER_BUY);
@@ -81,6 +89,25 @@ class AssetDecisionEngineV2Test {
         var evidence = qualityEvidence("STRONG", "ATTRACTIVE", "POSITIVE", "REVERSAL_CONFIRMED", "0.01");
 
         assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.ADD);
+    }
+
+    @Test
+    void fairValuationWithFlatRevisionsAndUptrendDoesNotAdd() {
+        var evidence = qualityEvidence("STRONG", "FAIR", "FLAT", "UPTREND", "0.01");
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void fairValuationRequiresImprovingRevisionsAndStrongPriceConfirmation() {
+        var merelyImproving = qualityEvidence("STRONG", "FAIR", "POSITIVE", "UPTREND", "0.01");
+        var stronglyConfirmed = qualityEvidence("STRONG", "FAIR", "POSITIVE", "STRONG_UPTREND", "0.01");
+
+        assertThat(resolve(merelyImproving, context(merelyImproving), quality.evaluate(context(merelyImproving))))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(resolve(stronglyConfirmed, context(stronglyConfirmed), quality.evaluate(context(stronglyConfirmed))))
                 .isEqualTo(RecommendationAction.ADD);
     }
 
