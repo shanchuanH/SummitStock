@@ -17,6 +17,7 @@ public final class HoldingEvidenceReadiness {
         if (!evidence.instrument().active()) return AnalysisReadiness.BLOCKED;
         if (!evidence.quote().available()
                 || evidence.completedBars().isEmpty()
+                || evidence.completedBars().stream().noneMatch(HoldingEvidence.PriceBar::completed)
                 || !evidence.indicators().trendAvailable()) {
             return AnalysisReadiness.WAIT_FOR_MARKET_DATA;
         }
@@ -44,6 +45,8 @@ public final class HoldingEvidenceReadiness {
                                 && evidence.fundamentals().estimateQuality() != EvidenceQuality.MISSING
                         ? qualityReadiness(evidence, now, freshness)
                         : AnalysisReadiness.WAIT_FOR_FUNDAMENTALS;
+            case TACTICAL_STOCK, CYCLICAL_TACTICAL, TURNAROUND_TACTICAL ->
+                tacticalStockReadiness(evidence, now, freshness);
             case SPECULATIVE ->
                 evidence.stop().formalStop() != null && evidence.nextEvent().available()
                         ? tacticalReadiness(evidence, now, freshness)
@@ -51,6 +54,34 @@ public final class HoldingEvidenceReadiness {
             case UNVESTED_COMPENSATION, CASH_EQUIVALENT -> AnalysisReadiness.BLOCKED;
             default -> qualityReadiness(evidence.quality());
         };
+    }
+
+    private static AnalysisReadiness tacticalStockReadiness(
+            HoldingEvidence evidence, Instant now, AnalysisFreshnessPolicy freshness) {
+        if (evidence.stop().formalStop() == null
+                || !evidence.thesis().available()
+                || evidence.thesis().invalidated()
+                || (evidence.thesis().expiresAt() != null
+                        && !evidence.thesis().expiresAt().isAfter(now))) {
+            return AnalysisReadiness.BLOCKED;
+        }
+        if (!evidence.catalyst().available()
+                || evidence.catalyst().status() != HoldingEvidence.CatalystStatus.CONFIRMED
+                || !evidence.nextEvent().available()
+                || evidence.capitalQuality() != EvidenceQuality.HEALTHY
+                || evidence.riskQuality() != EvidenceQuality.HEALTHY
+                || evidence.clusterOpenRisk() == null
+                || evidence.totalOpenRisk() == null) {
+            return AnalysisReadiness.PARTIAL;
+        }
+        var policy = evidence.strategy().freshness();
+        if (freshness.staleDays(evidence.stop().dataAsOf(), now, policy.macroDailyDays())
+                || freshness.staleDays(evidence.catalyst().dataAsOf(), now, policy.earningsCalendarDays())
+                || freshness.staleDays(evidence.nextEvent().dataAsOf(), now, policy.earningsCalendarDays())
+                || freshness.staleDays(evidence.riskDataAsOf(), now, policy.macroDailyDays())) {
+            return AnalysisReadiness.STALE;
+        }
+        return qualityReadiness(evidence.quality());
     }
 
     private static AnalysisReadiness qualityReadiness(EvidenceQuality quality) {

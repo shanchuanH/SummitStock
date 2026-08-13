@@ -545,3 +545,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Tactical ADD now requires a confirmed, complete, unexpired catalyst plus reversal confirmation, capacity below normal max, available portfolio and cluster risk, a formal stop, event evidence, and no behavioral firewall block.
 - A price reversal with no qualified catalyst emits deterministic WATCH language: price has improved, but the owner should observe without adding. Missing cluster-risk evidence now fails closed instead of looking like zero risk.
 - Verification: Flyway applies through V42; 25 decision-engine tests plus the MySQL migration test pass. Focused coverage proves the same tactical reversal produces ADD with complete catalyst evidence and WATCH when catalyst evidence is missing.
+
+## User-Friendly Strategy Manual — Strategy S-3 — 2026-08-13
+
+- Tactical stock, cyclical tactical, and turnaround tactical classifications now have an explicit readiness path instead of falling through the generic quality check.
+- READY requires confirmed classification, a fresh completed price bar, trend, formal stop, confirmed catalyst, event evidence, fresh risk evidence, a live thesis, healthy capital evidence, and available portfolio/cluster capacity inputs.
+- Missing catalyst, event, risk, or capacity evidence yields PARTIAL; missing/invalid thesis or formal stop yields BLOCKED; stale stop, catalyst, event, or risk evidence yields STALE. None of these states can create a precise tactical ADD.
+- Verification: 28 focused readiness and decision tests pass, including READY, missing-catalyst PARTIAL, missing-stop BLOCKED, and stale-risk STALE branches.
