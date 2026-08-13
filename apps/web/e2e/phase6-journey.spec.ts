@@ -286,10 +286,14 @@ async function mockApi(page: Page) {
             errorRowCount: 0,
             estimatedInvestedValue: "4500",
             estimatedCashValue: "20000",
+            emergencyCashTarget: "20000",
           },
         },
       });
-    if (path.endsWith("/confirm"))
+    if (path.endsWith("/confirm")) {
+      expect(route.request().postDataJSON()).toMatchObject({
+        cashSetup: { location: "IN_FIDELITY", amount: "20000" },
+      });
       return route.fulfill({
         json: {
           batchId: "11111111-1111-1111-1111-111111111111",
@@ -304,6 +308,7 @@ async function mockApi(page: Page) {
           idempotentReplay: false,
         },
       });
+    }
     if (path.includes("/analysis/status/"))
       return route.fulfill({
         json: {
@@ -340,7 +345,7 @@ test("owner brief is actionable, complete, and never submits a trade", async ({
   await expect(page.getByRole("heading", { name: "今日简报" })).toBeVisible();
   await expect(page.getByText("数据完整 · 100%")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "今日优先动作" }),
+    page.getByRole("heading", { name: "今天需要处理的动作" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "我已处理" })).toBeVisible();
   await expect(page.getByRole("button", { name: "暂不处理" })).toBeVisible();
@@ -362,50 +367,46 @@ test("holding report leads with the decision and keeps technical evidence in a d
   await page.goto("/positions/p1");
   await expect(page.getByRole("heading", { name: "GOOGL" })).toBeVisible();
   await expect(page.locator(".module-number")).toHaveCount(6);
-  await expect(
-    page.getByText(/估值可能有吸引力，但组合仓位已触及上限/),
-  ).toBeVisible();
-  const drawer = page.getByText("查看证据与审计信息");
-  await expect(drawer).toBeVisible();
-  await drawer.click();
+  await expect(page.getByText("仓位已超过目标。").first()).toBeVisible();
+  await expect(page.getByText("硬上限").first()).toBeVisible();
+  await page.getByRole("heading", { name: "完整证据" }).click();
   await expect(page.getByText(/RISK_CAP/)).toBeVisible();
 });
 
 test("final owner journey imports stock, ETF and cash before analysis and decision review", async ({
   page,
 }, testInfo) => {
+  if (testInfo.project.name === "mobile-chromium") {
+    await page.setViewportSize({ width: 375, height: 812 });
+  }
   await page.goto("/portfolio/import");
   await page.locator('input[type="file"]').setInputFiles({
     name: "positions.csv",
     mimeType: "text/csv",
     buffer: Buffer.from("fidelity export"),
   });
-  await expect(page.getByText("GOOGL")).toBeVisible();
-  await expect(page.getByText("SPY")).toBeVisible();
-  await expect(page.getByText("SPAXX")).toBeVisible();
-  await expect(page.getByText("1500", { exact: true })).toBeVisible();
-  await expect(page.getByText("2500", { exact: true })).toBeVisible();
-  await page.getByRole("checkbox", { name: /确认每个持仓/ }).check();
-  await page.getByRole("radio", { name: /Fidelity 现金/ }).check();
-  const confirmButton = page.getByRole("button", { name: "确认并开始分析" });
-  if (testInfo.project.name === "mobile-chromium") {
-    await expect(confirmButton).toBeInViewport();
-    expect(
-      await confirmButton.evaluate((button) => {
-        const rect = button.getBoundingClientRect();
-        return document
-          .elementsFromPoint(
-            rect.left + rect.width / 2,
-            rect.top + rect.height / 2,
-          )
-          .includes(button);
-      }),
-    ).toBe(true);
-    await confirmButton.focus();
-    await confirmButton.press("Enter");
-  } else {
-    await confirmButton.click();
+  const recognizedRows = page.locator("details.recognized-import-rows");
+  await recognizedRows.locator("summary").click();
+  await expect(recognizedRows.getByText("GOOGL")).toBeVisible();
+  await expect(recognizedRows.getByText("SPY")).toBeVisible();
+  await expect(recognizedRows.getByText("SPAXX")).toBeVisible();
+  await expect(recognizedRows).toContainText("2000");
+  await expect(recognizedRows).toContainText("2500");
+  await page.getByRole("button", { name: "继续确认角色" }).click();
+  for (const confirmation of await page
+    .getByRole("checkbox", {
+      name: "我确认这个角色适合该持仓",
+    })
+    .all()) {
+    await confirmation.check();
   }
+  await page.getByRole("button", { name: "继续设置备用金" }).click();
+  await page.getByRole("radio", { name: /Fidelity 现金/ }).check();
+  await page.getByLabel("确认生活备用金金额").fill("20000");
+  await page.getByRole("button", { name: "继续最终确认" }).click();
+  const confirmButton = page.getByRole("button", { name: "确认并开始分析" });
+  await expect(confirmButton).toBeInViewport();
+  await confirmButton.click();
   await expect(page.getByRole("heading", { name: "分析已开始" })).toBeVisible();
   await expect(
     page.getByRole("list", { name: "Analysis progress" }).getByRole("listitem"),
@@ -413,7 +414,32 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await page.goto("/");
   await expect(page.locator(".action-card")).toHaveCount(1);
   await page.goto("/positions/p1");
-  await expect(page.getByText("15.0%")).toBeVisible();
+  await expect(page.getByText("15.0%").first()).toBeVisible();
+  await page.getByRole("heading", { name: "价格 / 风险 / 财报" }).click();
   await expect(page.getByText(/财报风险/)).toBeVisible();
+  await page.getByRole("heading", { name: "完整证据" }).click();
   await expect(page.getByText(/什么情况下建议会改变/)).toBeVisible();
+});
+
+test("incomplete analysis never presents false calm", async ({ page }) => {
+  await page.route("**/api/v1/brief/today", (route) =>
+    route.fulfill({
+      json: {
+        ...brief,
+        state: "PARTIAL_ANALYSIS",
+        confirmedNoAction: false,
+        headline: "分析尚未完成，部分结论暂不可用。",
+        todayPriorities: [],
+        mustAct: [],
+        doNot: [],
+        watch: [],
+      },
+    }),
+  );
+
+  await page.goto("/");
+  await expect(page.getByText("当前无需紧急操作")).toHaveCount(0);
+  await expect(
+    page.getByText(/今天先不要根据 SummitStock 下新决定/).first(),
+  ).toBeVisible();
 });

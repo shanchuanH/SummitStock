@@ -257,6 +257,9 @@ public final class HoldingAnalysisApplicationService {
                 || policy.targetMax() == null) {
             return unavailableSizing();
         }
+        if (evidence.clusterOpenRisk() == null || evidence.totalOpenRisk() == null) {
+            return unavailableSizing();
+        }
         var investableAssets = evidence.portfolioEquity().amount();
         var deployableCash = evidence.trackedCash()
                 .amount()

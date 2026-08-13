@@ -69,6 +69,9 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         update("DELETE h FROM holding_analysis_snapshot h JOIN position p ON p.id=h.position_id "
                 + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
                 + "WHERE u.email='" + EMAIL + "'");
+        update("DELETE e FROM tactical_catalyst_evidence e JOIN position p ON p.id=e.position_id "
+                + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
+                + "WHERE u.email='" + EMAIL + "'");
         update("DELETE e FROM earnings_risk_snapshot e JOIN position p ON p.id=e.position_id "
                 + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
                 + "WHERE u.email='" + EMAIL + "'");
@@ -119,7 +122,7 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
     }
 
     protected JsonNode confirm(UUID batchId, long version, String rowOverrides) throws Exception {
-        return confirm(batchId, version, rowOverrides, "IN_FIDELITY", "14000");
+        return confirm(batchId, version, rowOverrides, "IN_FIDELITY", null);
     }
 
     protected JsonNode confirm(
@@ -130,6 +133,9 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
                 .andReturn();
         assertSuccessful(current);
         var preview = json.readTree(current.getResponse().getContentAsString());
+        if (confirmedAmount == null) {
+            confirmedAmount = preview.path("summary").path("estimatedCashValue").asText();
+        }
         var additions = new java.util.ArrayList<String>();
         for (var holding : preview.path("holdings")) {
             var rowNumber = holding.path("rowNumber").asInt();

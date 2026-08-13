@@ -78,19 +78,27 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
         assertThat(runStatus(runId)).isEqualTo("SUCCEEDED");
 
         var brief = getJson("/api/v1/brief/today");
-        assertThat(brief.path("state").asString()).isEqualTo("ANALYSIS_READY");
+        assertThat(brief.path("state").asString())
+                .as("unconfirmed tactical swing structure must not be presented as complete")
+                .isEqualTo("BLOCKED");
+        assertThat(brief.path("confirmedNoAction").asBoolean()).isFalse();
+        assertThat(brief.path("headline").asString()).doesNotContain("无需紧急操作");
         assertThat(brief.path("mustAct").size()).isLessThanOrEqualTo(3);
         var summary = brief.path("summary");
         assertThat(decimal(summary, "totalLiquidAssets"))
                 .as("brief liquid assets use canonical marks plus tracked cash")
                 .isEqualByComparingTo(canonicalLiquidAssets());
-        assertThat(summary.path("trackedCash").asString()).isEqualTo("22000");
+        assertThat(summary.path("trackedCash").asString())
+                .as("explicitly confirmed emergency cash plus the seeded deployable remainder")
+                .isEqualTo("24000");
         assertThat(summary.path("unvestedCompensationValue").asString()).isEqualTo("4000");
         assertThat(decimal(summary, "coreExposureFraction")).isPositive().isLessThanOrEqualTo(BigDecimal.ONE);
         assertThat(decimal(summary, "tacticalExposureFraction")).isPositive();
         assertThat(decimal(summary, "technologyExposureFraction")).isPositive().isLessThanOrEqualTo(BigDecimal.ONE);
         assertThat(decimal(summary, "employerExposureFraction")).isPositive();
-        assertThat(decimal(summary, "clusterRiskFraction")).isPositive();
+        assertThat(decimal(summary, "clusterRiskFraction"))
+                .as("cluster risk remains zero when formal stop evidence is unavailable")
+                .isNotNegative();
         assertThat(decimal(summary, "openPlannedRiskFraction")).isPositive();
         assertThat(decimal(summary, "portfolioDrawdownFraction")).isNotNegative();
         assertThat(summary.path("drawdownSource").asString()).isNotBlank();
@@ -133,7 +141,9 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                 .isTrue();
         assertThat(dxyz.at("/assetEvidence/speculative/confidenceCeiling").asString())
                 .isEqualTo("LOW");
-        assertThat(dxyz.at("/assetEvidence/speculative/stopStatus").asString()).isEqualTo("AVAILABLE");
+        assertThat(dxyz.at("/assetEvidence/speculative/stopStatus").asString())
+                .as("synthetic bars do not fabricate confirmed swing structure")
+                .isEqualTo("MISSING");
         assertThat(dxyz.at("/assetEvidence/speculative/tickerOrPriceCanUpgradeQuality")
                         .asBoolean())
                 .isFalse();
@@ -169,7 +179,10 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                         + "WHERE i.symbol IN ('GOOGL','MSFT','TSLA','NVDA') AND r.evidence_checksum=SHA2(CONCAT('t15-revision-',i.symbol),256)");
         update(
                 "DELETE t FROM position_thesis t JOIN position p ON p.id=t.position_id JOIN instrument i ON i.id=p.instrument_id "
-                        + "WHERE i.symbol='DXYZ' AND t.summary='T15 bounded speculative thesis'");
+                        + "WHERE t.summary='T15 bounded thesis'");
+        update(
+                "DELETE e FROM tactical_catalyst_evidence e JOIN position p ON p.id=e.position_id "
+                        + "JOIN instrument i ON i.id=p.instrument_id WHERE e.summary=CONCAT('T15 confirmed catalyst for ',i.symbol)");
         update("DELETE h FROM financial_health_snapshot h JOIN financial_period p ON p.id=h.period_id "
                 + "WHERE p.source LIKE 'https://fixture.sec/%'");
         update("DELETE m FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id "
@@ -228,10 +241,19 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                         + "WHERE i.symbol IN ('GOOGL','MSFT','TSLA','NVDA')");
         update(
                 "INSERT INTO position_thesis (id,position_id,summary,confirmation_signals,invalidation_signals,status,expires_at,user_confirmed,created_at,updated_at) "
-                        + "SELECT UUID_TO_BIN(UUID()),p.id,'T15 bounded speculative thesis',JSON_ARRAY('risk remains bounded'),"
+                        + "SELECT UUID_TO_BIN(UUID()),p.id,'T15 bounded thesis',JSON_ARRAY('risk remains bounded'),"
                         + "JSON_ARRAY('formal stop'), 'HEALTHY',DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 90 DAY),TRUE,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6) "
                         + "FROM position p JOIN instrument i ON i.id=p.instrument_id JOIN investment_account a ON a.id=p.account_id "
-                        + "JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL + "' AND i.symbol='DXYZ'");
+                        + "JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
+                        + "' AND i.symbol IN ('DXYZ','NOK','AAOI','CSIQ','SNDK')");
+        update(
+                "INSERT INTO tactical_catalyst_evidence (id,position_id,status,catalyst_type,summary,expected_by,invalidation,data_as_of,evidence_checksum,created_at) "
+                        + "SELECT UUID_TO_BIN(UUID()),p.id,'CONFIRMED','EARNINGS',CONCAT('T15 confirmed catalyst for ',i.symbol),"
+                        + "DATE_ADD(CURRENT_DATE,INTERVAL 30 DAY),'Invalidate if the scheduled evidence fails',UTC_TIMESTAMP(6),"
+                        + "SHA2(CONCAT('t15-catalyst-',i.symbol),256),UTC_TIMESTAMP(6) FROM position p "
+                        + "JOIN instrument i ON i.id=p.instrument_id JOIN investment_account a ON a.id=p.account_id "
+                        + "JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
+                        + "' AND i.symbol IN ('NOK','AAOI','CSIQ','SNDK')");
     }
 
     private void clearSharedMarketEvidence() {
