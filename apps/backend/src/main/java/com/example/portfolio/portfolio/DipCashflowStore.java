@@ -20,8 +20,10 @@ public class DipCashflowStore {
         return jdbc.sql(
                         """
                 SELECT BIN_TO_UUID(d.id) id, i.symbol, d.strategy_version, d.status,
-                       d.setup_score, d.trigger_count, d.portfolio_drawdown, d.market_driven,
-                       d.emergency_cash_protected, d.rule_ids, d.data_as_of, d.valid_until
+                       d.setup_score, d.trigger_count, d.trigger_codes, d.tranche_index, d.tranche_pct,
+                       d.portfolio_drawdown, d.instrument_drawdown, d.market_driven,
+                       d.emergency_cash_protected, d.reserve_before, d.reserve_after, d.quality,
+                       d.rule_ids, d.data_as_of, d.valid_until
                 FROM etf_dip_event d JOIN app_user u ON u.id=d.user_id JOIN instrument i ON i.id=d.instrument_id
                 WHERE u.email=:email ORDER BY d.data_as_of DESC LIMIT 1
                 """)
@@ -51,9 +53,16 @@ public class DipCashflowStore {
             String status,
             double setupScore,
             int triggerCount,
+            String triggerCodes,
+            Integer trancheIndex,
+            BigDecimal tranchePct,
             BigDecimal portfolioDrawdown,
+            BigDecimal instrumentDrawdown,
             boolean marketDriven,
             boolean emergencyCashProtected,
+            BigDecimal reserveBefore,
+            BigDecimal reserveAfter,
+            String quality,
             String ruleIds,
             LocalDateTime dataAsOf,
             LocalDateTime validUntil) {}

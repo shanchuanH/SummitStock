@@ -12,6 +12,8 @@ import { ExecutiveDashboardPage } from "./dashboard/ExecutiveDashboardPage";
 import { WorkspaceNav } from "./workspace-nav";
 import { presentAction } from "./presentation/action-presentation";
 import { presentConfidence } from "./presentation/confidence-presentation";
+import { formatMoney, formatPercent } from "./presentation/number-format";
+import { presentReadiness } from "./presentation/readiness-presentation";
 
 async function requireData<T>(
   request: Promise<{ data?: T; response: Response }>,
@@ -88,35 +90,78 @@ export function DashboardPage() {
 
 type Brief = components["schemas"]["ExecutiveBrief"];
 function OpportunityList({
-  title,
   items,
 }: {
-  title: string;
   items: components["schemas"]["BriefAction"][];
 }) {
+  function strings(value?: string) {
+    if (!value) return [];
+    try {
+      const parsed: unknown = JSON.parse(value);
+      return Array.isArray(parsed) &&
+        parsed.every((item) => typeof item === "string")
+        ? parsed
+        : [];
+    } catch {
+      return [];
+    }
+  }
   return (
-    <article className="context-card">
-      <h2>{title}</h2>
+    <section className="opportunity-list">
       {items.length ? (
-        <ul>
+        <div className="opportunity-grid">
           {items.map((x) => (
-            <li key={x.id}>
+            <article className="context-card opportunity-card" key={x.id}>
+              <span>
+                {x.symbol ?? "组合"} · {x.classification ?? "分类待确认"}
+              </span>
+              <h2>{presentAction(x.action).title}</h2>
+              <p className="analyst-line">
+                {strings(x.reasonsJson)[0] ?? "确定性引擎尚未提供原因。"}
+              </p>
+              <dl className="module-metrics">
+                <div>
+                  <dt>当前仓位</dt>
+                  <dd>{formatPercent(x.currentWeight)}</dd>
+                </div>
+                <div>
+                  <dt>目标上限</dt>
+                  <dd>{formatPercent(x.targetWeightMax)}</dd>
+                </div>
+                <div>
+                  <dt>预计金额</dt>
+                  <dd>{formatMoney(x.estimatedAmount)}</dd>
+                </div>
+                <div>
+                  <dt>置信度</dt>
+                  <dd>{presentConfidence(x.confidence).label}</dd>
+                </div>
+              </dl>
+              <details>
+                <summary>查看风险与条件</summary>
+                <p>风险：{strings(x.risksJson).join("；") || "暂无可靠数据"}</p>
+                <p>
+                  改变条件：
+                  {strings(x.changeConditionsJson).join("；") || "暂无可靠数据"}
+                </p>
+                <p>组合风险校验：{x.riskCalculationReason}</p>
+              </details>
               <a
                 href={
                   x.positionId ? `/positions/${x.positionId}` : "/portfolio"
                 }
               >
-                <strong>{x.symbol ?? "组合"}</strong> ·{" "}
-                {presentAction(x.action).shortTitle} ·{" "}
-                {presentConfidence(x.confidence).label}
+                查看完整分析 →
               </a>
-            </li>
+            </article>
           ))}
-        </ul>
+        </div>
       ) : (
-        <p>当前没有通过数据完整性与风险约束的候选。</p>
+        <section className="context-card">
+          <p>当前没有通过数据完整性与风险约束的候选。</p>
+        </section>
       )}
-    </article>
+    </section>
   );
 }
 export function OpportunitiesPage() {
@@ -125,11 +170,50 @@ export function OpportunitiesPage() {
     queryFn: () => requireData<Brief>(api.GET("/api/v1/brief/today"), "Brief"),
     retry: false,
   });
+  const dip = useQuery({
+    queryKey: ["opportunity-dip-status"],
+    queryFn: () => requireData(api.GET("/api/v1/etf-dip/status"), "ETF Dip"),
+    retry: false,
+  });
   const actions = brief.data?.opportunities ?? [];
-  const quality = actions.filter((x) =>
-    /QUALITY|CORE|STOCK/.test(x.classification ?? ""),
+  const event = dip.data?.event;
+  const dataBlocked =
+    brief.data &&
+    !["ANALYSIS_READY", "PARTIAL_ANALYSIS"].includes(brief.data.state);
+  const riskPaused = (brief.data?.blocked ?? []).some(
+    (item) => item.action === "PAUSE_NEW_RISK",
   );
-  const etf = actions.filter((x) => /ETF/.test(x.classification ?? ""));
+  const dipReady = event?.status?.startsWith("READY_FOR_TRANCHE") ?? false;
+  const headline = dataBlocked
+    ? "数据不足，暂不筛选机会"
+    : riskPaused
+      ? "组合风险过高，暂停新增风险"
+      : dipReady
+        ? `出现 ETF Dip 第 ${String(event?.trancheIndex ?? "一")} 档机会`
+        : event?.status === "SETUP"
+          ? "出现核心 ETF 回撤观察机会"
+          : actions.length
+            ? "出现通过风险约束的新资金机会"
+            : "目前没有特殊买点";
+  const triggerLabels: Record<string, string> = {
+    RSI_CROSS_40: "RSI 重新站上 40",
+    BREAKOUT_5_DAY: "突破近 5 日高点",
+    EMA20_RECLAIM: "价格重新站上 EMA20",
+    BREADTH_IMPROVING: "市场宽度连续改善",
+    VIX_FALLING: "VIX 连续回落",
+    CREDIT_STABLE: "信用利差稳定",
+  };
+  let triggerCodes: string[] = [];
+  try {
+    const parsed: unknown = JSON.parse(event?.triggerCodesJson ?? "[]");
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((item) => typeof item === "string")
+    )
+      triggerCodes = parsed;
+  } catch {
+    /* invalid persisted JSON is presented as unavailable */
+  }
   return (
     <Frame eyebrow="MARKET & OPPORTUNITIES" title="市场与机会">
       {brief.isPending ? (
@@ -139,11 +223,85 @@ export function OpportunitiesPage() {
           无法读取机会数据。
         </section>
       ) : (
-        <section className="opportunity-grid">
-          <OpportunityList title="Quality Discount" items={quality} />
-          <OpportunityList title="ETF Dip" items={etf} />
-          <OpportunityList title="Watchlist" items={brief.data.watch} />
-        </section>
+        <>
+          <section className="position-hero opportunity-hero">
+            <div>
+              <p className="eyebrow">今天是否值得投入新资金？</p>
+              <h2>{headline}</h2>
+            </div>
+            <dl className="module-metrics">
+              <div>
+                <dt>可部署现金</dt>
+                <dd>{formatMoney(brief.data.capital.deployableCash)}</dd>
+              </div>
+              <div>
+                <dt>总计划风险</dt>
+                <dd>{formatPercent(brief.data.portfolio.openRisk)}</dd>
+              </div>
+              <div>
+                <dt>最高集群风险</dt>
+                <dd>{formatPercent(brief.data.portfolio.clusterRisk)}</dd>
+              </div>
+              <div>
+                <dt>数据完整度</dt>
+                <dd>{formatPercent(brief.data.dataReadiness.completeness)}</dd>
+              </div>
+            </dl>
+          </section>
+          {event ? (
+            <article className="context-card dip-opportunity-card">
+              <span>{event.symbol} · 回撤买入</span>
+              <h2>{dipReady ? "已满足一档部署条件" : "仍在等待确认"}</h2>
+              <p>
+                当前设置分：{event.setupScore?.toFixed(0) ?? "暂无可靠数据"} /
+                100 · 反转信号：{event.triggerCount ?? 0} / 2
+              </p>
+              {!dipReady ? (
+                <p className="analyst-line">因此：暂不部署下一档。</p>
+              ) : null}
+              <details>
+                <summary>查看回撤与确认依据</summary>
+                <dl className="financial-grid">
+                  <div>
+                    <dt>组合回撤</dt>
+                    <dd>{formatPercent(event.portfolioDrawdown)}</dd>
+                  </div>
+                  <div>
+                    <dt>标的回撤</dt>
+                    <dd>{formatPercent(event.instrumentDrawdown)}</dd>
+                  </div>
+                  <div>
+                    <dt>回撤来源</dt>
+                    <dd>{event.marketDriven ? "市场驱动" : "非市场驱动"}</dd>
+                  </div>
+                  <div>
+                    <dt>数据质量</dt>
+                    <dd>{presentReadiness(event.quality).label}</dd>
+                  </div>
+                  <div>
+                    <dt>战术储备（之前）</dt>
+                    <dd>{formatMoney(event.reserveBefore)}</dd>
+                  </div>
+                  <div>
+                    <dt>战术储备（之后）</dt>
+                    <dd>{formatMoney(event.reserveAfter)}</dd>
+                  </div>
+                </dl>
+                <p>
+                  已确认：
+                  {triggerCodes
+                    .map((code) => triggerLabels[code] ?? "未知信号")
+                    .join("；") || "尚无反转信号"}
+                </p>
+                <p>
+                  Emergency Cash：
+                  {event.emergencyCashProtected ? "已保护" : "未通过保护检查"}
+                </p>
+              </details>
+            </article>
+          ) : null}
+          <OpportunityList items={actions} />
+        </>
       )}
       <a href="/advanced/market-context">查看市场状态与数据依据 →</a>
     </Frame>

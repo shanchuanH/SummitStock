@@ -1581,9 +1581,17 @@ export interface components {
       setupScore?: number;
       /** Format: int32 */
       triggerCount?: number;
+      triggerCodesJson?: string;
+      /** Format: int32 */
+      trancheIndex?: number;
+      trancheFraction?: string;
       portfolioDrawdown?: string;
+      instrumentDrawdown?: string;
       marketDriven?: boolean;
       emergencyCashProtected?: boolean;
+      reserveBefore?: string;
+      reserveAfter?: string;
+      quality?: string;
       ruleIdsJson?: string;
       /** Format: date-time */
       dataAsOf?: string;

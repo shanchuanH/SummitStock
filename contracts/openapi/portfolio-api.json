@@ -3729,7 +3729,20 @@
             "type": "integer",
             "format": "int32"
           },
+          "triggerCodesJson": {
+            "type": "string"
+          },
+          "trancheIndex": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trancheFraction": {
+            "type": "string"
+          },
           "portfolioDrawdown": {
+            "type": "string"
+          },
+          "instrumentDrawdown": {
             "type": "string"
           },
           "marketDriven": {
@@ -3737,6 +3750,15 @@
           },
           "emergencyCashProtected": {
             "type": "boolean"
+          },
+          "reserveBefore": {
+            "type": "string"
+          },
+          "reserveAfter": {
+            "type": "string"
+          },
+          "quality": {
+            "type": "string"
           },
           "ruleIdsJson": {
             "type": "string"

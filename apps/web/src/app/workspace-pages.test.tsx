@@ -2,7 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DashboardPage, SettingsPage } from "./workspace-pages";
+import {
+  DashboardPage,
+  OpportunitiesPage,
+  SettingsPage,
+} from "./workspace-pages";
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@portfolio/api-client", () => ({ api: { GET: get } }));
@@ -165,5 +169,46 @@ describe("Packet 07 workspace", () => {
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/v1/auth/login");
+  });
+
+  it("shows one opportunity conclusion and deterministic ETF dip evidence", async () => {
+    get
+      .mockResolvedValueOnce(
+        await ok({
+          state: "ANALYSIS_READY",
+          opportunities: [],
+          blocked: [],
+          watch: [],
+          capital: { deployableCash: "20000" },
+          portfolio: { openRisk: "0.018", clusterRisk: "0.025" },
+          dataReadiness: { completeness: "1" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        await ok({
+          status: "READY",
+          event: {
+            symbol: "QQQM",
+            status: "SETUP",
+            setupScore: 68,
+            triggerCount: 1,
+            triggerCodesJson: '["RSI_CROSS_40"]',
+            portfolioDrawdown: "0.08",
+            instrumentDrawdown: "0.12",
+            marketDriven: true,
+            emergencyCashProtected: true,
+            quality: "HEALTHY",
+            reserveBefore: "10000",
+            reserveAfter: "10000",
+          },
+        }),
+      );
+    renderPage(<OpportunitiesPage />);
+    expect(
+      await screen.findByText("出现核心 ETF 回撤观察机会"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/当前设置分：68 \/ 100/)).toBeInTheDocument();
+    expect(screen.getByText("因此：暂不部署下一档。")).toBeInTheDocument();
+    expect(screen.getByText(/RSI 重新站上 40/)).toBeInTheDocument();
   });
 });
