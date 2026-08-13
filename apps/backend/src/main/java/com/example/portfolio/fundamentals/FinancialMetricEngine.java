@@ -18,7 +18,7 @@ public final class FinancialMetricEngine {
         var threeYears = comparable(current, history, 3);
         growth(values, FinancialMetric.REVENUE_YOY, FinancialMetric.REVENUE, prior);
         growth(values, FinancialMetric.EPS_YOY, FinancialMetric.DILUTED_EPS, prior);
-        growth(values, FinancialMetric.SHARE_DILUTION_YOY, FinancialMetric.DILUTED_SHARES, prior);
+        growth(values, FinancialMetric.SHARE_DILUTION_YOY, FinancialMetric.DILUTED_WEIGHTED_AVG_SHARES, prior);
         change(values, FinancialMetric.OPERATING_MARGIN_YOY_CHANGE, FinancialMetric.OPERATING_MARGIN, prior);
         cagr(values, FinancialMetric.REVENUE_3Y_CAGR, FinancialMetric.REVENUE, threeYears, 3);
         var quality = required(values)

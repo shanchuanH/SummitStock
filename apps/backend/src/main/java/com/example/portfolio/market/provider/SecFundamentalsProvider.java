@@ -289,7 +289,10 @@ public final class SecFundamentalsProvider implements FundamentalsProvider {
         mappings.put("OperatingCashFlow", List.of("NetCashProvidedByUsedInOperatingActivities"));
         mappings.put("CapitalExpenditures", List.of("PaymentsToAcquirePropertyPlantAndEquipment"));
         mappings.put("DilutedEPS", List.of("EarningsPerShareDiluted"));
-        mappings.put("SharesDiluted", List.of("WeightedAverageNumberOfDilutedSharesOutstanding"));
+        mappings.put("DilutedWeightedAverageShares", List.of("WeightedAverageNumberOfDilutedSharesOutstanding"));
+        mappings.put(
+                "CommonSharesOutstanding",
+                List.of("EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding"));
         return Map.copyOf(mappings);
     }
 

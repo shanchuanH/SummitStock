@@ -565,3 +565,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Point-in-time evidence access covers indicator, breadth, macro observation/factor, ETF Dip, market regime, estimate revision, and valuation assessment snapshots with both `market_date <= context.marketDate` and `data_as_of <= context.dataCutoff`; versioned strategy outputs also require the exact strategy version.
 - Holding evidence assembly, regime inputs, breadth, macro, and ETF Dip reads now consume the context. Price bars, quotes, price state, fundamentals, estimates, and valuation snapshots are cutoff-bound, so historical runs do not silently read the latest database row.
 - Verification: backend packaging passes; the focused MySQL replay test inserts a same-market-date indicator learned after the cutoff and a future indicator, then proves the store selects the older point-in-time value. Focused replay/readiness tests pass 4/4.
+
+## User-Friendly Strategy Manual — Strategy S-6 — 2026-08-13
+
+- Financial concepts now distinguish `DILUTED_WEIGHTED_AVG_SHARES` from point-in-time `COMMON_SHARES_OUTSTANDING`. V43 migrates the legacy diluted-share metric without reinterpreting it as outstanding shares.
+- EPS and share-dilution calculations retain diluted weighted-average shares. Market capitalization now requires the most recent common shares outstanding, and that market cap flows through EV/Sales, Price/Sales, and FCF Yield.
+- SEC and deterministic provider mappings include both concepts with explicit share units; missing common outstanding shares causes valuation computation to wait rather than fall back to the EPS denominator.
+- Verification: 6 focused financial, SEC-provider, and valuation tests pass. A 98-share common basis at $20 proves market cap 1,960, P/S 1.96, EV/Sales 2.06, and the corresponding FCF yield independently of diluted weighted-average shares.
