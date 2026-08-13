@@ -19,11 +19,15 @@ export function CashSetupStep({
   onNext,
 }: Props) {
   const fidelityCash = Number(importedCash);
-  const confirmed = Number(value?.externalEmergencyAmount ?? "");
+  const confirmed = Number(value?.amount ?? "");
   const fidelityProtected =
-    value?.location === "IN_FIDELITY" ? Math.min(fidelityCash, confirmed) : 0;
+    value?.location === "EXTERNAL_BANK" ? 0 : Math.min(fidelityCash, confirmed);
   const ready =
-    Boolean(value?.location) && Number.isFinite(confirmed) && confirmed >= 0;
+    Boolean(value?.location) &&
+    value?.amount.trim() !== "" &&
+    Number.isFinite(confirmed) &&
+    confirmed >= 0 &&
+    (value?.location !== "IN_FIDELITY" || confirmed <= fidelityCash);
   return (
     <section className="context-card import-cash-card">
       <p className="eyebrow">第 4 步 / 生活备用金</p>
@@ -47,8 +51,7 @@ export function CashSetupStep({
               onChange={() => {
                 onChange({
                   location: location as CashSetup["location"],
-                  externalEmergencyAmount:
-                    value?.externalEmergencyAmount ?? emergencyTarget,
+                  amount: value?.amount ?? "",
                 });
               }}
               type="radio"
@@ -59,38 +62,41 @@ export function CashSetupStep({
       </fieldset>
       {value ? (
         <label className="cash-confirmed-amount">
-          {value.location === "EXTERNAL_BANK" || value.location === "SPLIT"
-            ? "外部银行备用金金额"
-            : value.location === "BELOW_TARGET"
-              ? "目前已备好的金额"
-              : "计划从 Fidelity 现金中保护的金额"}
+          你确认目前已有的生活备用金总额
           <input
             aria-label="确认生活备用金金额"
             min="0"
             onChange={(event) => {
               onChange({
                 ...value,
-                externalEmergencyAmount: event.target.value,
+                amount: event.target.value,
               });
             }}
             step="0.01"
             type="number"
-            value={value.externalEmergencyAmount ?? ""}
+            value={value.amount}
           />
         </label>
       ) : null}
-      {value?.location === "IN_FIDELITY" && ready ? (
+      {value && value.amount.trim() !== "" && Number.isFinite(confirmed) ? (
         <div className="cash-impact-summary">
           <p>
             Fidelity 中可识别现金：<strong>{formatMoney(importedCash)}</strong>
           </p>
           <p>
-            计划保护：<strong>{formatMoney(fidelityProtected)}</strong>
+            其中来自 Fidelity：
+            <strong>{formatMoney(fidelityProtected)}</strong>
           </p>
           <p>
-            仍缺：
+            其中来自外部手动确认：
             <strong>
               {formatMoney(Math.max(0, confirmed - fidelityProtected))}
+            </strong>
+          </p>
+          <p>
+            距策略目标仍缺：
+            <strong>
+              {formatMoney(Math.max(0, Number(emergencyTarget) - confirmed))}
             </strong>
           </p>
           <p>
@@ -101,7 +107,14 @@ export function CashSetupStep({
           </p>
         </div>
       ) : null}
-      {value?.location === "EXTERNAL_BANK" || value?.location === "SPLIT" ? (
+      {value?.location === "IN_FIDELITY" && confirmed > fidelityCash ? (
+        <p className="import-warning" role="alert">
+          确认金额不能超过本次导入识别到的 Fidelity 现金。
+        </p>
+      ) : null}
+      {value?.location === "EXTERNAL_BANK" ||
+      value?.location === "SPLIT" ||
+      (value?.location === "BELOW_TARGET" && confirmed > fidelityCash) ? (
         <p className="import-warning">
           SummitStock 无法验证外部银行余额；这个数字来自你的手动确认。
         </p>

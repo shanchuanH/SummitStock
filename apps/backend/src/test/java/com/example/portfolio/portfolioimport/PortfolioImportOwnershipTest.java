@@ -37,7 +37,7 @@ class PortfolioImportOwnershipTest extends PortfolioImportIntegrationSupport {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"expectedVersion\":0,\"accountMappings\":[],\"rowOverrides\":[],"
-                                + "\"cashSetup\":{\"location\":\"IN_FIDELITY\",\"externalEmergencyAmount\":\"0\"}}"))
+                                + "\"cashSetup\":{\"location\":\"IN_FIDELITY\",\"amount\":\"0\"}}"))
                 .andExpect(status().isNotFound());
         assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run")).isZero();
     }

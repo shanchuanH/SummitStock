@@ -50,7 +50,7 @@ export type RowOverride = {
 
 export type CashSetup = {
   location: "IN_FIDELITY" | "EXTERNAL_BANK" | "SPLIT" | "BELOW_TARGET";
-  externalEmergencyAmount?: string;
+  amount: string;
 };
 
 export type ImportConfirmation = {

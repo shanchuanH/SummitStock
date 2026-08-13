@@ -41,7 +41,7 @@ export function ImportConfirmationStep({
         </div>
         <div>
           <dt>生活备用金确认额</dt>
-          <dd>{formatMoney(cashSetup.externalEmergencyAmount)}</dd>
+          <dd>{formatMoney(cashSetup.amount)}</dd>
         </div>
       </dl>
       <p>

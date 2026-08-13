@@ -874,7 +874,7 @@ export interface components {
     };
     CashSetupRequest: {
       location: string;
-      externalEmergencyAmount?: string;
+      amount: string;
     };
     ConfirmationRequest: {
       /** Format: int64 */

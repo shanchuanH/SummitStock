@@ -572,3 +572,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - EPS and share-dilution calculations retain diluted weighted-average shares. Market capitalization now requires the most recent common shares outstanding, and that market cap flows through EV/Sales, Price/Sales, and FCF Yield.
 - SEC and deterministic provider mappings include both concepts with explicit share units; missing common outstanding shares causes valuation computation to wait rather than fall back to the EPS denominator.
 - Verification: 6 focused financial, SEC-provider, and valuation tests pass. A 98-share common basis at $20 proves market cap 1,960, P/S 1.96, EV/Sales 2.06, and the corresponding FCF yield independently of diluted weighted-average shares.
+
+## User-Friendly Strategy Manual — Strategy S-7 — 2026-08-13
+
+- Cash setup now treats `location` only as the declared location and requires an explicit `amount` for every choice. Selecting a location no longer fills the strategy target into the form.
+- `EXTERNAL_BANK` persists exactly the amount the owner entered; it never assumes the $20,000 strategy target. Every positive external component is tagged `USER_CONFIRMED_EXTERNAL`. Pre-migration inferred records are honestly marked `LEGACY_INFERRED` rather than relabeled as owner-confirmed.
+- An `IN_FIDELITY` confirmation cannot exceed cash observed in the imported broker file. Split and below-target confirmations allocate only the observed Fidelity portion internally and treat the remainder as explicit external confirmation. The UI shows the total, source split, target gap, and deployable Fidelity remainder without manufacturing precision.
+- Verification: Flyway applies 49 migrations through V44; 4 focused MySQL confirmation/ownership tests pass, including a $7,000 external confirmation against a $20,000 target; OpenAPI generation, frontend ESLint/typecheck, and 18 Vitest files / 40 tests pass using ordinary user-event interaction.

@@ -74,12 +74,28 @@ class PortfolioImportConfirmationIntegrationTest extends PortfolioImportIntegrat
                                 .content(
                                         """
                                 {"expectedVersion":0,"accountMappings":[],"rowOverrides":[],
-                                 "cashSetup":{"location":"IN_FIDELITY","externalEmergencyAmount":"0"}}
+                                 "cashSetup":{"location":"IN_FIDELITY","amount":"0"}}
                                 """))
                 .andExpect(status().isUnprocessableContent());
 
         assertThat(count("SELECT COUNT(*) FROM position WHERE import_source='FIDELITY_CSV'"))
                 .isZero();
         assertThat(count("SELECT COUNT(*) FROM portfolio_cash_setup")).isZero();
+    }
+
+    @Test
+    void externalBankUsesTheExplicitUserConfirmedAmountAndSource() throws Exception {
+        var preview = preview("fidelity-positions.csv");
+        var batchId = uuid(preview, "batchId");
+
+        confirm(batchId, 0, "[{\"rowNumber\":7,\"ignored\":true}]", "EXTERNAL_BANK", "7000");
+
+        assertThat(count("SELECT COUNT(*) FROM portfolio_cash_setup WHERE location_code='EXTERNAL_BANK' "
+                        + "AND emergency_target=20000 AND confirmed_total=7000 "
+                        + "AND fidelity_emergency_amount=0 AND external_emergency_amount=7000 "
+                        + "AND external_amount_source='USER_CONFIRMED_EXTERNAL'"))
+                .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM cash_bucket WHERE bucket_type='EMERGENCY' AND current_amount=7000"))
+                .isEqualTo(1);
     }
 }

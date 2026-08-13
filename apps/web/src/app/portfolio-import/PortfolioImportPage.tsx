@@ -132,9 +132,9 @@ export function PortfolioImportPage() {
     }) ?? false;
   const cashReady =
     cashSetup !== undefined &&
-    cashSetup.externalEmergencyAmount !== undefined &&
-    Number.isFinite(Number(cashSetup.externalEmergencyAmount)) &&
-    Number(cashSetup.externalEmergencyAmount) >= 0;
+    cashSetup.amount.trim() !== "" &&
+    Number.isFinite(Number(cashSetup.amount)) &&
+    Number(cashSetup.amount) >= 0;
 
   async function confirm() {
     if (!preview) return;

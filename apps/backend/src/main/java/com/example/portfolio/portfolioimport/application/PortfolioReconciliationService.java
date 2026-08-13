@@ -348,31 +348,30 @@ public class PortfolioReconciliationService {
             PortfolioImportConfirmationService.CashSetup setup) {
         var target = strategies.current().emergencyCashFloor();
         var fidelityAvailable = importedCash.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        var requestedExternal = setup.externalEmergencyAmount().min(target);
+        var confirmed = setup.amount();
         BigDecimal fidelityEmergency;
         BigDecimal externalEmergency;
         switch (setup.location()) {
             case IN_FIDELITY -> {
-                fidelityEmergency = target.min(fidelityAvailable);
+                if (confirmed.compareTo(fidelityAvailable) > 0) {
+                    throw new ResponseStatusException(
+                            HttpStatus.UNPROCESSABLE_ENTITY,
+                            "Confirmed Fidelity safety cash exceeds imported Fidelity cash");
+                }
+                fidelityEmergency = confirmed;
                 externalEmergency = BigDecimal.ZERO;
             }
             case EXTERNAL_BANK -> {
                 fidelityEmergency = BigDecimal.ZERO;
-                externalEmergency = target;
+                externalEmergency = confirmed;
             }
-            case SPLIT -> {
-                externalEmergency = requestedExternal;
-                fidelityEmergency =
-                        target.subtract(externalEmergency).max(BigDecimal.ZERO).min(fidelityAvailable);
-            }
-            case BELOW_TARGET -> {
-                fidelityEmergency = BigDecimal.ZERO;
-                externalEmergency = requestedExternal;
+            case SPLIT, BELOW_TARGET -> {
+                fidelityEmergency = confirmed.min(fidelityAvailable);
+                externalEmergency = confirmed.subtract(fidelityEmergency);
             }
             default -> throw new IllegalStateException("Unsupported safety-cash location");
         }
         protectFidelityCash(userId, fidelityEmergency);
-        var confirmed = fidelityEmergency.add(externalEmergency);
         jdbc.sql("DELETE FROM cash_bucket WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='EMERGENCY'")
                 .param("userId", userId.toString())
                 .update();
@@ -392,9 +391,9 @@ public class PortfolioReconciliationService {
                         """
                         INSERT INTO portfolio_cash_setup (
                           id,user_id,import_batch_id,location_code,emergency_target,fidelity_emergency_amount,
-                          external_emergency_amount,confirmed_total,created_at)
+                          external_emergency_amount,external_amount_source,confirmed_total,created_at)
                         VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:batchId),:location,:target,
-                                :fidelity,:external,:confirmed,:now)
+                                :fidelity,:external,:externalSource,:confirmed,:now)
                         """)
                 .param("id", UUID.randomUUID().toString())
                 .param("userId", userId.toString())
@@ -403,6 +402,10 @@ public class PortfolioReconciliationService {
                 .param("target", target)
                 .param("fidelity", fidelityEmergency)
                 .param("external", externalEmergency)
+                .param(
+                        "externalSource",
+                        externalEmergency.signum() > 0 ? "USER_CONFIRMED_EXTERNAL" : null,
+                        java.sql.Types.VARCHAR)
                 .param("confirmed", confirmed)
                 .param("now", clock.instant())
                 .update();

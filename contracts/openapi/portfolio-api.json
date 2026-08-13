@@ -1751,11 +1751,11 @@
           "location": {
             "type": "string"
           },
-          "externalEmergencyAmount": {
+          "amount": {
             "type": "string"
           }
         },
-        "required": ["location"]
+        "required": ["amount", "location"]
       },
       "ConfirmationRequest": {
         "type": "object",
