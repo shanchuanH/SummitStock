@@ -644,6 +644,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/analysis/status/{runId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["status_1"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/actions/today": {
     parameters: {
       query?: never;
@@ -802,11 +818,16 @@ export interface components {
       existingAccountId?: string;
       displayName?: string;
     };
+    CashSetupRequest: {
+      location: string;
+      externalEmergencyAmount?: string;
+    };
     ConfirmationRequest: {
       /** Format: int64 */
       expectedVersion?: number;
       accountMappings?: components["schemas"]["AccountMappingRequest"][];
       rowOverrides?: components["schemas"]["RowOverrideRequest"][];
+      cashSetup: components["schemas"]["CashSetupRequest"];
     };
     RowOverrideRequest: {
       /** Format: int32 */
@@ -814,6 +835,7 @@ export interface components {
       symbol?: string;
       assetType?: string;
       rowType?: string;
+      classification?: string;
       ignored?: boolean;
     };
     ConfirmationResponse: {
@@ -865,6 +887,8 @@ export interface components {
       rowType?: string;
       status?: string;
       warnings?: string[];
+      suggestedClassification?: string;
+      classificationReason?: string;
     };
     ImportAccount: {
       accountName?: string;
@@ -1624,6 +1648,23 @@ export interface components {
       headerName?: string;
       parameterName?: string;
       token?: string;
+    };
+    AnalysisStatusResponse: {
+      /** Format: uuid */
+      runId?: string;
+      state?: string;
+      stages?: components["schemas"]["ProgressStage"][];
+      /** Format: int64 */
+      completedStages?: number;
+      /** Format: int32 */
+      totalStages?: number;
+      /** Format: date-time */
+      updatedAt?: string;
+    };
+    ProgressStage: {
+      code?: string;
+      label?: string;
+      status?: string;
     };
     RecommendationResponse: {
       /** Format: uuid */
@@ -2577,6 +2618,28 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["CsrfResponse"];
+        };
+      };
+    };
+  };
+  status_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        runId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["AnalysisStatusResponse"];
         };
       };
     };

@@ -24,6 +24,8 @@ const preview = {
       rowType: "HOLDING",
       status: "VALID",
       warnings: [],
+      suggestedClassification: "CORE_BROAD_ETF",
+      classificationReason: "Recognized broad-market ETF.",
     },
     {
       rowNumber: 3,
@@ -98,6 +100,18 @@ describe("PortfolioImportPageTest", () => {
         return json({ headerName: "X-CSRF-TOKEN", token: "secure-token" });
       if (path.endsWith("/fidelity/preview")) return json(preview);
       if (path.endsWith("/confirm")) return json(confirmation);
+      if (path.includes("/analysis/status/"))
+        return json({
+          runId: confirmation.analysisRunId,
+          state: "ANALYSIS_RUNNING",
+          completedStages: 1,
+          totalStages: 8,
+          updatedAt: "2026-08-12T20:00:00Z",
+          stages: [
+            { code: "HOLDINGS", label: "Holdings imported", status: "COMPLETE" },
+            { code: "PRICES", label: "Prices", status: "RUNNING" },
+          ],
+        });
       throw new Error(`Unexpected fetch ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -128,6 +142,10 @@ describe("PortfolioImportPageTest", () => {
     });
     expect(confirm).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /ignore/i }));
+    await user.click(
+      screen.getByRole("checkbox", { name: /reviewed the role/i }),
+    );
+    await user.click(screen.getByRole("radio", { name: /external bank/i }));
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
@@ -135,7 +153,7 @@ describe("PortfolioImportPageTest", () => {
       await screen.findByRole("heading", { name: /analysis has been queued/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("ANALYSIS_QUEUED")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it("allows an unknown holding to be corrected instead of ignored", async () => {
@@ -154,6 +172,14 @@ describe("PortfolioImportPageTest", () => {
       screen.getByLabelText("Asset type row 3"),
       "EQUITY",
     );
+    await user.selectOptions(
+      screen.getByLabelText("Classification row 3"),
+      "SPECULATIVE",
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: /reviewed the role/i }),
+    );
+    await user.click(screen.getByRole("radio", { name: /external bank/i }));
     expect(confirm).toBeEnabled();
   });
 });

@@ -419,3 +419,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Publication validation fails closed unless allocations sum to 100%, position bounds are ordered, trade risk remains below the absolute cap, cluster risk does not exceed total risk, drawdown thresholds strictly increase, ETF-dip tranches total 100%, Must Act is capped at three, and execution remains manual-only.
 - The active production/test fixtures, application defaults, frontend strategy status, and container artifact assertion now reference V3; V1/V2 files remain only as immutable historical strategy artifacts.
 - Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 207 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 3 — 2026-08-12
+
+- Portfolio preview remains read-only while adding config-driven classification suggestions and reasons. Every imported holding requires an explicit owner-confirmed, non-unknown classification before reconciliation or downstream sizing can begin.
+- The onboarding flow now captures emergency-cash location in owner language: held at Fidelity, held at an external bank, split between both, or currently below target. Fidelity-held emergency cash is protected from allocation, and the confirmed setup is stored durably by Flyway V39.
+- Confirmation atomically persists classifications and cash setup, reconciles the portfolio without creating assets, then queues the existing analysis pipeline. An owner-scoped status endpoint exposes the eight required stages from durable job state instead of simulated progress.
+- The web flow includes classification review, cash setup, explicit confirmation, and resumable analysis progress polling. OpenAPI and generated TypeScript contracts include the expanded onboarding and status models.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 208 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.

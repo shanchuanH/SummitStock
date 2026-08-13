@@ -32,6 +32,7 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
               <th>Quantity</th>
               <th>Value</th>
               <th>Cost basis</th>
+              <th>Classification</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -95,6 +96,42 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
                   <td>{row.currentValue ?? "—"}</td>
                   <td>{row.costBasis ?? "Missing"}</td>
                   <td>
+                    {(override?.rowType ?? row.rowType) === "HOLDING" &&
+                    !override?.ignored ? (
+                      <label>
+                        <span className="sr-only">
+                          Classification row {row.rowNumber}
+                        </span>
+                        <select
+                          aria-label={`Classification row ${String(row.rowNumber)}`}
+                          onChange={(event) => {
+                            onOverride({
+                              ...override,
+                              rowNumber: row.rowNumber,
+                              ignored: false,
+                              classification: event.target.value,
+                            });
+                          }}
+                          value={override?.classification ?? "UNKNOWN"}
+                        >
+                          <option value="UNKNOWN">Choose classification</option>
+                          <option value="CORE_BROAD_ETF">Broad-market core ETF</option>
+                          <option value="CORE_TECH_ETF">Technology core ETF</option>
+                          <option value="QUALITY_STOCK">Quality stock</option>
+                          <option value="QUALITY_GROWTH_HIGH_VOL">Quality growth / high volatility</option>
+                          <option value="THEMATIC_ETF">Thematic ETF</option>
+                          <option value="TACTICAL_STOCK">Tactical stock</option>
+                          <option value="CYCLICAL_TACTICAL">Cyclical tactical</option>
+                          <option value="TURNAROUND_TACTICAL">Turnaround tactical</option>
+                          <option value="SPECULATIVE">Speculative</option>
+                        </select>
+                        <small>{row.classificationReason}</small>
+                      </label>
+                    ) : (
+                      "Not applicable"
+                    )}
+                  </td>
+                  <td>
                     <strong>
                       {override?.ignored ? "IGNORED" : row.status}
                     </strong>
@@ -129,6 +166,7 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
                 <td>—</td>
                 <td>{row.currentValue}</td>
                 <td>—</td>
+                <td>Safety cash</td>
                 <td>
                   <strong>{row.status}</strong>
                 </td>

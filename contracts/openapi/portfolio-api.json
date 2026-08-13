@@ -1136,6 +1136,35 @@
         }
       }
     },
+    "/api/v1/analysis/status/{runId}": {
+      "get": {
+        "tags": ["analysis-status-controller"],
+        "operationId": "status_1",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/actions/today": {
       "get": {
         "tags": ["portfolio-controller"],
@@ -1568,6 +1597,18 @@
           }
         }
       },
+      "CashSetupRequest": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string"
+          },
+          "externalEmergencyAmount": {
+            "type": "string"
+          }
+        },
+        "required": ["location"]
+      },
       "ConfirmationRequest": {
         "type": "object",
         "properties": {
@@ -1586,8 +1627,12 @@
             "items": {
               "$ref": "#/components/schemas/RowOverrideRequest"
             }
+          },
+          "cashSetup": {
+            "$ref": "#/components/schemas/CashSetupRequest"
           }
-        }
+        },
+        "required": ["cashSetup"]
       },
       "RowOverrideRequest": {
         "type": "object",
@@ -1603,6 +1648,9 @@
             "type": "string"
           },
           "rowType": {
+            "type": "string"
+          },
+          "classification": {
             "type": "string"
           },
           "ignored": {
@@ -1742,6 +1790,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "suggestedClassification": {
+            "type": "string"
+          },
+          "classificationReason": {
+            "type": "string"
           }
         }
       },
@@ -3891,6 +3945,50 @@
             "type": "string"
           },
           "token": {
+            "type": "string"
+          }
+        }
+      },
+      "AnalysisStatusResponse": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressStage"
+            }
+          },
+          "completedStages": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalStages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProgressStage": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
             "type": "string"
           }
         }

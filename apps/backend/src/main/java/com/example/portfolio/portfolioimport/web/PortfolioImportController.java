@@ -1,5 +1,6 @@
 package com.example.portfolio.portfolioimport.web;
 
+import com.example.portfolio.portfolioimport.application.ImportClassificationSuggester;
 import com.example.portfolio.portfolioimport.application.PortfolioImportConfirmationService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportPreviewService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportQueryService;
@@ -31,21 +32,25 @@ public class PortfolioImportController {
     private final PortfolioImportPreviewService previews;
     private final PortfolioImportQueryService queries;
     private final PortfolioImportConfirmationService confirmations;
+    private final ImportClassificationSuggester classifications;
 
     public PortfolioImportController(
             PortfolioImportPreviewService previews,
             PortfolioImportQueryService queries,
-            PortfolioImportConfirmationService confirmations) {
+            PortfolioImportConfirmationService confirmations,
+            ImportClassificationSuggester classifications) {
         this.previews = previews;
         this.queries = queries;
         this.confirmations = confirmations;
+        this.classifications = classifications;
     }
 
     @PostMapping(value = "/fidelity/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     PreviewResponse preview(@RequestPart("file") MultipartFile file, Principal principal) {
         try {
             return PreviewResponse.from(
-                    previews.previewFidelity(principal.getName(), file.getBytes(), file.getOriginalFilename()));
+                    previews.previewFidelity(principal.getName(), file.getBytes(), file.getOriginalFilename()),
+                    classifications);
         } catch (IOException | IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
         }
@@ -54,7 +59,8 @@ public class PortfolioImportController {
     @PostMapping("/pasted/preview")
     PreviewResponse previewPasted(@Valid @RequestBody PastedTableRequest request, Principal principal) {
         try {
-            return PreviewResponse.from(previews.previewPastedTable(principal.getName(), request.table()));
+            return PreviewResponse.from(
+                    previews.previewPastedTable(principal.getName(), request.table()), classifications);
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
         }
@@ -63,7 +69,8 @@ public class PortfolioImportController {
     @PostMapping("/manual/preview")
     PreviewResponse previewManual(@Valid @RequestBody ManualHoldingRequest request, Principal principal) {
         try {
-            return PreviewResponse.from(previews.previewManual(principal.getName(), request.toHolding()));
+            return PreviewResponse.from(
+                    previews.previewManual(principal.getName(), request.toHolding()), classifications);
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
         }
@@ -71,7 +78,7 @@ public class PortfolioImportController {
 
     @GetMapping("/{batchId}")
     PreviewResponse find(@PathVariable UUID batchId, Principal principal) {
-        return PreviewResponse.from(queries.find(principal.getName(), batchId));
+        return PreviewResponse.from(queries.find(principal.getName(), batchId), classifications);
     }
 
     @PostMapping("/{batchId}/confirm")
@@ -81,7 +88,10 @@ public class PortfolioImportController {
     }
 
     public record ConfirmationRequest(
-            long expectedVersion, List<AccountMappingRequest> accountMappings, List<RowOverrideRequest> rowOverrides) {
+            long expectedVersion,
+            List<AccountMappingRequest> accountMappings,
+            List<RowOverrideRequest> rowOverrides,
+            @NotNull CashSetupRequest cashSetup) {
         PortfolioImportConfirmationService.ConfirmCommand toCommand() {
             return new PortfolioImportConfirmationService.ConfirmCommand(
                     expectedVersion,
@@ -94,7 +104,8 @@ public class PortfolioImportController {
                             ? List.of()
                             : rowOverrides.stream()
                                     .map(RowOverrideRequest::toCommand)
-                                    .toList());
+                                    .toList(),
+                    cashSetup.toCommand());
         }
     }
 
@@ -133,9 +144,25 @@ public class PortfolioImportController {
         }
     }
 
-    public record RowOverrideRequest(int rowNumber, String symbol, String assetType, String rowType, boolean ignored) {
+    public record RowOverrideRequest(
+            int rowNumber, String symbol, String assetType, String rowType, String classification, boolean ignored) {
         PortfolioImportConfirmationService.RowOverride toCommand() {
-            return new PortfolioImportConfirmationService.RowOverride(rowNumber, symbol, assetType, rowType, ignored);
+            return new PortfolioImportConfirmationService.RowOverride(
+                    rowNumber, symbol, assetType, rowType, classification, ignored);
+        }
+    }
+
+    public record CashSetupRequest(@NotNull String location, String externalEmergencyAmount) {
+        PortfolioImportConfirmationService.CashSetup toCommand() {
+            try {
+                return new PortfolioImportConfirmationService.CashSetup(
+                        PortfolioImportConfirmationService.CashLocation.valueOf(location),
+                        externalEmergencyAmount == null || externalEmergencyAmount.isBlank()
+                                ? BigDecimal.ZERO
+                                : new BigDecimal(externalEmergencyAmount));
+            } catch (IllegalArgumentException exception) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid safety-cash setup", exception);
+            }
         }
     }
 
@@ -150,13 +177,15 @@ public class PortfolioImportController {
             List<String> errors,
             SummaryResponse summary,
             java.time.Instant dataAsOf) {
-        static PreviewResponse from(PortfolioImportPreview value) {
+        static PreviewResponse from(PortfolioImportPreview value, ImportClassificationSuggester classifications) {
             return new PreviewResponse(
                     value.batchId(),
                     value.status().name(),
                     value.version(),
                     value.accounts(),
-                    value.holdings().stream().map(HoldingResponse::from).toList(),
+                    value.holdings().stream()
+                            .map(row -> HoldingResponse.from(row, classifications))
+                            .toList(),
                     value.cash().stream().map(CashResponse::from).toList(),
                     value.warnings(),
                     value.errors(),
@@ -179,8 +208,12 @@ public class PortfolioImportController {
             String costBasis,
             String rowType,
             String status,
-            List<String> warnings) {
-        static HoldingResponse from(ImportedHolding value) {
+            List<String> warnings,
+            String suggestedClassification,
+            String classificationReason) {
+        static HoldingResponse from(ImportedHolding value, ImportClassificationSuggester classifications) {
+            var suggestion =
+                    classifications.suggest(value.symbol(), value.assetType(), value.description(), value.rowType());
             return new HoldingResponse(
                     value.rowNumber(),
                     value.accountName(),
@@ -195,7 +228,9 @@ public class PortfolioImportController {
                     decimal(value.costBasis()),
                     value.rowType(),
                     value.status().name(),
-                    value.warnings());
+                    value.warnings(),
+                    suggestion.classification(),
+                    suggestion.reason());
         }
     }
 

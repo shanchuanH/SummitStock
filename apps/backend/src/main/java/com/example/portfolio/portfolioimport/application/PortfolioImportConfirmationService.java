@@ -244,16 +244,39 @@ public class PortfolioImportConfirmationService {
     }
 
     public record ConfirmCommand(
-            long expectedVersion, List<AccountMapping> accountMappings, List<RowOverride> rowOverrides) {
+            long expectedVersion,
+            List<AccountMapping> accountMappings,
+            List<RowOverride> rowOverrides,
+            CashSetup cashSetup) {
         public ConfirmCommand {
             accountMappings = accountMappings == null ? List.of() : List.copyOf(accountMappings);
             rowOverrides = rowOverrides == null ? List.of() : List.copyOf(rowOverrides);
+            if (cashSetup == null) throw new IllegalArgumentException("Safety-cash setup is required");
         }
     }
 
     public record AccountMapping(String accountNumberMasked, UUID existingAccountId, String displayName) {}
 
-    public record RowOverride(int rowNumber, String symbol, String assetType, String rowType, boolean ignored) {}
+    public record RowOverride(
+            int rowNumber, String symbol, String assetType, String rowType, String classification, boolean ignored) {}
+
+    public enum CashLocation {
+        IN_FIDELITY,
+        EXTERNAL_BANK,
+        SPLIT,
+        BELOW_TARGET
+    }
+
+    public record CashSetup(CashLocation location, java.math.BigDecimal externalEmergencyAmount) {
+        public CashSetup {
+            if (location == null) throw new IllegalArgumentException("Safety-cash location is required");
+            externalEmergencyAmount =
+                    externalEmergencyAmount == null ? java.math.BigDecimal.ZERO : externalEmergencyAmount;
+            if (externalEmergencyAmount.signum() < 0) {
+                throw new IllegalArgumentException("Safety-cash amount cannot be negative");
+            }
+        }
+    }
 
     public record ConfirmationResult(
             UUID batchId,

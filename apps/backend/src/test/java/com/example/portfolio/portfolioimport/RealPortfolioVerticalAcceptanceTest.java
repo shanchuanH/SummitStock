@@ -215,11 +215,6 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
     private void seedCompleteInputEvidence() {
         update("UPDATE cash_bucket c JOIN app_user u ON u.id=c.user_id SET c.current_amount=2000 " + "WHERE u.email='"
                 + EMAIL + "' AND c.bucket_type='ALLOCATED_TRADE'");
-        update(
-                "INSERT INTO cash_bucket (id,user_id,account_id,bucket_type,target_amount,current_amount,currency,as_of,updated_at,version) "
-                        + "SELECT UUID_TO_BIN(UUID()),u.id,a.id,'EMERGENCY',20000,20000,'USD',CURRENT_DATE,UTC_TIMESTAMP(6),0 "
-                        + "FROM app_user u JOIN investment_account a ON a.user_id=u.id "
-                        + "WHERE u.email='" + EMAIL + "' AND a.import_source='FIDELITY_CSV'");
         update("INSERT INTO instrument_analysis_profile (id,instrument_id,profile_type,fund_profile_available,thematic,"
                 + "top_holding_concentration,fund_liquidity_status,portfolio_overlap_fraction,source,evidence_checksum,data_as_of,created_at) "
                 + "SELECT UUID_TO_BIN(UUID()),i.id,'FUND',TRUE,i.symbol='DRAM',0.12,'HEALTHY',0.18,'IMPORTED_MAPPING',"

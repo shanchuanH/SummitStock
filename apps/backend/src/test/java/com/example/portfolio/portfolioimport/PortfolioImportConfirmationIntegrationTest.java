@@ -1,8 +1,15 @@
 package com.example.portfolio.portfolioimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 
 class PortfolioImportConfirmationIntegrationTest extends PortfolioImportIntegrationSupport {
     @Test
@@ -31,5 +38,42 @@ class PortfolioImportConfirmationIntegrationTest extends PortfolioImportIntegrat
                 .isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM position WHERE import_source='FIDELITY_CSV' AND average_cost IS NULL"))
                 .isEqualTo(1);
+        assertThat(
+                        count(
+                                "SELECT COUNT(*) FROM position WHERE import_source='FIDELITY_CSV' AND classification_confirmed=TRUE"))
+                .isEqualTo(3);
+        assertThat(
+                        count(
+                                "SELECT COUNT(*) FROM portfolio_cash_setup WHERE location_code='IN_FIDELITY' AND confirmed_total=14000"))
+                .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM cash_bucket WHERE bucket_type='EMERGENCY' AND current_amount=14000"))
+                .isEqualTo(1);
+        mockMvc.perform(get("/api/v1/analysis/status/{runId}", uuid(confirmed, "analysisRunId"))
+                        .with(httpBasic(EMAIL, PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("ANALYSIS_RUNNING"))
+                .andExpect(jsonPath("$.stages.length()").value(8));
+    }
+
+    @Test
+    void confirmationFailsUntilClassificationAndSafetyCashAreExplicit() throws Exception {
+        var value = preview("fidelity-positions-updated.csv");
+        var batchId = uuid(value, "batchId");
+
+        mockMvc.perform(
+                        post("/api/v1/portfolio-imports/{batchId}/confirm", batchId)
+                                .with(httpBasic(EMAIL, PASSWORD))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                {"expectedVersion":0,"accountMappings":[],"rowOverrides":[],
+                                 "cashSetup":{"location":"IN_FIDELITY","externalEmergencyAmount":"0"}}
+                                """))
+                .andExpect(status().isUnprocessableContent());
+
+        assertThat(count("SELECT COUNT(*) FROM position WHERE import_source='FIDELITY_CSV'"))
+                .isZero();
+        assertThat(count("SELECT COUNT(*) FROM portfolio_cash_setup")).isZero();
     }
 }
