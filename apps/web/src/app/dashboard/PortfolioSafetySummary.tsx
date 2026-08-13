@@ -28,8 +28,17 @@ export function PortfolioSafetySummary({ brief }: { brief: ExecutiveBrief }) {
         <article className="context-card">
           <TrendingDown aria-hidden="true" />
           <span>从组合高点回撤</span>
-          <strong>{formatPercent(brief.portfolio.drawdown)}</strong>
-          <small>{brief.portfolio.drawdownSource ?? "回撤来源正在确认"}</small>
+          {brief.portfolio.drawdownSource === "NAV_RECONCILIATION_REQUIRED" ? (
+            <>
+              <strong>组合回撤暂未确认</strong>
+              <small>检测到现金变化，正在区分投资收益与外部入金。</small>
+            </>
+          ) : (
+            <>
+              <strong>{formatPercent(brief.portfolio.drawdown)}</strong>
+              <small>{brief.portfolio.drawdownSource ?? "回撤来源正在确认"}</small>
+            </>
+          )}
         </article>
         <article className="context-card">
           <Banknote aria-hidden="true" />

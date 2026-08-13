@@ -524,3 +524,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Flyway V40 and owner-scoped preference APIs persist Emergency Cash target, manual broker, notification, starter-buy, primary ETF, and a tightly validated 0.1%–1% personal trade-risk cap. Updates use optimistic versions, row locking, CSRF, validation, and an audit event; stale writes return conflict.
 - The settings form reads and writes only those bounded fields. It explicitly states that advanced deterministic parameters remain versioned server strategy, avoiding the impression that arbitrary browser inputs can override the engine.
 - Verification: preference integration coverage proves version increments, stale-write rejection, and audit creation; Flyway applies 45 migrations through V40; OpenAPI/generated client, frontend ESLint/typecheck, 18 Vitest files / 40 tests, API-client build, and production Vite build pass.
+
+## User-Friendly Strategy Manual — Strategy S-0 — 2026-08-13
+
+- Portfolio confirmation now snapshots imported Fidelity account cash and open-position quantities before reconciliation. A first import establishes the NAV baseline without calling deposits investment returns.
+- A later cash-only broker change automatically creates an idempotent `portfolio_external_cashflow_event` through `PortfolioNavService.recordExternalCashflow`; a simultaneous position and cash change creates `NAV_RECONCILIATION_REQUIRED` instead of guessing.
+- The owner brief suppresses its drawdown number while NAV reconciliation is unresolved and explains that the system is distinguishing investment performance from external funding. No synthetic return or precise drawdown is shown.
+- Verification: portfolio import integration tests pass 5/5; the dedicated MySQL reconciliation test proves baseline, defensible $7,000 cashflow recording, and rejection of an ambiguous $1,000 change; frontend 18 Vitest files / 40 tests and TypeScript pass.
