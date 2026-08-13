@@ -46,7 +46,16 @@ public final class TacticalStockDecisionEngine implements AssetDecisionEngine {
         }
         if (context.normalMax() != null
                 && e.currentWeight().compareTo(context.normalMax()) < 0
-                && "REVERSAL_CONFIRMED".equals(e.indicators().priceState())) {
+                && "REVERSAL_CONFIRMED".equals(e.indicators().priceState())
+                && e.catalyst().confirmedAt(context.decisionAt())
+                && e.clusterOpenRisk() != null
+                && e.totalOpenRisk() != null
+                && e.riskQuality() == com.example.portfolio.strategy.market.EvidenceQuality.HEALTHY
+                && e.riskDataAsOf() != null
+                && e.stop().formalStop() != null
+                && e.nextEvent().available()
+                && e.nextEvent().dataAsOf() != null
+                && BehavioralFirewall.allowsNewRisk(context)) {
             values.add(of(
                     RecommendationAction.ADD,
                     "NORMAL",
@@ -54,6 +63,16 @@ public final class TacticalStockDecisionEngine implements AssetDecisionEngine {
                     "TACTICAL.CATALYST.CONFIRMED",
                     "Price reversal and tactical capacity permit an add.",
                     "Catalyst timing can fail."));
+        }
+        if ("REVERSAL_CONFIRMED".equals(e.indicators().priceState())
+                && !e.catalyst().confirmedAt(context.decisionAt())) {
+            values.add(of(
+                    RecommendationAction.WATCH,
+                    "WATCH",
+                    10,
+                    "TACTICAL.CATALYST.MISSING",
+                    "Price has improved, but there is no confirmed catalyst; observe without adding.",
+                    "A reversal without a catalyst can fail."));
         }
         values.add(of(
                 RecommendationAction.HOLD,

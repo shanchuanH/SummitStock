@@ -25,6 +25,7 @@ public record HoldingEvidence(
         FundamentalSnapshot fundamentals,
         ValuationSnapshot valuation,
         EarningsEvent nextEvent,
+        CatalystEvidence catalyst,
         Thesis thesis,
         MarketRegimeSnapshot regime,
         PortfolioDrawdownSnapshot drawdown,
@@ -39,6 +40,7 @@ public record HoldingEvidence(
         Instant dataAsOf) {
     public HoldingEvidence {
         completedBars = List.copyOf(completedBars);
+        catalyst = catalyst == null ? CatalystEvidence.missing() : catalyst;
     }
 
     public record Position(
@@ -140,6 +142,49 @@ public record HoldingEvidence(
         public EarningsEvent(boolean available, Instant eventAt, String eventRisk) {
             this(available, eventAt, eventRisk, null, eventAt);
         }
+    }
+
+    public record CatalystEvidence(
+            boolean available,
+            CatalystStatus status,
+            CatalystType type,
+            String summary,
+            Instant dataAsOf,
+            LocalDate expectedBy,
+            String invalidation) {
+        public static CatalystEvidence missing() {
+            return new CatalystEvidence(false, CatalystStatus.MISSING, null, null, null, null, null);
+        }
+
+        public boolean confirmedAt(Instant decisionAt) {
+            var decisionDate = decisionAt.atZone(java.time.ZoneOffset.UTC).toLocalDate();
+            return available
+                    && status == CatalystStatus.CONFIRMED
+                    && type != null
+                    && summary != null
+                    && !summary.isBlank()
+                    && dataAsOf != null
+                    && (expectedBy == null || !expectedBy.isBefore(decisionDate))
+                    && invalidation != null
+                    && !invalidation.isBlank();
+        }
+    }
+
+    public enum CatalystStatus {
+        CONFIRMED,
+        DEVELOPING,
+        MISSING,
+        INVALIDATED
+    }
+
+    public enum CatalystType {
+        EARNINGS,
+        PRODUCT,
+        CONTRACT,
+        REGULATORY,
+        RESTRUCTURING,
+        MACRO,
+        OTHER
     }
 
     public record Thesis(boolean available, boolean invalidated, Instant expiresAt) {}

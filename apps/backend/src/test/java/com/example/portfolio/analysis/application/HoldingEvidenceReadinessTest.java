@@ -52,6 +52,7 @@ class HoldingEvidenceReadinessTest {
                 staleFundamentals,
                 current.valuation(),
                 current.nextEvent(),
+                current.catalyst(),
                 current.thesis(),
                 current.regime(),
                 current.drawdown(),

@@ -1,0 +1,19 @@
+CREATE TABLE tactical_catalyst_evidence (
+    id BINARY(16) NOT NULL,
+    position_id BINARY(16) NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    catalyst_type VARCHAR(32) NOT NULL,
+    summary VARCHAR(1000) NOT NULL,
+    expected_by DATE NULL,
+    invalidation VARCHAR(1000) NOT NULL,
+    data_as_of DATETIME(6) NOT NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_tactical_catalyst_evidence (position_id, evidence_checksum),
+    KEY ix_tactical_catalyst_latest (position_id, data_as_of),
+    CONSTRAINT fk_tactical_catalyst_position FOREIGN KEY (position_id) REFERENCES position (id),
+    CONSTRAINT chk_tactical_catalyst_status CHECK (status IN ('CONFIRMED','DEVELOPING','MISSING','INVALIDATED')),
+    CONSTRAINT chk_tactical_catalyst_type CHECK (catalyst_type IN ('EARNINGS','PRODUCT','CONTRACT','REGULATORY','RESTRUCTURING','MACRO','OTHER'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+

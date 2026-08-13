@@ -538,3 +538,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - V41 adds explicit quantity delta, execution price, and realized P&L fields to the trade journal. A quantity change without complete execution evidence is excluded rather than assigned a fabricated precise loss.
 - Position and cluster contributions use the monetary strategy NAV drawdown, `(high_water_nav - nav) × units`, as their common denominator. Persisted JSON now exposes positive `positionLossAmount` and contribution fractions.
 - Verification: Flyway applies through V41; focused NAV and attribution tests pass. Tests prove a 50-share post-peak add, a 60-share post-peak sale, exclusion of incomplete execution evidence, loss ranking, and NAV-loss denominator alignment.
+
+## User-Friendly Strategy Manual — Strategy S-2 — 2026-08-13
+
+- V42 introduces position-scoped, immutable tactical catalyst evidence with explicit status, type, summary, as-of time, expected date, invalidation, and evidence checksum. Missing evidence is represented as `MISSING`, never inferred from price.
+- Tactical ADD now requires a confirmed, complete, unexpired catalyst plus reversal confirmation, capacity below normal max, available portfolio and cluster risk, a formal stop, event evidence, and no behavioral firewall block.
+- A price reversal with no qualified catalyst emits deterministic WATCH language: price has improved, but the owner should observe without adding. Missing cluster-risk evidence now fails closed instead of looking like zero risk.
+- Verification: Flyway applies through V42; 25 decision-engine tests plus the MySQL migration test pass. Focused coverage proves the same tactical reversal produces ADD with complete catalyst evidence and WATCH when catalyst evidence is missing.

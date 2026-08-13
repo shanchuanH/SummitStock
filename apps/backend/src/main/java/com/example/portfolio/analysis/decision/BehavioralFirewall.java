@@ -56,6 +56,19 @@ public final class BehavioralFirewall {
         return List.copyOf(values);
     }
 
+    public static boolean allowsNewRisk(DecisionContext context) {
+        var strategy = context.evidence().strategy();
+        var decisionCooling = context.lastDecisionAt() != null
+                && !context.decisionAt().isBefore(context.lastDecisionAt())
+                && Duration.between(context.lastDecisionAt(), context.decisionAt())
+                                .compareTo(Duration.ofHours(strategy.coolingHours()))
+                        < 0;
+        var ideaCooling =
+                context.ideaCooldownUntil() != null && context.decisionAt().isBefore(context.ideaCooldownUntil());
+        var invalidAverageDown = context.averagingDown() && !context.thesisImproving();
+        return !decisionCooling && !ideaCooling && !invalidAverageDown && !context.anchoredToCostBasis();
+    }
+
     private static RecommendationCandidate block(String ruleId, String reason) {
         return of(
                 RecommendationAction.DO_NOT_ADD,
