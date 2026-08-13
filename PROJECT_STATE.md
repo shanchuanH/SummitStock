@@ -435,3 +435,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Owner portfolio health is limited to investable assets, Emergency Cash, strategy drawdown, Tactical plus Speculative exposure, and conservative data completeness. The no-action message remains gated on READY, full coverage, fresh analysis, and empty action queues.
 - Frontend fixtures and generated API contracts cover the expanded aggregate without composing lower-level financial services in React.
 - Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 208 backend tests; backend formatting/build gates pass; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 5 — 2026-08-12
+
+- The canonical owner endpoint `GET /api/v1/holdings/{id}/analyst-report` now aggregates the existing deterministic analysis into exactly six layers: system recommendation, portfolio role, fundamentals, valuation, price/risk/earnings, and rationale/risk/change conditions/evidence. The prior position report path remains compatible.
+- Classification-specific Strategy V3 target, normal maximum, and hard maximum are included in portfolio context. The report explicitly separates an attractive security from available portfolio capacity, so a cheap holding at its hard maximum cannot be presented as an add.
+- Rule IDs, evidence references, strategy version, configuration hash, data quality, and timestamps remain behind the Evidence Drawer; missing six-layer evidence fails closed rather than rendering a partial or fabricated report.
+- GOOGL quality-stock, DRAM thematic-ETF, and DXYZ speculative fixtures verify distinct 15%, 10%, and 2% hard limits and the complete six-layer contract. The owner page leads with the conclusion and renders six modules rather than an engineering-first chart wall.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 209 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.

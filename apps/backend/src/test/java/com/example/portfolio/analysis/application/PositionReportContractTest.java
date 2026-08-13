@@ -30,4 +30,35 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
                 .andExpect(jsonPath("$.evidence.configHash").isString())
                 .andExpect(jsonPath("$.dataAsOf").exists());
     }
+
+    @Test
+    void canonicalAnalystReportUsesSixLayersAndClassificationSpecificHardLimits() throws Exception {
+        recommendations.generateAll(USER_ID);
+
+        assertAnalystReport(GOOGL_POSITION, "GOOGL", "QUALITY_STOCK", "0.15");
+        assertAnalystReport(DRAM_POSITION, "DRAM", "THEMATIC_ETF", "0.1");
+        assertAnalystReport(DXYZ_POSITION, "DXYZ", "SPECULATIVE", "0.02");
+    }
+
+    private void assertAnalystReport(java.util.UUID positionId, String symbol, String classification, String hardMax)
+            throws Exception {
+        mockMvc.perform(get("/api/v1/holdings/{positionId}/analyst-report", positionId)
+                        .with(httpBasic(USER_EMAIL, "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.position.symbol").value(symbol))
+                .andExpect(jsonPath("$.layers.systemRecommendation.action").isNotEmpty())
+                .andExpect(jsonPath("$.layers.portfolioRole.classification").value(classification))
+                .andExpect(jsonPath("$.layers.portfolioRole.hardMaxWeight").value(hardMax))
+                .andExpect(jsonPath("$.layers.fundamentals.quality").isNotEmpty())
+                .andExpect(jsonPath("$.layers.valuation.state").isNotEmpty())
+                .andExpect(jsonPath("$.layers.priceRiskEarnings.priceState").isNotEmpty())
+                .andExpect(jsonPath("$.layers.rationaleAndEvidence.reasons").isArray())
+                .andExpect(jsonPath("$.layers.rationaleAndEvidence.risks").isArray())
+                .andExpect(jsonPath("$.layers.rationaleAndEvidence.changeConditions")
+                        .isArray())
+                .andExpect(jsonPath("$.layers.rationaleAndEvidence.evidenceDrawer.ruleIds")
+                        .isArray())
+                .andExpect(jsonPath("$.layers.rationaleAndEvidence.evidenceDrawer.configHash")
+                        .isString());
+    }
 }

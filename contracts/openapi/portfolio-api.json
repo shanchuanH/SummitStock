@@ -512,33 +512,6 @@
         }
       }
     },
-    "/api/v1/positions/{positionId}/report" : {
-      "get" : {
-        "tags" : [ "position-report-controller" ],
-        "operationId" : "report",
-        "parameters" : [ {
-          "name" : "positionId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PositionReportResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/positions/{positionId}/journal" : {
       "get" : {
         "tags" : [ "position-intelligence-controller" ],
@@ -947,6 +920,60 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MarketSeriesPriceBarResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/holdings/{positionId}/analyst-report" : {
+      "get" : {
+        "tags" : [ "position-report-controller" ],
+        "operationId" : "report",
+        "parameters" : [ {
+          "name" : "positionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PositionReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/positions/{positionId}/report" : {
+      "get" : {
+        "tags" : [ "position-report-controller" ],
+        "operationId" : "report_1",
+        "parameters" : [ {
+          "name" : "positionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PositionReportResponse"
                 }
               }
             }
@@ -2134,315 +2161,6 @@
           }
         }
       },
-      "AssetEvidence" : {
-        "type" : "object",
-        "properties" : {
-          "company" : {
-            "$ref" : "#/components/schemas/CompanyEvidence"
-          },
-          "etf" : {
-            "$ref" : "#/components/schemas/EtfEvidence"
-          },
-          "speculative" : {
-            "$ref" : "#/components/schemas/SpeculativeEvidence"
-          },
-          "portfolioContext" : {
-            "$ref" : "#/components/schemas/PortfolioContext"
-          }
-        }
-      },
-      "AuditEvidence" : {
-        "type" : "object",
-        "properties" : {
-          "analysisStatus" : {
-            "type" : "string"
-          },
-          "exactQuantityAllowed" : {
-            "type" : "boolean"
-          },
-          "ruleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "evidenceRefs" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "strategyVersion" : {
-            "type" : "string"
-          },
-          "configHash" : {
-            "type" : "string"
-          }
-        }
-      },
-      "CompanyEvidence" : {
-        "type" : "object",
-        "properties" : {
-          "companyModelApplied" : {
-            "type" : "boolean"
-          },
-          "fundamentalsStatus" : {
-            "type" : "string"
-          },
-          "growthProfitabilityCashFlowStatus" : {
-            "type" : "string"
-          },
-          "valuationStatus" : {
-            "type" : "string"
-          },
-          "earningsRiskStatus" : {
-            "type" : "string"
-          },
-          "thesisStatus" : {
-            "type" : "string"
-          }
-        }
-      },
-      "DecisionNarrative" : {
-        "type" : "object",
-        "properties" : {
-          "source" : {
-            "type" : "string"
-          },
-          "headline" : {
-            "type" : "string"
-          },
-          "oneSentence" : {
-            "type" : "string"
-          },
-          "why" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "risks" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "watchNext" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "confidenceExplanation" : {
-            "type" : "string"
-          }
-        }
-      },
-      "EtfEvidence" : {
-        "type" : "object",
-        "properties" : {
-          "etfModelApplied" : {
-            "type" : "boolean"
-          },
-          "thematic" : {
-            "type" : "boolean"
-          },
-          "topHoldingsConcentration" : {
-            "type" : "string"
-          },
-          "portfolioOverlapFraction" : {
-            "type" : "string"
-          },
-          "trendStatus" : {
-            "type" : "string"
-          },
-          "liquidityStatus" : {
-            "type" : "string"
-          },
-          "eventStatus" : {
-            "type" : "string"
-          },
-          "companyEarningsModelApplied" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "PortfolioContext" : {
-        "type" : "object",
-        "properties" : {
-          "currentWeight" : {
-            "type" : "string"
-          },
-          "clusterWeight" : {
-            "type" : "string"
-          },
-          "clusterOpenRisk" : {
-            "type" : "string"
-          }
-        }
-      },
-      "Position" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "symbol" : {
-            "type" : "string"
-          },
-          "classification" : {
-            "type" : "string"
-          },
-          "classificationSource" : {
-            "type" : "string"
-          }
-        }
-      },
-      "PositionReportResponse" : {
-        "type" : "object",
-        "properties" : {
-          "position" : {
-            "$ref" : "#/components/schemas/Position"
-          },
-          "readiness" : {
-            "type" : "string"
-          },
-          "recommendation" : {
-            "$ref" : "#/components/schemas/Recommendation"
-          },
-          "evidence" : {
-            "$ref" : "#/components/schemas/AuditEvidence"
-          },
-          "assetEvidence" : {
-            "$ref" : "#/components/schemas/AssetEvidence"
-          },
-          "dataAsOf" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "Recommendation" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "action" : {
-            "type" : "string"
-          },
-          "priority" : {
-            "type" : "string"
-          },
-          "quantityMin" : {
-            "type" : "string"
-          },
-          "quantityMax" : {
-            "type" : "string"
-          },
-          "currentWeight" : {
-            "type" : "string"
-          },
-          "targetWeightMin" : {
-            "type" : "string"
-          },
-          "targetWeightMax" : {
-            "type" : "string"
-          },
-          "confidence" : {
-            "type" : "string"
-          },
-          "reasons" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "risks" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "changeConditions" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "winningRule" : {
-            "type" : "string"
-          },
-          "suppressedCandidates" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/SuppressedCandidate"
-            }
-          },
-          "resolutionReason" : {
-            "type" : "string"
-          },
-          "narrative" : {
-            "$ref" : "#/components/schemas/DecisionNarrative"
-          },
-          "validUntil" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "SpeculativeEvidence" : {
-        "type" : "object",
-        "properties" : {
-          "speculativePolicyApplied" : {
-            "type" : "boolean"
-          },
-          "hardMaxWeight" : {
-            "type" : "string"
-          },
-          "confidenceCeiling" : {
-            "type" : "string"
-          },
-          "stopStatus" : {
-            "type" : "string"
-          },
-          "eventRiskStatus" : {
-            "type" : "string"
-          },
-          "tickerOrPriceCanUpgradeQuality" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "SuppressedCandidate" : {
-        "type" : "object",
-        "properties" : {
-          "action" : {
-            "type" : "string"
-          },
-          "priority" : {
-            "type" : "string"
-          },
-          "riskRank" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "ruleId" : {
-            "type" : "string"
-          },
-          "reason" : {
-            "type" : "string"
-          },
-          "risks" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          }
-        }
-      },
       "JournalResponse" : {
         "type" : "object",
         "properties" : {
@@ -3251,6 +2969,515 @@
           "dataAsOf" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "AnalystLayers" : {
+        "type" : "object",
+        "properties" : {
+          "systemRecommendation" : {
+            "$ref" : "#/components/schemas/SystemRecommendation"
+          },
+          "portfolioRole" : {
+            "$ref" : "#/components/schemas/PortfolioRole"
+          },
+          "fundamentals" : {
+            "$ref" : "#/components/schemas/Fundamentals"
+          },
+          "valuation" : {
+            "$ref" : "#/components/schemas/Valuation"
+          },
+          "priceRiskEarnings" : {
+            "$ref" : "#/components/schemas/PriceRiskEarnings"
+          },
+          "rationaleAndEvidence" : {
+            "$ref" : "#/components/schemas/RationaleAndEvidence"
+          }
+        }
+      },
+      "AssetEvidence" : {
+        "type" : "object",
+        "properties" : {
+          "company" : {
+            "$ref" : "#/components/schemas/CompanyEvidence"
+          },
+          "etf" : {
+            "$ref" : "#/components/schemas/EtfEvidence"
+          },
+          "speculative" : {
+            "$ref" : "#/components/schemas/SpeculativeEvidence"
+          },
+          "portfolioContext" : {
+            "$ref" : "#/components/schemas/PortfolioContext"
+          }
+        }
+      },
+      "AuditEvidence" : {
+        "type" : "object",
+        "properties" : {
+          "analysisStatus" : {
+            "type" : "string"
+          },
+          "exactQuantityAllowed" : {
+            "type" : "boolean"
+          },
+          "ruleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "evidenceRefs" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "strategyVersion" : {
+            "type" : "string"
+          },
+          "configHash" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CompanyEvidence" : {
+        "type" : "object",
+        "properties" : {
+          "companyModelApplied" : {
+            "type" : "boolean"
+          },
+          "fundamentalsStatus" : {
+            "type" : "string"
+          },
+          "growthProfitabilityCashFlowStatus" : {
+            "type" : "string"
+          },
+          "valuationStatus" : {
+            "type" : "string"
+          },
+          "earningsRiskStatus" : {
+            "type" : "string"
+          },
+          "thesisStatus" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DecisionNarrative" : {
+        "type" : "object",
+        "properties" : {
+          "source" : {
+            "type" : "string"
+          },
+          "headline" : {
+            "type" : "string"
+          },
+          "oneSentence" : {
+            "type" : "string"
+          },
+          "why" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "risks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "watchNext" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "confidenceExplanation" : {
+            "type" : "string"
+          }
+        }
+      },
+      "EtfEvidence" : {
+        "type" : "object",
+        "properties" : {
+          "etfModelApplied" : {
+            "type" : "boolean"
+          },
+          "thematic" : {
+            "type" : "boolean"
+          },
+          "topHoldingsConcentration" : {
+            "type" : "string"
+          },
+          "portfolioOverlapFraction" : {
+            "type" : "string"
+          },
+          "trendStatus" : {
+            "type" : "string"
+          },
+          "liquidityStatus" : {
+            "type" : "string"
+          },
+          "eventStatus" : {
+            "type" : "string"
+          },
+          "companyEarningsModelApplied" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "EvidenceDrawer" : {
+        "type" : "object",
+        "properties" : {
+          "ruleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "evidenceRefs" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "strategyVersion" : {
+            "type" : "string"
+          },
+          "configHash" : {
+            "type" : "string"
+          },
+          "dataQuality" : {
+            "type" : "string"
+          },
+          "dataAsOf" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Fundamentals" : {
+        "type" : "object",
+        "properties" : {
+          "financialHealth" : {
+            "type" : "string"
+          },
+          "quality" : {
+            "type" : "string"
+          },
+          "dataAsOf" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "available" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PortfolioContext" : {
+        "type" : "object",
+        "properties" : {
+          "currentWeight" : {
+            "type" : "string"
+          },
+          "clusterWeight" : {
+            "type" : "string"
+          },
+          "clusterOpenRisk" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PortfolioRole" : {
+        "type" : "object",
+        "properties" : {
+          "classification" : {
+            "type" : "string"
+          },
+          "currentWeight" : {
+            "type" : "string"
+          },
+          "targetWeightMin" : {
+            "type" : "string"
+          },
+          "targetWeightMax" : {
+            "type" : "string"
+          },
+          "normalMaxWeight" : {
+            "type" : "string"
+          },
+          "hardMaxWeight" : {
+            "type" : "string"
+          },
+          "atHardMax" : {
+            "type" : "boolean"
+          },
+          "capacityExplanation" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Position" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "classification" : {
+            "type" : "string"
+          },
+          "classificationSource" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PositionReportResponse" : {
+        "type" : "object",
+        "properties" : {
+          "position" : {
+            "$ref" : "#/components/schemas/Position"
+          },
+          "readiness" : {
+            "type" : "string"
+          },
+          "recommendation" : {
+            "$ref" : "#/components/schemas/Recommendation"
+          },
+          "evidence" : {
+            "$ref" : "#/components/schemas/AuditEvidence"
+          },
+          "assetEvidence" : {
+            "$ref" : "#/components/schemas/AssetEvidence"
+          },
+          "layers" : {
+            "$ref" : "#/components/schemas/AnalystLayers"
+          },
+          "dataAsOf" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PriceRiskEarnings" : {
+        "type" : "object",
+        "properties" : {
+          "priceState" : {
+            "type" : "string"
+          },
+          "formalStop" : {
+            "type" : "string"
+          },
+          "liveStop" : {
+            "type" : "string"
+          },
+          "earningsRisk" : {
+            "type" : "string"
+          },
+          "earningsPolicyAction" : {
+            "type" : "string"
+          },
+          "earningsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "RationaleAndEvidence" : {
+        "type" : "object",
+        "properties" : {
+          "reasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "risks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "changeConditions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "evidenceDrawer" : {
+            "$ref" : "#/components/schemas/EvidenceDrawer"
+          }
+        }
+      },
+      "Recommendation" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "string"
+          },
+          "quantityMin" : {
+            "type" : "string"
+          },
+          "quantityMax" : {
+            "type" : "string"
+          },
+          "currentWeight" : {
+            "type" : "string"
+          },
+          "targetWeightMin" : {
+            "type" : "string"
+          },
+          "targetWeightMax" : {
+            "type" : "string"
+          },
+          "confidence" : {
+            "type" : "string"
+          },
+          "reasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "risks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "changeConditions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "winningRule" : {
+            "type" : "string"
+          },
+          "suppressedCandidates" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SuppressedCandidate"
+            }
+          },
+          "resolutionReason" : {
+            "type" : "string"
+          },
+          "narrative" : {
+            "$ref" : "#/components/schemas/DecisionNarrative"
+          },
+          "validUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SpeculativeEvidence" : {
+        "type" : "object",
+        "properties" : {
+          "speculativePolicyApplied" : {
+            "type" : "boolean"
+          },
+          "hardMaxWeight" : {
+            "type" : "string"
+          },
+          "confidenceCeiling" : {
+            "type" : "string"
+          },
+          "stopStatus" : {
+            "type" : "string"
+          },
+          "eventRiskStatus" : {
+            "type" : "string"
+          },
+          "tickerOrPriceCanUpgradeQuality" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SuppressedCandidate" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "string"
+          },
+          "riskRank" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ruleId" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "risks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "SystemRecommendation" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "priority" : {
+            "type" : "string"
+          },
+          "confidence" : {
+            "type" : "string"
+          },
+          "quantityMin" : {
+            "type" : "string"
+          },
+          "quantityMax" : {
+            "type" : "string"
+          },
+          "exactQuantityAllowed" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Valuation" : {
+        "type" : "object",
+        "properties" : {
+          "state" : {
+            "type" : "string"
+          },
+          "confidence" : {
+            "type" : "string"
+          },
+          "observationCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "independentConfirmation" : {
+            "type" : "boolean"
+          },
+          "attractive" : {
+            "type" : "boolean"
+          },
+          "attractiveButCannotAdd" : {
+            "type" : "boolean"
           }
         }
       },

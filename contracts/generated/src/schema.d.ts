@@ -276,22 +276,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/positions/{positionId}/report": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["report"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/positions/{positionId}/journal": {
     parameters: {
       query?: never;
@@ -524,6 +508,38 @@ export interface paths {
       cookie?: never;
     };
     get: operations["bars"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/holdings/{positionId}/analyst-report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["report_1"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1029,106 +1045,6 @@ export interface components {
       validUntil?: string;
       status?: string;
     };
-    AssetEvidence: {
-      company?: components["schemas"]["CompanyEvidence"];
-      etf?: components["schemas"]["EtfEvidence"];
-      speculative?: components["schemas"]["SpeculativeEvidence"];
-      portfolioContext?: components["schemas"]["PortfolioContext"];
-    };
-    AuditEvidence: {
-      analysisStatus?: string;
-      exactQuantityAllowed?: boolean;
-      ruleIds?: string[];
-      evidenceRefs?: string[];
-      strategyVersion?: string;
-      configHash?: string;
-    };
-    CompanyEvidence: {
-      companyModelApplied?: boolean;
-      fundamentalsStatus?: string;
-      growthProfitabilityCashFlowStatus?: string;
-      valuationStatus?: string;
-      earningsRiskStatus?: string;
-      thesisStatus?: string;
-    };
-    DecisionNarrative: {
-      source?: string;
-      headline?: string;
-      oneSentence?: string;
-      why?: string[];
-      risks?: string[];
-      watchNext?: string[];
-      confidenceExplanation?: string;
-    };
-    EtfEvidence: {
-      etfModelApplied?: boolean;
-      thematic?: boolean;
-      topHoldingsConcentration?: string;
-      portfolioOverlapFraction?: string;
-      trendStatus?: string;
-      liquidityStatus?: string;
-      eventStatus?: string;
-      companyEarningsModelApplied?: boolean;
-    };
-    PortfolioContext: {
-      currentWeight?: string;
-      clusterWeight?: string;
-      clusterOpenRisk?: string;
-    };
-    Position: {
-      /** Format: uuid */
-      id?: string;
-      symbol?: string;
-      classification?: string;
-      classificationSource?: string;
-    };
-    PositionReportResponse: {
-      position?: components["schemas"]["Position"];
-      readiness?: string;
-      recommendation?: components["schemas"]["Recommendation"];
-      evidence?: components["schemas"]["AuditEvidence"];
-      assetEvidence?: components["schemas"]["AssetEvidence"];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    Recommendation: {
-      /** Format: uuid */
-      id?: string;
-      action?: string;
-      priority?: string;
-      quantityMin?: string;
-      quantityMax?: string;
-      currentWeight?: string;
-      targetWeightMin?: string;
-      targetWeightMax?: string;
-      confidence?: string;
-      reasons?: string[];
-      risks?: string[];
-      changeConditions?: string[];
-      winningRule?: string;
-      suppressedCandidates?: components["schemas"]["SuppressedCandidate"][];
-      resolutionReason?: string;
-      narrative?: components["schemas"]["DecisionNarrative"];
-      /** Format: date-time */
-      validUntil?: string;
-    };
-    SpeculativeEvidence: {
-      speculativePolicyApplied?: boolean;
-      hardMaxWeight?: string;
-      confidenceCeiling?: string;
-      stopStatus?: string;
-      eventRiskStatus?: string;
-      tickerOrPriceCanUpgradeQuality?: boolean;
-    };
-    SuppressedCandidate: {
-      action?: string;
-      priority?: string;
-      /** Format: int32 */
-      riskRank?: number;
-      ruleId?: string;
-      reason?: string;
-      risks?: string[];
-    };
     JournalResponse: {
       /** Format: uuid */
       id?: string;
@@ -1433,6 +1349,173 @@ export interface components {
       qualityStatus?: string;
       /** Format: date-time */
       dataAsOf?: string;
+    };
+    AnalystLayers: {
+      systemRecommendation?: components["schemas"]["SystemRecommendation"];
+      portfolioRole?: components["schemas"]["PortfolioRole"];
+      fundamentals?: components["schemas"]["Fundamentals"];
+      valuation?: components["schemas"]["Valuation"];
+      priceRiskEarnings?: components["schemas"]["PriceRiskEarnings"];
+      rationaleAndEvidence?: components["schemas"]["RationaleAndEvidence"];
+    };
+    AssetEvidence: {
+      company?: components["schemas"]["CompanyEvidence"];
+      etf?: components["schemas"]["EtfEvidence"];
+      speculative?: components["schemas"]["SpeculativeEvidence"];
+      portfolioContext?: components["schemas"]["PortfolioContext"];
+    };
+    AuditEvidence: {
+      analysisStatus?: string;
+      exactQuantityAllowed?: boolean;
+      ruleIds?: string[];
+      evidenceRefs?: string[];
+      strategyVersion?: string;
+      configHash?: string;
+    };
+    CompanyEvidence: {
+      companyModelApplied?: boolean;
+      fundamentalsStatus?: string;
+      growthProfitabilityCashFlowStatus?: string;
+      valuationStatus?: string;
+      earningsRiskStatus?: string;
+      thesisStatus?: string;
+    };
+    DecisionNarrative: {
+      source?: string;
+      headline?: string;
+      oneSentence?: string;
+      why?: string[];
+      risks?: string[];
+      watchNext?: string[];
+      confidenceExplanation?: string;
+    };
+    EtfEvidence: {
+      etfModelApplied?: boolean;
+      thematic?: boolean;
+      topHoldingsConcentration?: string;
+      portfolioOverlapFraction?: string;
+      trendStatus?: string;
+      liquidityStatus?: string;
+      eventStatus?: string;
+      companyEarningsModelApplied?: boolean;
+    };
+    EvidenceDrawer: {
+      ruleIds?: string[];
+      evidenceRefs?: string[];
+      strategyVersion?: string;
+      configHash?: string;
+      dataQuality?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    Fundamentals: {
+      financialHealth?: string;
+      quality?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      available?: boolean;
+    };
+    PortfolioContext: {
+      currentWeight?: string;
+      clusterWeight?: string;
+      clusterOpenRisk?: string;
+    };
+    PortfolioRole: {
+      classification?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      normalMaxWeight?: string;
+      hardMaxWeight?: string;
+      atHardMax?: boolean;
+      capacityExplanation?: string;
+    };
+    Position: {
+      /** Format: uuid */
+      id?: string;
+      symbol?: string;
+      classification?: string;
+      classificationSource?: string;
+    };
+    PositionReportResponse: {
+      position?: components["schemas"]["Position"];
+      readiness?: string;
+      recommendation?: components["schemas"]["Recommendation"];
+      evidence?: components["schemas"]["AuditEvidence"];
+      assetEvidence?: components["schemas"]["AssetEvidence"];
+      layers?: components["schemas"]["AnalystLayers"];
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    PriceRiskEarnings: {
+      priceState?: string;
+      formalStop?: string;
+      liveStop?: string;
+      earningsRisk?: string;
+      earningsPolicyAction?: string;
+      /** Format: date-time */
+      earningsAt?: string;
+    };
+    RationaleAndEvidence: {
+      reasons?: string[];
+      risks?: string[];
+      changeConditions?: string[];
+      evidenceDrawer?: components["schemas"]["EvidenceDrawer"];
+    };
+    Recommendation: {
+      /** Format: uuid */
+      id?: string;
+      action?: string;
+      priority?: string;
+      quantityMin?: string;
+      quantityMax?: string;
+      currentWeight?: string;
+      targetWeightMin?: string;
+      targetWeightMax?: string;
+      confidence?: string;
+      reasons?: string[];
+      risks?: string[];
+      changeConditions?: string[];
+      winningRule?: string;
+      suppressedCandidates?: components["schemas"]["SuppressedCandidate"][];
+      resolutionReason?: string;
+      narrative?: components["schemas"]["DecisionNarrative"];
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    SpeculativeEvidence: {
+      speculativePolicyApplied?: boolean;
+      hardMaxWeight?: string;
+      confidenceCeiling?: string;
+      stopStatus?: string;
+      eventRiskStatus?: string;
+      tickerOrPriceCanUpgradeQuality?: boolean;
+    };
+    SuppressedCandidate: {
+      action?: string;
+      priority?: string;
+      /** Format: int32 */
+      riskRank?: number;
+      ruleId?: string;
+      reason?: string;
+      risks?: string[];
+    };
+    SystemRecommendation: {
+      action?: string;
+      priority?: string;
+      confidence?: string;
+      quantityMin?: string;
+      quantityMax?: string;
+      exactQuantityAllowed?: boolean;
+    };
+    Valuation: {
+      state?: string;
+      confidence?: string;
+      /** Format: int32 */
+      observationCount?: number;
+      independentConfirmation?: boolean;
+      attractive?: boolean;
+      attractiveButCannotAdd?: boolean;
     };
     HoldingAnalysisResponse: {
       /** Format: uuid */
@@ -2153,28 +2236,6 @@ export interface operations {
       };
     };
   };
-  report: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PositionReportResponse"];
-        };
-      };
-    };
-  };
   journal: {
     parameters: {
       query?: never;
@@ -2501,6 +2562,50 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["MarketSeriesPriceBarResponse"];
+        };
+      };
+    };
+  };
+  report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionReportResponse"];
+        };
+      };
+    };
+  };
+  report_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionReportResponse"];
         };
       };
     };
