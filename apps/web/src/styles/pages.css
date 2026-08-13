@@ -188,6 +188,175 @@
 .import-review-flow > .context-card {
   min-width: 0;
 }
+.import-stepper {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 24px 0;
+  padding: 0;
+  list-style: none;
+}
+.import-stepper li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 6px;
+  border-bottom: 2px solid var(--border);
+  color: var(--muted);
+}
+.import-stepper li.active {
+  border-color: var(--green);
+  color: var(--text);
+}
+.import-stepper li[aria-current="step"] {
+  color: var(--green);
+  font-weight: 700;
+}
+.import-stepper span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.import-current-step,
+.import-role-step {
+  min-width: 0;
+}
+.import-source-card,
+.import-cash-card,
+.import-confirm-card {
+  max-width: 880px;
+  margin: 0 auto;
+}
+.import-tabs,
+.import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.import-tabs button[aria-selected="true"] {
+  border-color: var(--green);
+  color: var(--green);
+}
+.file-drop {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 28px;
+  border: 1px dashed var(--green);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.file-drop span,
+.import-role-card small {
+  color: var(--muted);
+}
+.file-drop input {
+  min-height: var(--touch-target);
+}
+.import-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+.manual-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.import-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.import-preview-card .import-row--valid {
+  display: none;
+}
+.recognized-import-rows {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.recognized-import-rows summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  cursor: pointer;
+  color: var(--muted);
+}
+.import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+.import-summary span {
+  padding: 7px 10px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.import-role-list {
+  display: grid;
+  gap: 14px;
+}
+.import-role-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.import-role-card header strong,
+.import-role-card header small {
+  display: block;
+}
+.import-role-card label,
+.import-cash-card fieldset > label,
+.cash-confirmed-amount {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--touch-target);
+  margin-top: 12px;
+}
+.import-role-card select,
+.cash-confirmed-amount input {
+  margin-top: 7px;
+}
+.import-role-card > label:not(.role-confirmation-check),
+.cash-confirmed-amount {
+  display: grid;
+  align-items: initial;
+}
+.import-cash-card fieldset {
+  display: grid;
+  gap: 4px;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.cash-impact-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  margin-top: 16px;
+  background: var(--border);
+}
+.cash-impact-summary p {
+  margin: 0;
+  padding: 12px;
+  background: var(--surface-2);
+}
+.import-final-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+}
+.import-final-summary div {
+  padding: 14px;
+  background: var(--surface-2);
+}
 .portfolio-filters {
   display: flex;
   flex-wrap: wrap;
@@ -479,6 +648,21 @@
     grid-column: 1 / -1;
   }
   .portfolio-safety > header {
+    display: block;
+  }
+  .import-stepper li {
+    justify-content: center;
+    font-size: 0;
+  }
+  .import-stepper li span {
+    font-size: 12px;
+  }
+  .manual-grid,
+  .cash-impact-summary,
+  .import-final-summary {
+    grid-template-columns: 1fr;
+  }
+  .import-role-card header {
     display: block;
   }
   footer {

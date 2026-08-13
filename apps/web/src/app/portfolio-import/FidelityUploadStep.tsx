@@ -33,13 +33,13 @@ export function FidelityUploadStep({
 
   return (
     <section className="context-card import-source-card">
-      <p className="eyebrow">STEP 1 / SOURCE</p>
-      <h2>Import real holdings</h2>
+      <p className="eyebrow">第 1 步 / 上传</p>
+      <h2>把 Fidelity Positions CSV 拖到这里</h2>
       <p className="import-safety">
-        SummitStock does not connect to or operate your Fidelity account. The
-        selected file or pasted data is used only to build an analysis preview.
+        SummitStock 只读取这份文件来更新持仓；不会登录
+        Fidelity，也不会替你交易。
       </p>
-      <div className="import-tabs" role="tablist" aria-label="Import method">
+      <div className="import-tabs" role="tablist" aria-label="导入方式">
         {(["file", "pasted", "manual"] as const).map((value) => (
           <button
             aria-selected={method === value}
@@ -51,17 +51,17 @@ export function FidelityUploadStep({
             type="button"
           >
             {value === "file"
-              ? "Fidelity CSV"
+              ? "上传 CSV"
               : value === "pasted"
-                ? "Pasted table"
-                : "Manual holding"}
+                ? "粘贴表格"
+                : "手动输入一个持仓"}
           </button>
         ))}
       </div>
       {method === "file" ? (
         <label className="file-drop">
-          <strong>Select Fidelity Positions CSV</strong>
-          <span>Maximum 5 MB. The preview does not change your portfolio.</span>
+          <strong>选择 Fidelity Positions CSV</strong>
+          <span>最大 5 MB。预览不会修改你的投资组合。</span>
           <input
             accept=".csv,text/csv"
             disabled={busy}

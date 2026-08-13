@@ -1912,9 +1912,16 @@
           },
           "estimatedCashValue": {
             "type": "string"
+          },
+          "emergencyCashTarget": {
+            "type": "string"
           }
         },
-        "required": ["estimatedCashValue", "estimatedInvestedValue"]
+        "required": [
+          "emergencyCashTarget",
+          "estimatedCashValue",
+          "estimatedInvestedValue"
+        ]
       },
       "ManualHoldingRequest": {
         "type": "object",

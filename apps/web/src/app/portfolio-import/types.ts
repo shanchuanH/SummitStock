@@ -34,6 +34,7 @@ export type ImportPreview = {
     errorRowCount: number;
     estimatedInvestedValue: string;
     estimatedCashValue: string;
+    emergencyCashTarget: string;
   };
   dataAsOf?: string;
 };

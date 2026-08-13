@@ -9,13 +9,31 @@ type Props = {
 export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
   return (
     <section className="context-card import-preview-card">
-      <p className="eyebrow">STEP 2 / PREVIEW</p>
+      <p className="eyebrow">第 2 步 / 检查</p>
+      <h2>检查导入结果</h2>
       <div className="import-summary">
-        <span>{preview.summary.rowCount} source rows</span>
-        <span>${preview.summary.estimatedInvestedValue} invested</span>
-        <span>${preview.summary.estimatedCashValue} cash</span>
-        <span>{preview.summary.errorRowCount} errors</span>
+        <span>
+          已识别{" "}
+          {preview.holdings.filter((row) => row.rowType === "HOLDING").length}{" "}
+          个持仓
+        </span>
+        <span>{preview.cash.length} 笔现金</span>
+        <span>
+          {
+            preview.holdings.filter((row) => row.rowType === "COMPENSATION")
+              .length
+          }{" "}
+          个未归属公司股票
+        </span>
+        <span>{preview.summary.errorRowCount} 个错误</span>
       </div>
+      <p>
+        <strong>需要你检查：{preview.summary.errorRowCount} 项</strong>
+      </p>
+      <p>
+        识别金额：持仓 ${preview.summary.estimatedInvestedValue} · Fidelity 现金
+        ${preview.summary.estimatedCashValue}
+      </p>
       {preview.warnings.map((warning) => (
         <p className="import-warning" key={warning}>
           {warning}
@@ -165,7 +183,7 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
               );
             })}
             {preview.cash.map((row) => (
-              <tr key={row.rowNumber}>
+              <tr className="import-row--valid" key={row.rowNumber}>
                 <td>{row.rowNumber}</td>
                 <td>
                   {row.accountName}
@@ -185,6 +203,33 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
           </tbody>
         </table>
       </div>
+      <details className="recognized-import-rows">
+        <summary>
+          查看已识别的正常项目（{preview.summary.validRowCount}）
+        </summary>
+        <ul>
+          {preview.holdings
+            .filter((row) => row.status !== "ERROR")
+            .map((row) => (
+              <li key={row.rowNumber}>
+                <strong>
+                  {row.symbol ??
+                    row.description ??
+                    `第 ${String(row.rowNumber)} 行`}
+                </strong>
+                {" · "}
+                {row.currentValue ?? "金额待确认"}
+              </li>
+            ))}
+          {preview.cash.map((row) => (
+            <li key={row.rowNumber}>
+              <strong>{row.symbol ?? "Fidelity 现金"}</strong>
+              {" · "}
+              {row.currentValue ?? "金额待确认"}
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

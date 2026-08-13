@@ -24,6 +24,7 @@ class PortfolioImportPreviewIntegrationTest extends PortfolioImportIntegrationSu
         assertThat(first.get("summary").get("estimatedInvestedValue").asString())
                 .isEqualTo("6425.05");
         assertThat(first.get("summary").get("estimatedCashValue").asString()).isEqualTo("14000");
+        assertThat(first.get("summary").get("emergencyCashTarget").asString()).isEqualTo("20000");
         assertThat(uuid(repeated, "batchId")).isEqualTo(uuid(first, "batchId"));
         assertThat(count("SELECT COUNT(*) FROM portfolio_import_batch")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM portfolio_import_row")).isEqualTo(6);

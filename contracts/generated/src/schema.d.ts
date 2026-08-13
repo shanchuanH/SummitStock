@@ -934,6 +934,7 @@ export interface components {
       errorRowCount?: number;
       estimatedInvestedValue: string;
       estimatedCashValue: string;
+      emergencyCashTarget: string;
     };
     ManualHoldingRequest: {
       accountNumber?: string;

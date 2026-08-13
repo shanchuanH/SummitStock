@@ -1,41 +1,70 @@
-import type { ImportPreview } from "./types";
+import { formatMoney } from "../presentation/number-format";
+import type { CashSetup, ImportPreview } from "./types";
 
 export function ImportConfirmationStep({
   preview,
-  ready,
+  cashSetup,
   busy,
   onConfirm,
+  onBack,
   onReset,
 }: {
   preview: ImportPreview;
-  ready: boolean;
+  cashSetup: CashSetup;
   busy: boolean;
   onConfirm: () => void;
+  onBack: () => void;
   onReset: () => void;
 }) {
+  const tradable = preview.holdings.filter(
+    (row) => row.rowType === "HOLDING",
+  ).length;
+  const compensation = preview.holdings.filter(
+    (row) => row.rowType === "COMPENSATION",
+  ).length;
   return (
     <section className="context-card import-confirm-card">
-      <p className="eyebrow">第 5 步 / 确认并分析</p>
-      <h2>确认这是账户的完整快照</h2>
+      <p className="eyebrow">第 5 步 / 最终确认</p>
+      <h2>即将导入</h2>
+      <dl className="import-final-summary">
+        <div>
+          <dt>可交易持仓</dt>
+          <dd>{tradable}</dd>
+        </div>
+        <div>
+          <dt>不可交易公司股票</dt>
+          <dd>{compensation}</dd>
+        </div>
+        <div>
+          <dt>Fidelity 现金</dt>
+          <dd>{formatMoney(preview.summary.estimatedCashValue)}</dd>
+        </div>
+        <div>
+          <dt>生活备用金确认额</dt>
+          <dd>{formatMoney(cashSetup.externalEmergencyAmount)}</dd>
+        </div>
+      </dl>
       <p>
-        匹配的持仓会更新，历史快照会保留；本次完整账户快照中已不存在的持仓会被关闭。
+        导入后 SummitStock 会自动分析这些持仓。不会登录 Fidelity，也不会向
+        Fidelity 下单。
       </p>
-      {!ready ? (
-        <p className="import-warning" role="alert">
-          请先修正每一行错误、确认全部分类和生活备用金位置。
-        </p>
-      ) : null}
       <div className="import-actions">
-        <button disabled={!ready || busy} onClick={onConfirm} type="button">
+        <button disabled={busy} onClick={onBack} type="button">
+          上一步
+        </button>
+        <button disabled={busy} onClick={onConfirm} type="button">
           {busy ? "正在确认…" : "确认并开始分析"}
         </button>
         <button disabled={busy} onClick={onReset} type="button">
           重新开始
         </button>
       </div>
-      <small>
-        Batch {preview.batchId} · version {preview.version}
-      </small>
+      <details>
+        <summary>查看导入批次</summary>
+        <small>
+          Batch {preview.batchId} · version {preview.version}
+        </small>
+      </details>
     </section>
   );
 }

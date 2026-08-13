@@ -484,3 +484,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - `PortfolioHoldingResponse.keyReason` exposes the first reason from the active deterministic recommendation, falling back to the latest holding analysis reason. The UI never infers a reason from price or weight and explicitly marks a missing reason as not yet formed.
 - Classification confirmation remains scoped to the selected position and version. The mobile layout uses the same semantic table rows, so it does not duplicate controls or rely on forced clicks.
 - Verification: the portfolio MySQL integration suite passes 11 tests, including persisted recommendation reason projection; the OpenAPI export and generated TypeScript client are current; frontend ESLint, workspace typecheck, 18 Vitest files / 36 tests, API-client build, and production Vite build pass.
+
+## User-Friendly Strategy Manual — UI-3 — 2026-08-13
+
+- Portfolio import is now a real five-step wizard—upload, inspect, confirm roles, protect living reserve, and final confirmation—with only the current task mounted. Mobile radio, checkbox, and button controls retain native click behavior and no test or implementation uses forced clicks.
+- Upload defaults to Fidelity CSV and keeps paste/manual entry behind secondary tabs. Preview shows recognized counts and only error rows by default; successfully recognized holdings and cash are collapsed for optional review.
+- Every non-ignored holding requires an explicit per-row role confirmation. Suggested roles and their reasons come from the import classification service; changing a role invalidates its confirmation until reviewed again.
+- The preview contract now includes `emergencyCashTarget` from the active published strategy. Every cash location displays a confirmed amount; Fidelity-only setup shows imported cash, protected amount, remaining gap, and deployable remainder, while external balances are explicitly marked as manually supplied and unverifiable.
+- Final confirmation summarizes real preview counts and cash amounts and reiterates that confirmation starts analysis but never logs into or submits orders to Fidelity.
+- Verification: portfolio-import preview MySQL tests pass 2/2 and assert the server strategy target; OpenAPI and generated client are current; frontend ESLint, typecheck, 18 Vitest files / 36 tests, API-client build, and production Vite build pass. The wizard journey test uses ordinary `userEvent.click` for every radio, checkbox, and button.
