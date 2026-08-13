@@ -116,14 +116,14 @@ export function PortfolioImportPage() {
       }) ?? false;
   const classificationsReady =
     preview?.holdings.every((row) => {
-        const value = overrides[row.rowNumber];
-        if (value?.ignored) return true;
-        if ((value?.rowType ?? row.rowType) !== "HOLDING")
-          return row.status !== "ERROR";
-        return Boolean(
-          value?.classification && value.classification !== "UNKNOWN",
-        );
-      }) ?? false;
+      const value = overrides[row.rowNumber];
+      if (value?.ignored) return true;
+      if ((value?.rowType ?? row.rowType) !== "HOLDING")
+        return row.status !== "ERROR";
+      return Boolean(
+        value?.classification && value.classification !== "UNKNOWN",
+      );
+    }) ?? false;
   const cashReady =
     cashSetup !== undefined &&
     (cashSetup.location === "IN_FIDELITY" ||
@@ -165,7 +165,7 @@ export function PortfolioImportPage() {
       </section>
       {error ? (
         <aside className="error" role="alert">
-          <strong>Import stopped</strong>
+          <strong>导入已停止</strong>
           <span>{error}</span>
         </aside>
       ) : null}
@@ -193,7 +193,7 @@ export function PortfolioImportPage() {
           }
         />
       ) : (
-        <>
+        <div className="import-review-flow">
           <ImportPreviewTable
             onOverride={(value) => {
               setOverrides((current) => ({
@@ -205,7 +205,7 @@ export function PortfolioImportPage() {
             preview={preview}
           />
           <section className="context-card import-classification-review">
-            <p className="eyebrow">STEP 3 / CLASSIFICATION REVIEW</p>
+            <p className="eyebrow">第 3 步 / 分类确认</p>
             <label>
               <input
                 checked={classificationsReviewed}
@@ -214,7 +214,7 @@ export function PortfolioImportPage() {
                 }}
                 type="checkbox"
               />
-              I reviewed the role of every holding in my portfolio.
+              我已确认每个持仓在组合中的角色。
             </label>
           </section>
           <CashSetupStep onChange={setCashSetup} value={cashSetup} />
@@ -230,7 +230,7 @@ export function PortfolioImportPage() {
               cashReady
             }
           />
-        </>
+        </div>
       )}
       <footer>
         <span>仅分析导入文件</span>

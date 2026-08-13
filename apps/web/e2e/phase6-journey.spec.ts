@@ -220,6 +220,110 @@ async function mockApi(page: Page) {
           quality: "MISSING",
         },
       });
+    if (path.endsWith("/fidelity/preview"))
+      return route.fulfill({
+        json: {
+          batchId: "11111111-1111-1111-1111-111111111111",
+          status: "PREVIEW",
+          version: 0,
+          accounts: [
+            {
+              accountName: "Primary Brokerage",
+              accountNumberMasked: "***5678",
+            },
+          ],
+          holdings: [
+            {
+              rowNumber: 2,
+              accountName: "Primary Brokerage",
+              accountNumberMasked: "***5678",
+              symbol: "GOOGL",
+              description: "Alphabet",
+              assetType: "EQUITY",
+              quantity: "10",
+              currentValue: "2000",
+              costBasis: "1500",
+              rowType: "HOLDING",
+              status: "VALID",
+              warnings: [],
+              suggestedClassification: "QUALITY_STOCK",
+              classificationReason: "Confirmed quality-stock seed.",
+            },
+            {
+              rowNumber: 3,
+              accountName: "Primary Brokerage",
+              accountNumberMasked: "***5678",
+              symbol: "SPY",
+              description: "SPDR ETF",
+              assetType: "ETF",
+              quantity: "5",
+              currentValue: "2500",
+              costBasis: "2200",
+              rowType: "HOLDING",
+              status: "VALID",
+              warnings: [],
+              suggestedClassification: "CORE_BROAD_ETF",
+              classificationReason: "Recognized broad-market ETF.",
+            },
+          ],
+          cash: [
+            {
+              rowNumber: 4,
+              accountName: "Primary Brokerage",
+              accountNumberMasked: "***5678",
+              symbol: "SPAXX",
+              currentValue: "20000",
+              rowType: "CASH",
+              status: "VALID",
+              warnings: [],
+            },
+          ],
+          warnings: [],
+          errors: [],
+          summary: {
+            rowCount: 3,
+            validRowCount: 3,
+            errorRowCount: 0,
+            estimatedInvestedValue: "4500",
+            estimatedCashValue: "20000",
+          },
+        },
+      });
+    if (path.endsWith("/confirm"))
+      return route.fulfill({
+        json: {
+          batchId: "11111111-1111-1111-1111-111111111111",
+          status: "CONFIRMED",
+          version: 1,
+          analysisRunId: "22222222-2222-2222-2222-222222222222",
+          analysisState: "ANALYSIS_QUEUED",
+          openPositionCount: 2,
+          closedPositionCount: 0,
+          cashRowCount: 1,
+          compensationRowCount: 0,
+          idempotentReplay: false,
+        },
+      });
+    if (path.includes("/analysis/status/"))
+      return route.fulfill({
+        json: {
+          runId: "22222222-2222-2222-2222-222222222222",
+          state: "ANALYSIS_RUNNING",
+          completedStages: 2,
+          totalStages: 8,
+          updatedAt: action.dataAsOf,
+          stages: [
+            { code: "HOLDINGS", label: "持仓导入", status: "COMPLETE" },
+            { code: "PRICES", label: "价格", status: "COMPLETE" },
+            { code: "FINANCIALS", label: "财务数据", status: "RUNNING" },
+            { code: "VALUATION", label: "估值", status: "WAITING" },
+            { code: "EVENTS", label: "分析师预测与财报", status: "WAITING" },
+            { code: "PORTFOLIO_RISK", label: "组合风险", status: "WAITING" },
+            { code: "HOLDING_ANALYSIS", label: "逐股分析", status: "WAITING" },
+            { code: "TODAY_BRIEF", label: "今日简报", status: "WAITING" },
+          ],
+        },
+      });
     return route.fulfill({
       status: 404,
       json: { code: "RESOURCE_NOT_FOUND", nextAction: "返回组合后重试。" },
@@ -265,4 +369,51 @@ test("holding report leads with the decision and keeps technical evidence in a d
   await expect(drawer).toBeVisible();
   await drawer.click();
   await expect(page.getByText(/RISK_CAP/)).toBeVisible();
+});
+
+test("final owner journey imports stock, ETF and cash before analysis and decision review", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/portfolio/import");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "positions.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("fidelity export"),
+  });
+  await expect(page.getByText("GOOGL")).toBeVisible();
+  await expect(page.getByText("SPY")).toBeVisible();
+  await expect(page.getByText("SPAXX")).toBeVisible();
+  await expect(page.getByText("1500", { exact: true })).toBeVisible();
+  await expect(page.getByText("2500", { exact: true })).toBeVisible();
+  await page.getByRole("checkbox", { name: /确认每个持仓/ }).check();
+  await page.getByRole("radio", { name: /Fidelity 现金/ }).check();
+  const confirmButton = page.getByRole("button", { name: "确认并开始分析" });
+  if (testInfo.project.name === "mobile-chromium") {
+    await expect(confirmButton).toBeInViewport();
+    expect(
+      await confirmButton.evaluate((button) => {
+        const rect = button.getBoundingClientRect();
+        return document
+          .elementsFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+          )
+          .includes(button);
+      }),
+    ).toBe(true);
+    await confirmButton.focus();
+    await confirmButton.press("Enter");
+  } else {
+    await confirmButton.click();
+  }
+  await expect(page.getByRole("heading", { name: "分析已开始" })).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Analysis progress" }).getByRole("listitem"),
+  ).toHaveCount(8);
+  await page.goto("/");
+  await expect(page.locator(".action-card")).toHaveCount(1);
+  await page.goto("/positions/p1");
+  await expect(page.getByText("15.0%")).toBeVisible();
+  await expect(page.getByText(/财报风险/)).toBeVisible();
+  await expect(page.getByText(/什么情况下建议会改变/)).toBeVisible();
 });

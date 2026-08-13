@@ -1,56 +1,268 @@
-.shell { width: min(1380px, calc(100% - 48px)); margin: 0 auto; }
-.data-readiness-banner { margin: 22px 0; }
-.terminal-overview { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 22px 0 12px; }
-.terminal-overview article { padding: 18px; }
-.terminal-overview span, .terminal-overview small { display: block; color: var(--muted); font-size: 11px; }
-.terminal-overview strong { display: block; margin: 9px 0; color: var(--green); font-size: 22px; }
-.terminal-overview .as-of-value { font-size: 15px; }
-.brief-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 30px; }
-.brief-counts article { display: flex; align-items: baseline; gap: 12px; padding: 14px 18px; box-shadow: none; }
-.brief-counts strong { font-size: 26px; }
-.brief-counts span { color: var(--muted); font-size: 12px; }
-.brief-action-section { margin: 32px 0; }
-.dashboard-grid, .position-modules, .settings-grid, .review-grid, .opportunity-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; margin: 28px 0; }
-.health-metrics { grid-template-columns: repeat(2, 1fr); }
-.owner-health-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.calm-state { display: flex; justify-content: space-between; gap: 20px; border-color: var(--green); }
-.audit-details { margin-top: 16px; }
-.portfolio-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0; }
-.holdings-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-1); }
-.classification-required { margin-top: 8px; }
-.position-detail-shell .back-link { display: inline-block; margin: 24px 0 12px; }
-.position-hero { display: grid; grid-template-columns: minmax(220px,.7fr) 2fr; gap: 24px; padding: 28px; border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(135deg, var(--surface-2), var(--surface-1)); }
-.position-hero h1 { margin: 4px 0; font-size: 54px; }
-.position-verdict h2 { margin: 0 0 12px; color: var(--green); }
-.position-verdict p { color: var(--muted); }
-.position-verdict small { color: var(--muted); font-size: 11px; }
-.evidence-tiles { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin: 18px 0; }
-.evidence-tiles article { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-1); }
-.evidence-tiles span, .evidence-tiles small { display: block; color: var(--muted); font-size: 11px; }
-.evidence-tiles strong { display: block; margin: 8px 0; color: var(--green); font-size: 13px; overflow-wrap: anywhere; }
-.financial-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin: 0; background: var(--border); border: 1px solid var(--border); }
-.financial-grid div { padding: 12px; background: var(--surface-2); }
-.financial-grid dd { font-size: 12px; overflow-wrap: anywhere; }
-.position-modules .chart-module { grid-column: 1 / -1; }
-.module-number { float: right; color: var(--border); font: 700 24px ui-monospace, monospace; }
-.real-position-chart { min-height: 390px; }
-.chart-caption { font-size: 11px; }
-.settings-card { max-width: 720px; }
-.settings-grid .context-card, .review-grid .context-card, .opportunity-grid .context-card { min-height: 180px; }
-.large-status { display: block; margin: 12px 0; color: var(--green); font-size: 24px; }
+.shell {
+  width: min(1380px, calc(100% - 48px));
+  margin: 0 auto;
+}
+.data-readiness-banner {
+  margin: 22px 0;
+}
+.terminal-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 12px;
+}
+.terminal-overview article {
+  padding: 18px;
+}
+.terminal-overview span,
+.terminal-overview small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.terminal-overview strong {
+  display: block;
+  margin: 9px 0;
+  color: var(--green);
+  font-size: 22px;
+}
+.terminal-overview .as-of-value {
+  font-size: 15px;
+}
+.brief-counts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 30px;
+}
+.brief-counts article {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 18px;
+  box-shadow: none;
+}
+.brief-counts strong {
+  font-size: 26px;
+}
+.brief-counts span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.brief-action-section {
+  margin: 32px 0;
+}
+.dashboard-grid,
+.position-modules,
+.settings-grid,
+.review-grid,
+.opportunity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+.research-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+.research-grid .context-card {
+  color: inherit;
+  text-decoration: none;
+}
+.health-metrics {
+  grid-template-columns: repeat(2, 1fr);
+}
+.owner-health-metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.calm-state {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-color: var(--green);
+}
+.audit-details {
+  margin-top: 16px;
+}
+.import-review-flow {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.import-review-flow > .context-card {
+  min-width: 0;
+}
+.portfolio-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0;
+}
+.holdings-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+.classification-required {
+  margin-top: 8px;
+}
+.position-detail-shell .back-link {
+  display: inline-block;
+  margin: 24px 0 12px;
+}
+.position-hero {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) 2fr;
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
+}
+.position-hero h1 {
+  margin: 4px 0;
+  font-size: 54px;
+}
+.position-verdict h2 {
+  margin: 0 0 12px;
+  color: var(--green);
+}
+.position-verdict p {
+  color: var(--muted);
+}
+.position-verdict small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.evidence-tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.evidence-tiles article {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+.evidence-tiles span,
+.evidence-tiles small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.evidence-tiles strong {
+  display: block;
+  margin: 8px 0;
+  color: var(--green);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.financial-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  margin: 0;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.financial-grid div {
+  padding: 12px;
+  background: var(--surface-2);
+}
+.financial-grid dd {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.position-modules .chart-module {
+  grid-column: 1 / -1;
+}
+.module-number {
+  float: right;
+  color: var(--border);
+  font:
+    700 24px ui-monospace,
+    monospace;
+}
+.real-position-chart {
+  min-height: 390px;
+}
+.chart-caption {
+  font-size: 11px;
+}
+.settings-card {
+  max-width: 720px;
+}
+.settings-grid .context-card,
+.review-grid .context-card,
+.opportunity-grid .context-card {
+  min-height: 180px;
+}
+.large-status {
+  display: block;
+  margin: 12px 0;
+  color: var(--green);
+  font-size: 24px;
+}
 @media (max-width: 900px) {
-  .workspace-nav { position: static; align-items: start; flex-direction: column; padding-top: 18px; }
-  .workspace-nav > div { width: 100%; overflow-x: auto; }
-  .workspace-nav a { white-space: nowrap; }
-  .terminal-overview, .brief-counts { grid-template-columns: repeat(2, 1fr); }
-  .action-metrics { grid-template-columns: repeat(2,1fr); }
-  .dashboard-grid, .position-modules, .settings-grid, .review-grid, .opportunity-grid, .action-evidence, .risk-list, .owner-health-metrics { grid-template-columns: 1fr; }
-  .position-hero { grid-template-columns: 1fr; }
-  .evidence-tiles { grid-template-columns: repeat(2, 1fr); }
+  .workspace-nav {
+    position: static;
+    align-items: start;
+    flex-direction: column;
+    padding-top: 18px;
+  }
+  .workspace-nav > div {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .workspace-nav a {
+    white-space: nowrap;
+  }
+  .terminal-overview,
+  .brief-counts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .action-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dashboard-grid,
+  .position-modules,
+  .settings-grid,
+  .review-grid,
+  .opportunity-grid,
+  .action-evidence,
+  .risk-list,
+  .owner-health-metrics,
+  .research-grid {
+    grid-template-columns: 1fr;
+  }
+  .position-hero {
+    grid-template-columns: 1fr;
+  }
+  .evidence-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 @media (max-width: 560px) {
-  .shell { width: min(100% - 24px, 1380px); }
-  .workspace-heading { align-items: start; flex-direction: column; padding-top: 32px; }
-  .terminal-overview, .brief-counts, .action-metrics { grid-template-columns: 1fr; }
-  footer { flex-direction: column; }
+  .shell {
+    width: min(100% - 24px, 1380px);
+  }
+  .workspace-heading {
+    align-items: start;
+    flex-direction: column;
+    padding-top: 32px;
+  }
+  .terminal-overview,
+  .brief-counts,
+  .action-metrics {
+    grid-template-columns: 1fr;
+  }
+  footer {
+    flex-direction: column;
+  }
 }

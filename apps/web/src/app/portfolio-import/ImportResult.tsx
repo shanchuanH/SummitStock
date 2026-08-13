@@ -17,7 +17,8 @@ export function ImportResult({
         `/api/v1/analysis/status/${result.analysisRunId}`,
         { cache: "no-store", credentials: "same-origin" },
       );
-      if (response.ok && active) setStatus((await response.json()) as AnalysisStatus);
+      if (response.ok && active)
+        setStatus((await response.json()) as AnalysisStatus);
     }
     void refresh();
     const timer = window.setInterval(() => void refresh(), 3000);
@@ -29,8 +30,8 @@ export function ImportResult({
 
   return (
     <section className="context-card import-result" aria-live="polite">
-      <p className="eyebrow">IMPORT CONFIRMED</p>
-      <h2>Analysis has been queued</h2>
+      <p className="eyebrow">导入已确认</p>
+      <h2>分析已开始</h2>
       <p>
         {result.openPositionCount} open positions reconciled,{" "}
         {result.closedPositionCount} positions closed, {result.cashRowCount}{" "}
@@ -39,7 +40,7 @@ export function ImportResult({
       </p>
       <dl>
         <div>
-          <dt>Analysis state</dt>
+          <dt>分析状态</dt>
           <dd>{result.analysisState}</dd>
         </div>
         <div>
@@ -48,16 +49,34 @@ export function ImportResult({
         </div>
       </dl>
       <ol className="analysis-progress" aria-label="Analysis progress">
-        {(status?.stages ?? [
-          { code: "HOLDINGS", label: "Holdings imported", status: "COMPLETE" },
-          { code: "PRICES", label: "Prices", status: "WAITING" },
-          { code: "FINANCIALS", label: "Financial data", status: "WAITING" },
-          { code: "VALUATION", label: "Valuation", status: "WAITING" },
-          { code: "EVENTS", label: "Analyst estimates and earnings", status: "WAITING" },
-          { code: "PORTFOLIO_RISK", label: "Portfolio risk", status: "WAITING" },
-          { code: "HOLDING_ANALYSIS", label: "Holding analysis", status: "WAITING" },
-          { code: "TODAY_BRIEF", label: "Today's brief", status: "WAITING" },
-        ]).map((stage) => (
+        {(
+          status?.stages ?? [
+            {
+              code: "HOLDINGS",
+              label: "Holdings imported",
+              status: "COMPLETE",
+            },
+            { code: "PRICES", label: "Prices", status: "WAITING" },
+            { code: "FINANCIALS", label: "Financial data", status: "WAITING" },
+            { code: "VALUATION", label: "Valuation", status: "WAITING" },
+            {
+              code: "EVENTS",
+              label: "Analyst estimates and earnings",
+              status: "WAITING",
+            },
+            {
+              code: "PORTFOLIO_RISK",
+              label: "Portfolio risk",
+              status: "WAITING",
+            },
+            {
+              code: "HOLDING_ANALYSIS",
+              label: "Holding analysis",
+              status: "WAITING",
+            },
+            { code: "TODAY_BRIEF", label: "Today's brief", status: "WAITING" },
+          ]
+        ).map((stage) => (
           <li key={stage.code}>
             <span>{stage.label}</span>
             <strong>{stage.status}</strong>
@@ -65,9 +84,9 @@ export function ImportResult({
         ))}
       </ol>
       <div className="import-actions">
-        <a href="/">Return to dashboard</a>
+        <a href="/">返回今日简报</a>
         <button onClick={onAnother} type="button">
-          Import another snapshot
+          导入另一份快照
         </button>
       </div>
     </section>

@@ -108,7 +108,11 @@ describe("PortfolioImportPageTest", () => {
           totalStages: 8,
           updatedAt: "2026-08-12T20:00:00Z",
           stages: [
-            { code: "HOLDINGS", label: "Holdings imported", status: "COMPLETE" },
+            {
+              code: "HOLDINGS",
+              label: "Holdings imported",
+              status: "COMPLETE",
+            },
             { code: "PRICES", label: "Prices", status: "RUNNING" },
           ],
         });
@@ -138,19 +142,17 @@ describe("PortfolioImportPageTest", () => {
       await screen.findByText("5412.05", { exact: false }),
     ).toBeInTheDocument();
     const confirm = screen.getByRole("button", {
-      name: /confirm and queue analysis/i,
+      name: /确认并开始分析/i,
     });
     expect(confirm).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /ignore/i }));
-    await user.click(
-      screen.getByRole("checkbox", { name: /reviewed the role/i }),
-    );
-    await user.click(screen.getByRole("radio", { name: /external bank/i }));
+    await user.click(screen.getByRole("checkbox", { name: /确认每个持仓/i }));
+    await user.click(screen.getByRole("radio", { name: /^在外部银行$/i }));
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
     expect(
-      await screen.findByRole("heading", { name: /analysis has been queued/i }),
+      await screen.findByRole("heading", { name: /分析已开始/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("ANALYSIS_QUEUED")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(5);
@@ -165,7 +167,7 @@ describe("PortfolioImportPageTest", () => {
     );
 
     const confirm = await screen.findByRole("button", {
-      name: /confirm and queue analysis/i,
+      name: /确认并开始分析/i,
     });
     await user.type(screen.getByLabelText("Symbol row 3"), "DXYZ");
     await user.selectOptions(
@@ -176,10 +178,8 @@ describe("PortfolioImportPageTest", () => {
       screen.getByLabelText("Classification row 3"),
       "SPECULATIVE",
     );
-    await user.click(
-      screen.getByRole("checkbox", { name: /reviewed the role/i }),
-    );
-    await user.click(screen.getByRole("radio", { name: /external bank/i }));
+    await user.click(screen.getByRole("checkbox", { name: /确认每个持仓/i }));
+    await user.click(screen.getByRole("radio", { name: /^在外部银行$/i }));
     expect(confirm).toBeEnabled();
   });
 });

@@ -451,3 +451,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - Recommendation acknowledgement remains idempotent and explicitly never submits an execution. Dashboard controls are limited to full analysis, handled, and defer; Evidence Drawer content remains collapsed by default.
 - Browser acceptance runs the owner brief and six-layer holding report in both desktop Chrome and a Pixel 7 mobile viewport, verifies no horizontal page overflow, validates the completeness badge and evidence drawer, and asserts that no trading or order button exists.
 - Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 210 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client and production builds pass; Playwright passes 4/4 desktop and mobile journeys.
+
+## Modification Manual V1 — Phase 7 — 2026-08-12
+
+- Regime, Backtest, Thesis, Journal, and Data Health now live behind one protected Advanced Research hub, while the five-item owner navigation and Executive Brief remain the primary workflow.
+- Canonical advanced routes are restored and linked from Settings without exposing worker, strategy-release, or data-health internals as prerequisites for daily decisions.
+- Owner-facing onboarding copy now consistently explains classification confirmation, Emergency Cash, reconciliation, and analysis progress in plain Chinese. The post-preview steps use an explicit responsive flow so cash confirmation and analysis submission remain independently operable on narrow screens.
+- Final browser acceptance covers Fidelity preview recognition of a stock, ETF, and cash; explicit classification and Emergency Cash confirmation; all eight analysis stages; no more than three priority actions; and a holding report that answers sizing, valuation, earnings-risk, evidence, uncertainty, and change-condition questions.
+- The OpenAPI artifact is normalized by the locked generator with no semantic contract change, eliminating formatting-only drift in the required contract gate.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 218 backend tests; frontend ESLint, typecheck, 15 Vitest files / 30 tests, generated-client and production builds pass; Playwright passes 6/6 desktop and mobile journeys; local Docker Compose configuration and whitespace checks pass.
