@@ -12,6 +12,50 @@
     }
   ],
   "paths": {
+    "/api/v1/settings/preferences": {
+      "get": {
+        "tags": ["owner-preference-controller"],
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferenceResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["owner-preference-controller"],
+        "operationId": "update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferenceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trade-plans/preview": {
       "post": {
         "tags": ["portfolio-controller"],
@@ -1236,6 +1280,81 @@
   },
   "components": {
     "schemas": {
+      "PreferenceRequest": {
+        "type": "object",
+        "properties": {
+          "emergencyCashTarget": {
+            "type": "number"
+          },
+          "manualExecutionBroker": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "FIDELITY|OTHER"
+          },
+          "notificationPreference": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "IN_APP|EMAIL|NONE"
+          },
+          "starterBuyPreference": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "STRATEGY_DEFAULT|CONSERVATIVE|DISABLED"
+          },
+          "primaryEtfPreference": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "QQQM|VTI|SPY"
+          },
+          "personalTradeRiskCap": {
+            "type": "number",
+            "maximum": 0.01,
+            "minimum": 0.001
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "manualExecutionBroker",
+          "notificationPreference",
+          "primaryEtfPreference",
+          "starterBuyPreference"
+        ]
+      },
+      "PreferenceResponse": {
+        "type": "object",
+        "properties": {
+          "emergencyCashTarget": {
+            "type": "string"
+          },
+          "manualExecutionBroker": {
+            "type": "string"
+          },
+          "notificationPreference": {
+            "type": "string"
+          },
+          "starterBuyPreference": {
+            "type": "string"
+          },
+          "primaryEtfPreference": {
+            "type": "string"
+          },
+          "personalTradeRiskCap": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "TradePlanPreviewRequest": {
         "type": "object",
         "properties": {

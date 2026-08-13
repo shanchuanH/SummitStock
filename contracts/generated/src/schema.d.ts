@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+  "/api/v1/settings/preferences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["get"];
+    put: operations["update"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/trade-plans/preview": {
     parameters: {
       query?: never;
@@ -712,6 +728,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    PreferenceRequest: {
+      emergencyCashTarget?: number;
+      manualExecutionBroker: string;
+      notificationPreference: string;
+      starterBuyPreference: string;
+      primaryEtfPreference: string;
+      personalTradeRiskCap?: number;
+      /** Format: int64 */
+      expectedVersion: number;
+    };
+    PreferenceResponse: {
+      emergencyCashTarget?: string;
+      manualExecutionBroker?: string;
+      notificationPreference?: string;
+      starterBuyPreference?: string;
+      primaryEtfPreference?: string;
+      personalTradeRiskCap?: string;
+      /** Format: int64 */
+      version?: number;
+      /** Format: date-time */
+      updatedAt?: string;
+    };
     TradePlanPreviewRequest: {
       classification: string;
       classificationConfirmed?: boolean;
@@ -1875,6 +1913,50 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreferenceResponse"];
+        };
+      };
+    };
+  };
+  update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PreferenceRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreferenceResponse"];
+        };
+      };
+    };
+  };
   preview: {
     parameters: {
       query?: never;

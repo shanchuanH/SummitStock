@@ -517,3 +517,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Deferred or ignored MUST_ACT counts use acknowledgement records only. A recommendation the owner never opened is not silently classified as ignored.
 - Active-sleeve performance remains explicitly unavailable until cash-flow-adjusted NAV, benchmark, and sleeve attribution are jointly present. The behavior reminder prevents concentration constraints from being reinterpreted as short-term price forecasts.
 - Verification: backend compilation and generated contracts pass; frontend ESLint, typecheck, 18 Vitest files / 40 tests, API-client build, and production Vite build pass. The review test verifies real return/weight presentation and the no-right-or-wrong framing.
+
+## User-Friendly Strategy Manual — UI-7 — 2026-08-13
+
+- Settings now separates account/import, editable owner preferences, provider status, and read-only advanced strategy internals. Full Strategy YAML, ETF Dip weights, ATR multipliers, drawdown ladders, rule precedence, and risk formulas are not editable from the ordinary owner UI.
+- Flyway V40 and owner-scoped preference APIs persist Emergency Cash target, manual broker, notification, starter-buy, primary ETF, and a tightly validated 0.1%–1% personal trade-risk cap. Updates use optimistic versions, row locking, CSRF, validation, and an audit event; stale writes return conflict.
+- The settings form reads and writes only those bounded fields. It explicitly states that advanced deterministic parameters remain versioned server strategy, avoiding the impression that arbitrary browser inputs can override the engine.
+- Verification: preference integration coverage proves version increments, stale-write rejection, and audit creation; Flyway applies 45 migrations through V40; OpenAPI/generated client, frontend ESLint/typecheck, 18 Vitest files / 40 tests, API-client build, and production Vite build pass.

@@ -6,6 +6,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -124,6 +125,8 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
         update("DELETE FROM position_thesis WHERE position_id IN (UUID_TO_BIN('" + OWNER_POSITION + "'), UUID_TO_BIN('"
                 + OTHER_POSITION + "'))");
         update("DELETE FROM audit_log WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER + "'))");
+        update("DELETE FROM owner_preference WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER
+                + "'))");
         update("DELETE FROM recommendation WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER
                 + "'))");
         update("DELETE FROM portfolio_drawdown_snapshot WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('"
@@ -270,6 +273,34 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void ownerPreferencesAreVersionedValidatedAndAudited() throws Exception {
+        var body =
+                """
+                {"emergencyCashTarget":30000,"manualExecutionBroker":"FIDELITY",
+                 "notificationPreference":"IN_APP","starterBuyPreference":"CONSERVATIVE",
+                 "primaryEtfPreference":"QQQM","personalTradeRiskCap":0.005,"expectedVersion":0}
+                """;
+        mockMvc.perform(put("/api/v1/settings/preferences")
+                        .with(httpBasic("admin@example.local", "change-before-use"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.emergencyCashTarget").value("30000"))
+                .andExpect(jsonPath("$.version").value(1));
+        mockMvc.perform(put("/api/v1/settings/preferences")
+                        .with(httpBasic("admin@example.local", "change-before-use"))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM audit_log WHERE event_type='OWNER_PREFERENCE_UPDATED'")
+                        .query(Integer.class)
+                        .single())
+                .isEqualTo(1);
     }
 
     @Test

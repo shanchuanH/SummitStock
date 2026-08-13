@@ -487,6 +487,52 @@ export function SettingsPage() {
     queryFn: getWorkerHealth,
     retry: false,
   });
+  const preferences = useQuery({
+    queryKey: ["owner-preferences"],
+    queryFn: () =>
+      requireData(api.GET("/api/v1/settings/preferences"), "Preferences"),
+    enabled: session.data?.authenticated === true,
+    retry: false,
+  });
+  const savePreferences = useMutation({
+    mutationFn: async (form: HTMLFormElement) => {
+      if (!preferences.data || !csrf.data) throw new Error("设置尚未加载。");
+      const fields = new FormData(form);
+      const field = (name: string, fallback = "") => {
+        const value = fields.get(name);
+        return typeof value === "string" ? value : fallback;
+      };
+      const emergencyCashTarget = field("emergencyCashTarget");
+      const personalTradeRiskCap = field("personalTradeRiskCap");
+      return requireData(
+        api.PUT("/api/v1/settings/preferences", {
+          headers: {
+            [csrf.data.headerName ?? "X-CSRF-TOKEN"]: csrf.data.token ?? "",
+          },
+          body: {
+            ...(emergencyCashTarget
+              ? { emergencyCashTarget: Number(emergencyCashTarget) }
+              : {}),
+            manualExecutionBroker: field("manualExecutionBroker", "FIDELITY"),
+            notificationPreference: field("notificationPreference", "IN_APP"),
+            starterBuyPreference: field(
+              "starterBuyPreference",
+              "STRATEGY_DEFAULT",
+            ),
+            primaryEtfPreference: field("primaryEtfPreference", "QQQM"),
+            ...(personalTradeRiskCap
+              ? { personalTradeRiskCap: Number(personalTradeRiskCap) }
+              : {}),
+            expectedVersion: preferences.data.version ?? 0,
+          },
+        }),
+        "Preferences",
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["owner-preferences"] });
+    },
+  });
   const sessionAction = useMutation({
     mutationFn: async (
       action:
@@ -625,14 +671,103 @@ export function SettingsPage() {
         </article>
         <article className="context-card">
           <ShieldCheck />
-          <h2>Cash Policy</h2>
-          <p>应急现金与战术储备在仓位计算前扣除。</p>
+          <h2>资金、偏好与风险限制</h2>
+          {preferences.data ? (
+            <form
+              className="settings-preference-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                savePreferences.mutate(event.currentTarget);
+              }}
+            >
+              <label>
+                Emergency Cash target
+                <input
+                  name="emergencyCashTarget"
+                  type="number"
+                  min="0"
+                  step="100"
+                  defaultValue={preferences.data.emergencyCashTarget ?? ""}
+                />
+              </label>
+              <label>
+                手工执行券商
+                <select
+                  name="manualExecutionBroker"
+                  defaultValue={preferences.data.manualExecutionBroker}
+                >
+                  <option value="FIDELITY">Fidelity</option>
+                  <option value="OTHER">其他</option>
+                </select>
+              </label>
+              <label>
+                通知偏好
+                <select
+                  name="notificationPreference"
+                  defaultValue={preferences.data.notificationPreference}
+                >
+                  <option value="IN_APP">应用内</option>
+                  <option value="EMAIL">邮件</option>
+                  <option value="NONE">不通知</option>
+                </select>
+              </label>
+              <label>
+                试探买入偏好
+                <select
+                  name="starterBuyPreference"
+                  defaultValue={preferences.data.starterBuyPreference}
+                >
+                  <option value="STRATEGY_DEFAULT">策略默认</option>
+                  <option value="CONSERVATIVE">更保守</option>
+                  <option value="DISABLED">禁用</option>
+                </select>
+              </label>
+              <label>
+                主要 ETF
+                <select
+                  name="primaryEtfPreference"
+                  defaultValue={preferences.data.primaryEtfPreference}
+                >
+                  <option value="QQQM">QQQM</option>
+                  <option value="VTI">VTI</option>
+                  <option value="SPY">SPY</option>
+                </select>
+              </label>
+              <label>
+                个人单笔风险上限（0.1%–1%）
+                <input
+                  name="personalTradeRiskCap"
+                  type="number"
+                  min="0.001"
+                  max="0.01"
+                  step="0.001"
+                  defaultValue={preferences.data.personalTradeRiskCap ?? ""}
+                />
+              </label>
+              <button type="submit" disabled={savePreferences.isPending}>
+                保存版本化设置
+              </button>
+              {savePreferences.isSuccess ? (
+                <p>设置已保存并写入审计记录。</p>
+              ) : null}
+              {savePreferences.isError ? (
+                <p role="alert">{savePreferences.error.message}</p>
+              ) : null}
+            </form>
+          ) : (
+            <p>
+              {session.data?.authenticated
+                ? "正在读取偏好…"
+                : "登录后可修改有限范围内的个人设置。"}
+            </p>
+          )}
         </article>
         <article className="context-card">
           <Settings />
-          <h2>Advanced</h2>
+          <h2>高级设置（只读）</h2>
           <p>
-            Regime、Backtest、Thesis、Journal 与 Data Health 集中在高级研究区。
+            ETF Dip 因子权重、ATR 倍数、回撤阶梯、规则优先级和风险公式由版本化
+            Strategy 管理，普通设置页不可直接编辑完整 YAML。
           </p>
           <a href="/advanced/research">打开高级研究 →</a>
         </article>
