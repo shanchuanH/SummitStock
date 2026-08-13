@@ -14,7 +14,7 @@ public final class FinancialHealthEngine {
         var positives = new ArrayList<String>();
         var negatives = new ArrayList<String>();
         var growth = growth(values, policy, positives, negatives);
-        var profitability = profitability(values, positives, negatives);
+        var profitability = profitability(values, policy, positives, negatives);
         var cashFlow = cashFlow(values, policy, positives, negatives);
         var balanceSheet = balanceSheet(values, policy, positives, negatives);
         var dilution = dilution(values, policy, positives, negatives);
@@ -70,12 +70,20 @@ public final class FinancialHealthEngine {
     }
 
     private static Status profitability(
-            Map<FinancialMetric, BigDecimal> values, List<String> positives, List<String> negatives) {
+            Map<FinancialMetric, BigDecimal> values, Policy policy, List<String> positives, List<String> negatives) {
         var operatingMargin = values.get(FinancialMetric.OPERATING_MARGIN);
         var netMargin = values.get(FinancialMetric.NET_MARGIN);
         if (operatingMargin == null || netMargin == null) return Status.MISSING;
         if (operatingMargin.signum() < 0 || netMargin.signum() < 0) {
             negatives.add("Profitability is negative");
+            return Status.WEAKENING;
+        }
+        var marginChange = values.get(FinancialMetric.OPERATING_MARGIN_YOY_CHANGE);
+        if (marginChange != null
+                && marginChange.compareTo(
+                                policy.marginDeteriorationWarningPctPoints().negate())
+                        <= 0) {
+            negatives.add("Operating margin deteriorated materially year over year");
             return Status.WEAKENING;
         }
         positives.add("Operations and net income are profitable");

@@ -402,3 +402,12 @@ Configure production provider credentials, run the documented deployment smoke c
 - All production-integrated test fixtures now reference the active `2.0.0-draft` strategy instead of the retired V1 draft; historical ADR text remains unchanged as design history.
 - OpenAPI and generated TypeScript artifacts were regenerated with the locked toolchain so the contract-drift gate is reproducible.
 - Verification baseline: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 194 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Modification Manual V1 — Phase 1 — 2026-08-12
+
+- Valuation and financial-health evidence now use four-quarter TTM fundamentals and nearest-forward annual FY1 estimates; negative earnings no longer produce a misleading trailing P/E, margin deterioration uses the configured percentage-point threshold, and leverage requires complete TTM free-cash-flow evidence.
+- Position sizing now applies the minimum of trade-risk, projected total-risk, cluster-risk, sleeve-weight, cash, and liquidity limits. Thematic ETFs receive a non-zero volatility proxy so they participate in portfolio and cluster risk.
+- Flyway V38 freezes initial trade-risk fields and adds external cash-flow plus unitized NAV history. Deposits and withdrawals change units rather than strategy return, and drawdown is calculated from cash-flow-adjusted NAV.
+- Drawdown attribution now compares peak-date and current position values instead of using current market-value weights as a proxy. Profit-cushion R uses immutable entry and initial-stop evidence.
+- Earnings gap percentiles are derived from the actual gap distribution. ETF-dip scoring consumes independent volatility, credit, term-structure, breadth, and trend evidence and uses real time-series confirmation triggers.
+- Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 205 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.

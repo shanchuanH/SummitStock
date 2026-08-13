@@ -25,20 +25,45 @@ public class ValuationEvidenceStore {
     public List<InputRow> inputs() {
         return jdbc.sql(
                         """
+                        WITH metric_versions AS (
+                          SELECT m.instrument_id,m.period_id,m.metric_code,m.value_decimal,p.period_type,p.end_date,
+                                 ROW_NUMBER() OVER (PARTITION BY m.instrument_id,m.period_id,m.metric_code
+                                                    ORDER BY m.data_as_of DESC,m.created_at DESC) version_rank
+                          FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id
+                        ), quarterly AS (
+                          SELECT instrument_id,metric_code,value_decimal,end_date,
+                                 DENSE_RANK() OVER (PARTITION BY instrument_id,metric_code ORDER BY end_date DESC) quarter_rank
+                          FROM metric_versions WHERE version_rank=1 AND period_type='QUARTERLY'
+                        ), ttm AS (
+                          SELECT instrument_id,
+                                 CASE WHEN COUNT(CASE WHEN metric_code='DILUTED_EPS' THEN 1 END)=4
+                                      THEN SUM(CASE WHEN metric_code='DILUTED_EPS' THEN value_decimal ELSE 0 END) END eps_ttm,
+                                 CASE WHEN COUNT(CASE WHEN metric_code='REVENUE' THEN 1 END)=4
+                                      THEN SUM(CASE WHEN metric_code='REVENUE' THEN value_decimal ELSE 0 END) END revenue_ttm,
+                                 CASE WHEN COUNT(CASE WHEN metric_code='FREE_CASH_FLOW' THEN 1 END)=4
+                                      THEN SUM(CASE WHEN metric_code='FREE_CASH_FLOW' THEN value_decimal ELSE 0 END) END fcf_ttm
+                          FROM quarterly WHERE quarter_rank<=4
+                          GROUP BY instrument_id
+                        )
                         SELECT BIN_TO_UUID(i.id) instrumentId, i.symbol,
                           (SELECT q.decision_market_date FROM quote q WHERE q.instrument_id=i.id AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1) marketDate,
                           (SELECT q.last_price FROM quote q WHERE q.instrument_id=i.id AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1) price,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='DILUTED_EPS' ORDER BY m.data_as_of DESC LIMIT 1) trailingEps,
-                          (SELECT e.mean_value FROM estimate_observation e WHERE e.instrument_id=i.id AND e.estimate_type='EPS' ORDER BY e.period_end DESC,e.data_as_of DESC LIMIT 1) forwardEps,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='REVENUE' ORDER BY m.data_as_of DESC LIMIT 1) revenue,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='FREE_CASH_FLOW' ORDER BY m.data_as_of DESC LIMIT 1) freeCashFlow,
+                          t.eps_ttm trailingEps,
+                          (SELECT e.mean_value FROM estimate_observation e WHERE e.instrument_id=i.id
+                             AND e.estimate_type='EPS' AND e.period_type='ANNUAL'
+                             AND e.period_end>=(SELECT q.decision_market_date FROM quote q WHERE q.instrument_id=i.id
+                                                AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1)
+                           ORDER BY e.period_end,e.data_as_of DESC LIMIT 1) forwardEps,
+                          t.revenue_ttm revenue,
+                          t.fcf_ttm freeCashFlow,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='CASH' ORDER BY m.data_as_of DESC LIMIT 1) cash,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='TOTAL_DEBT' ORDER BY m.data_as_of DESC LIMIT 1) totalDebt,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='DILUTED_SHARES' ORDER BY m.data_as_of DESC LIMIT 1) shares,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='REVENUE_YOY' ORDER BY m.data_as_of DESC LIMIT 1) revenueGrowth,
                           (SELECT h.overall_status FROM financial_health_snapshot h WHERE h.instrument_id=i.id ORDER BY h.data_as_of DESC LIMIT 1) health,
                           (SELECT r.overall_revision FROM estimate_revision_snapshot r WHERE r.instrument_id=i.id ORDER BY r.data_as_of DESC LIMIT 1) revision
-                        FROM instrument i WHERE i.active=TRUE AND i.asset_type='EQUITY'
+                        FROM instrument i LEFT JOIN ttm t ON t.instrument_id=i.id
+                        WHERE i.active=TRUE AND i.asset_type='EQUITY'
                         """)
                 .query(InputRow.class)
                 .list();

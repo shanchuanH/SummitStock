@@ -16,7 +16,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class MacroApplicationService {
-    public static final List<String> CORE_SERIES = List.of("VIXCLS", "BAMLH0A0HYM2", "DGS10", "DGS2", "FEDFUNDS");
+    public static final List<String> CORE_SERIES =
+            List.of("VIXCLS", "VIX3M", "BAMLH0A0HYM2", "DGS10", "DGS2", "FEDFUNDS");
     private final MacroDataProvider provider;
     private final JdbcClient jdbc;
     private final Clock clock;

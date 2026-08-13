@@ -253,7 +253,7 @@ public class FinancialEvidenceStore {
     public List<MetricPeriod> metricPeriods(UUID instrumentId) {
         return jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(p.id) periodId, p.end_date endDate, p.filed_at filedAt,
+                        SELECT BIN_TO_UUID(p.id) periodId, p.end_date endDate, p.filed_at filedAt,p.period_type periodType,
                                m.metric_code metricCode, m.value_decimal value, m.quality quality
                         FROM financial_period p JOIN financial_metric_snapshot m ON m.period_id=p.id
                         WHERE p.instrument_id=UUID_TO_BIN(:instrumentId)
@@ -342,5 +342,11 @@ public class FinancialEvidenceStore {
     public record InstrumentRef(UUID id, String symbol, String cik) {}
 
     public record MetricPeriod(
-            UUID periodId, LocalDate endDate, LocalDate filedAt, String metricCode, BigDecimal value, String quality) {}
+            UUID periodId,
+            LocalDate endDate,
+            LocalDate filedAt,
+            String periodType,
+            String metricCode,
+            BigDecimal value,
+            String quality) {}
 }

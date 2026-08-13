@@ -244,7 +244,7 @@ public final class HoldingEvidenceAssembler {
         return jdbc
                 .sql(
                         """
-                        SELECT market_date marketDate, close_price close
+                        SELECT market_date marketDate, close_price close,volume
                         FROM price_bar WHERE instrument_id=UUID_TO_BIN(:id) AND adjusted=TRUE
                         ORDER BY market_date DESC LIMIT 250
                         """)
@@ -252,7 +252,7 @@ public final class HoldingEvidenceAssembler {
                 .query(BarRow.class)
                 .list()
                 .stream()
-                .map(value -> new HoldingEvidence.PriceBar(value.marketDate(), value.close(), true))
+                .map(value -> new HoldingEvidence.PriceBar(value.marketDate(), value.close(), value.volume(), true))
                 .toList();
     }
 
@@ -564,7 +564,7 @@ public final class HoldingEvidenceAssembler {
     record QuoteRow(
             BigDecimal last, LocalDateTime dataAsOf, LocalDate marketDate, String quality, String executionQuality) {}
 
-    record BarRow(LocalDate marketDate, BigDecimal close) {}
+    record BarRow(LocalDate marketDate, BigDecimal close, BigDecimal volume) {}
 
     record IndicatorRow(String code, Double value) {}
 

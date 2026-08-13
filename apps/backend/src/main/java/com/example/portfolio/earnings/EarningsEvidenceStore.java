@@ -157,12 +157,10 @@ public class EarningsEvidenceStore {
                             WHERE c.user_id=a.user_id ORDER BY c.data_as_of DESC LIMIT 1),0)>0
                             THEN COALESCE(m.marked_market_value,0)/(SELECT c.investable_assets FROM portfolio_capital_snapshot c
                               WHERE c.user_id=a.user_id ORDER BY c.data_as_of DESC LIMIT 1) ELSE 0 END positionWeight,
-                          CASE WHEN p.average_cost>COALESCE((SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
-                            ORDER BY s.data_as_of DESC LIMIT 1),p.average_cost)
+                          CASE WHEN p.initial_risk_per_share>0
                             THEN (COALESCE((SELECT q.last_price FROM quote q WHERE q.instrument_id=p.instrument_id
-                              ORDER BY q.data_as_of DESC LIMIT 1),p.average_cost)-p.average_cost)
-                              /(p.average_cost-(SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
-                                ORDER BY s.data_as_of DESC LIMIT 1)) ELSE 0 END profitCushionR,
+                              ORDER BY q.data_as_of DESC LIMIT 1),p.initial_entry_price)-p.initial_entry_price)
+                              /p.initial_risk_per_share ELSE 0 END profitCushionR,
                           (SELECT e.event_at FROM earnings_event e WHERE e.instrument_id=p.instrument_id
                             AND e.event_at>=UTC_TIMESTAMP(6) ORDER BY e.event_at LIMIT 1) nextEventAt,
                           COALESCE((SELECT e.binary_event FROM earnings_event e WHERE e.instrument_id=p.instrument_id
@@ -191,7 +189,7 @@ public class EarningsEvidenceStore {
                           gap_p75_fraction,gap_p90_fraction,profit_cushion_r,action,rule_ids,evidence_checksum,
                           data_as_of,valid_until,created_at
                         ) VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:positionId),:strategyVersion,:eventCount,:eventRisk,
-                          :medianAbs,:p75,:p90,:worstGap,:bestGap,:preRunup,:nextEvent,:worstGap,:p75,:p90,
+                          :medianAbs,:p75,:p90,:worstGap,:bestGap,:preRunup,:nextEvent,:worstGap,:gapP75,:gapP90,
                           :cushion,:action,:rules,:checksum,:now,DATE_ADD(:now,INTERVAL 1 DAY),:now)
                         """)
                 .param("id", UUID.randomUUID().toString())
@@ -205,6 +203,8 @@ public class EarningsEvidenceStore {
                 .param("worstGap", stats.worstDownsideGap())
                 .param("bestGap", stats.bestUpsideGap())
                 .param("preRunup", stats.medianPreRunup())
+                .param("gapP75", stats.p75AbsGap())
+                .param("gapP90", stats.p90AbsGap())
                 .param("nextEvent", input.nextEventAt())
                 .param("cushion", input.profitCushionR())
                 .param("action", policy.action())

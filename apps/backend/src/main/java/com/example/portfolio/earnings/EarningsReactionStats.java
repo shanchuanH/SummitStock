@@ -23,6 +23,7 @@ public final class EarningsReactionStats {
                 .filter(java.util.Objects::nonNull)
                 .sorted()
                 .toList();
+        var absoluteGaps = gaps.stream().map(BigDecimal::abs).sorted().toList();
         var preRunups = recent.stream()
                 .map(Reaction::preEvent20dReturn)
                 .filter(java.util.Objects::nonNull)
@@ -36,7 +37,9 @@ public final class EarningsReactionStats {
                 percentile(absoluteMoves, new BigDecimal("0.90")),
                 gaps.getFirst(),
                 gaps.getLast(),
-                percentile(preRunups, new BigDecimal("0.50")));
+                percentile(preRunups, new BigDecimal("0.50")),
+                percentile(absoluteGaps, new BigDecimal("0.75")),
+                percentile(absoluteGaps, new BigDecimal("0.90")));
     }
 
     private static BigDecimal percentile(List<BigDecimal> sorted, BigDecimal probability) {
@@ -60,9 +63,11 @@ public final class EarningsReactionStats {
             BigDecimal p90AbsMove,
             BigDecimal worstDownsideGap,
             BigDecimal bestUpsideGap,
-            BigDecimal medianPreRunup) {
+            BigDecimal medianPreRunup,
+            BigDecimal p75AbsGap,
+            BigDecimal p90AbsGap) {
         static Summary missing(int count) {
-            return new Summary(count, null, null, null, null, null, null);
+            return new Summary(count, null, null, null, null, null, null, null, null);
         }
 
         public boolean ready() {

@@ -86,6 +86,9 @@ class PositionMarkServiceIntegrationTest extends MySqlIntegrationTest {
     void cleanup() {
         update(
                 "DELETE FROM portfolio_drawdown_snapshot WHERE user_id=UUID_TO_BIN('b1000000-0000-0000-0000-000000000001')");
+        update("DELETE FROM portfolio_nav_snapshot WHERE user_id=UUID_TO_BIN('b1000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM portfolio_external_cashflow_event WHERE user_id=UUID_TO_BIN('b1000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM portfolio_capital_snapshot WHERE user_id=UUID_TO_BIN('b1000000-0000-0000-0000-000000000001')");
         update(

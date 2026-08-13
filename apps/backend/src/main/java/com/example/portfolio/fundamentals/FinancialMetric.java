@@ -19,6 +19,7 @@ public enum FinancialMetric {
     REVENUE_3Y_CAGR,
     EPS_YOY,
     OPERATING_MARGIN,
+    OPERATING_MARGIN_YOY_CHANGE,
     NET_MARGIN,
     FCF_MARGIN,
     FCF_CONVERSION,

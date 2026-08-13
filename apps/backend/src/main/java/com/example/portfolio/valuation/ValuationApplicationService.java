@@ -42,7 +42,7 @@ public class ValuationApplicationService {
         return affected;
     }
 
-    private static ValuationEngineV2.Metrics metrics(ValuationEvidenceStore.InputRow input) {
+    static ValuationEngineV2.Metrics metrics(ValuationEvidenceStore.InputRow input) {
         var marketCap = input.price().multiply(input.shares(), MATH);
         var enterpriseValue = marketCap.add(zero(input.totalDebt())).subtract(zero(input.cash()));
         return new ValuationEngineV2.Metrics(
@@ -65,7 +65,7 @@ public class ValuationApplicationService {
     }
 
     private static BigDecimal ratio(BigDecimal numerator, BigDecimal denominator) {
-        return numerator == null || denominator == null || denominator.signum() == 0
+        return numerator == null || denominator == null || denominator.signum() <= 0
                 ? null
                 : numerator.divide(denominator, MATH);
     }

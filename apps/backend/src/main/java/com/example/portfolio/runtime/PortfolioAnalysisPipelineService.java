@@ -5,6 +5,8 @@ import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
 import com.example.portfolio.analysis.risk.ClusterRiskService;
+import com.example.portfolio.analysis.risk.DrawdownAttributionService;
+import com.example.portfolio.analysis.risk.PortfolioNavService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.BreadthService;
 import com.example.portfolio.context.MarketContextService;
@@ -38,6 +40,8 @@ public class PortfolioAnalysisPipelineService {
     private final PortfolioAllocationService allocations;
     private final EtfDipEventService dipEvents;
     private final ClusterRiskService clusterRisks;
+    private final PortfolioNavService portfolioNav;
+    private final DrawdownAttributionService drawdownAttribution;
     private final MacroApplicationService macro;
     private final BreadthService breadthService;
     private final Clock clock;
@@ -51,6 +55,8 @@ public class PortfolioAnalysisPipelineService {
             PortfolioAllocationService allocations,
             EtfDipEventService dipEvents,
             ClusterRiskService clusterRisks,
+            PortfolioNavService portfolioNav,
+            DrawdownAttributionService drawdownAttribution,
             MacroApplicationService macro,
             BreadthService breadthService,
             Clock clock) {
@@ -62,6 +68,8 @@ public class PortfolioAnalysisPipelineService {
         this.allocations = allocations;
         this.dipEvents = dipEvents;
         this.clusterRisks = clusterRisks;
+        this.portfolioNav = portfolioNav;
+        this.drawdownAttribution = drawdownAttribution;
         this.macro = macro;
         this.breadthService = breadthService;
         this.clock = clock;
@@ -164,24 +172,27 @@ public class PortfolioAnalysisPipelineService {
         }
         var equity = totals.invested().add(totals.cash());
         if (equity.signum() <= 0) throw new PermanentDataException("NO_PORTFOLIO_EQUITY", "Portfolio has no equity");
-        var priorHigh = jdbc.sql(
-                        "SELECT MAX(high_water_mark) FROM portfolio_drawdown_snapshot WHERE user_id=UUID_TO_BIN(:userId)")
-                .param("userId", userId.toString())
-                .query(BigDecimal.class)
-                .optional()
-                .orElse(equity);
+        var nav = portfolioNav.capture(userId, marketDate, equity);
+        var attribution =
+                drawdownAttribution.calculate(userId, nav.peakMarketDate(), marketDate, nav.peakAccountEquity());
         var input = new DrawdownEngine.Input(
-                equity,
-                priorHigh,
+                nav.nav(),
+                nav.highWaterNav(),
                 returnFromPeak("SPY", marketDate),
                 returnFromPeak("QQQ", marketDate),
                 canonicalBreadth50(marketDate),
                 stressLevel(marketDate),
-                totals.largest().divide(equity, MathContext.DECIMAL64).doubleValue(),
-                largestClusterContribution(userId, equity),
+                attribution.largestPositionLossShare(),
+                attribution.largestClusterLossShare(),
                 EvidenceQuality.PARTIAL);
         return contextService
-                        .calculateDrawdown(userId, input, "{}", "{}", clock.instant())
+                        .calculateDrawdown(
+                                userId,
+                                input,
+                                attribution.positionJson(),
+                                attribution.clusterJson(),
+                                nav.dataAsOf(),
+                                equity)
                         .inserted()
                 ? 1
                 : 0;
@@ -260,6 +271,20 @@ public class PortfolioAnalysisPipelineService {
                     .param("now", clock.instant())
                     .update();
         }
+        affected += jdbc.sql(
+                        """
+                        UPDATE position p JOIN investment_account a ON a.id=p.account_id
+                        JOIN stop_snapshot s ON s.id=(SELECT x.id FROM stop_snapshot x WHERE x.position_id=p.id
+                                                      ORDER BY x.data_as_of,x.created_at LIMIT 1)
+                        SET p.initial_entry_price=s.entry_price,p.initial_stop_price=s.initial_stop,
+                            p.initial_risk_per_share=s.entry_price-s.initial_stop,
+                            p.risk_basis_frozen_at=:now,p.updated_at=:now,p.version=p.version+1
+                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
+                          AND p.initial_risk_per_share IS NULL AND s.entry_price>s.initial_stop
+                        """)
+                .param("userId", userId.toString())
+                .param("now", clock.instant())
+                .update();
         var positionRisks = snapshotPortfolioRisk(userId);
         var clusterRiskSnapshots = clusterRisks.capture(userId, clock.instant());
         return affected + positionRisks + clusterRiskSnapshots;
@@ -276,14 +301,19 @@ public class PortfolioAnalysisPipelineService {
                             SELECT p.id,p.quantity,p.average_cost,m.marked_market_value market_value,
                                    i.asset_type,p.classification,m.decision_price last_price,m.quality_status mark_quality,
                                    (SELECT s.live_stop FROM stop_snapshot s WHERE s.position_id=p.id
-                                    ORDER BY s.data_as_of DESC,s.created_at DESC LIMIT 1) live_stop
+                                    ORDER BY s.data_as_of DESC,s.created_at DESC LIMIT 1) live_stop,
+                                   (SELECT x.value_double FROM indicator_snapshot x
+                                    WHERE x.instrument_id=p.instrument_id AND x.indicator_code='ATR_14' AND x.status='READY'
+                                    ORDER BY x.market_date DESC,x.created_at DESC LIMIT 1) atr
                             FROM position p JOIN investment_account a ON a.id=p.account_id
                             JOIN instrument i ON i.id=p.instrument_id
                             LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
                         ), calculated AS (
                             SELECT e.*,:investable equity,
-                                   CASE WHEN e.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
+                                   CASE WHEN e.classification='THEMATIC_ETF' AND e.last_price IS NOT NULL
+                                        THEN GREATEST(COALESCE(e.atr*3,e.last_price*0.10)*e.quantity,0)
+                                        WHEN e.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
                                                   AND e.last_price IS NOT NULL AND e.live_stop IS NOT NULL
                                         THEN GREATEST((e.last_price-e.live_stop)*e.quantity,0)
                                         ELSE 0 END risk_amount
@@ -297,7 +327,7 @@ public class PortfolioAnalysisPipelineService {
                                CASE WHEN c.last_price IS NULL OR c.mark_quality<>'HEALTHY'
                                       OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
                                     THEN 'MISSING' ELSE 'HEALTHY' END,
-                               SHA2(CONCAT(BIN_TO_UUID(c.id),':',COALESCE(c.market_value,''),':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',:now),256),
+                               SHA2(CONCAT(BIN_TO_UUID(c.id),':',COALESCE(c.market_value,''),':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',COALESCE(c.atr,''),':',:now),256),
                                :now,:now
                         FROM calculated c WHERE c.equity>0
                         """)
