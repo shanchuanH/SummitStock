@@ -4,22 +4,15 @@ import { useParams } from "react-router";
 import { PositionChart, type PositionChartData } from "./position-chart";
 import { WorkspaceNav } from "./workspace-nav";
 import { getJson } from "./http";
+import { presentAction } from "./presentation/action-presentation";
+import { presentClassification } from "./presentation/classification-presentation";
+import { presentConfidence } from "./presentation/confidence-presentation";
+import { formatPercent, formatQuantity } from "./presentation/number-format";
+import { presentPriority } from "./presentation/priority-presentation";
+import { presentReadiness } from "./presentation/readiness-presentation";
 
 type Report = components["schemas"]["PositionReportResponse"];
 type Intelligence = components["schemas"]["IntelligenceResponse"];
-const labels: Record<string, string> = {
-  BUY: "买入",
-  ADD: "增持",
-  HOLD: "持有",
-  TRIM: "减持",
-  SELL: "卖出",
-  WATCH: "观察",
-  WAIT_FOR_DATA: "等待数据",
-  DO_NOT_CHASE: "不要追高",
-};
-function pct(v?: string | null) {
-  return v == null ? "—" : `${(Number(v) * 100).toFixed(1)}%`;
-}
 function quantity(report: Report) {
   const r = report.recommendation;
   if (
@@ -28,9 +21,7 @@ function quantity(report: Report) {
     (!r.quantityMin && !r.quantityMax)
   )
     return "当前无需交易或证据不足，未提供精确数量";
-  return r.quantityMin === r.quantityMax
-    ? `${String(r.quantityMin ?? r.quantityMax)} 股`
-    : `${r.quantityMin ?? "—"}–${r.quantityMax ?? "—"} 股`;
+  return formatQuantity(r.quantityMin, r.quantityMax) ?? "当前暂无精确数量";
 }
 function Tile({
   label,
@@ -130,26 +121,25 @@ export function PositionDetailPage() {
         <div>
           <p className="eyebrow">POSITION REPORT</p>
           <h1>{position?.symbol ?? "—"}</h1>
-          <span>{position?.classification ?? "分类待确认"}</span>
+          <span>{presentClassification(position?.classification)}</span>
         </div>
         <div className="position-verdict">
-          <h2>
-            {labels[r?.action ?? ""] ?? r?.action ?? "等待数据"}{" "}
-            <small>{r?.action}</small>
-          </h2>
+          <h2>{presentAction(r?.action).title}</h2>
           <p className="analyst-line">
             {r?.resolutionReason ??
               r?.reasons?.[0] ??
               "分析证据尚未形成完整结论。"}
           </p>
           <p>
-            置信度 {r?.confidence ?? "WAIT_FOR_DATA"} · 当前{" "}
-            {pct(r?.currentWeight)} · 目标 {pct(r?.targetWeightMin)}–
-            {pct(r?.targetWeightMax)}
+            置信度 {presentConfidence(r?.confidence).label} · 当前{" "}
+            {formatPercent(r?.currentWeight)} · 目标{" "}
+            {formatPercent(r?.targetWeightMin)}–
+            {formatPercent(r?.targetWeightMax)}
           </p>
           <p>
-            建议数量 {quantity(data)} · 常规上限 {pct(r?.targetWeightMax)} ·
-            硬上限 {pct(asset?.speculative?.hardMaxWeight)}
+            建议数量 {quantity(data)} · 正常上限{" "}
+            {formatPercent(layers.portfolioRole.normalMaxWeight)} · 绝对仓位上限{" "}
+            {formatPercent(layers.portfolioRole.hardMaxWeight)}
           </p>
         </div>
       </section>
@@ -179,7 +169,7 @@ export function PositionDetailPage() {
                 ? "CONSTRAINED"
                 : "MISSING"
           }
-          detail={`当前 ${pct(asset?.portfolioContext?.currentWeight)}`}
+          detail={`当前 ${formatPercent(asset?.portfolioContext?.currentWeight)}`}
         />
       </section>
       <div className="position-modules analyst-six-layers">
@@ -187,17 +177,23 @@ export function PositionDetailPage() {
           <span className="module-number">01</span>
           <h2>系统建议</h2>
           <p className="analyst-line">
-            {labels[layers.systemRecommendation.action ?? ""] ??
-              layers.systemRecommendation.action}
+            {presentAction(layers.systemRecommendation.action).title}
           </p>
           <dl className="financial-grid">
             <div>
               <dt>优先级</dt>
-              <dd>{layers.systemRecommendation.priority ?? "—"}</dd>
+              <dd>
+                {presentPriority(layers.systemRecommendation.priority).label}
+              </dd>
             </div>
             <div>
               <dt>置信度</dt>
-              <dd>{layers.systemRecommendation.confidence ?? "—"}</dd>
+              <dd>
+                {
+                  presentConfidence(layers.systemRecommendation.confidence)
+                    .label
+                }
+              </dd>
             </div>
             <div>
               <dt>建议数量</dt>
@@ -217,22 +213,24 @@ export function PositionDetailPage() {
           <dl className="financial-grid">
             <div>
               <dt>分类</dt>
-              <dd>{layers.portfolioRole.classification ?? "待确认"}</dd>
+              <dd>
+                {presentClassification(layers.portfolioRole.classification)}
+              </dd>
             </div>
             <div>
               <dt>当前仓位</dt>
-              <dd>{pct(layers.portfolioRole.currentWeight)}</dd>
+              <dd>{formatPercent(layers.portfolioRole.currentWeight)}</dd>
             </div>
             <div>
               <dt>目标仓位</dt>
               <dd>
-                {pct(layers.portfolioRole.targetWeightMin)}–
-                {pct(layers.portfolioRole.targetWeightMax)}
+                {formatPercent(layers.portfolioRole.targetWeightMin)}–
+                {formatPercent(layers.portfolioRole.targetWeightMax)}
               </dd>
             </div>
             <div>
-              <dt>Hard Max</dt>
-              <dd>{pct(layers.portfolioRole.hardMaxWeight)}</dd>
+              <dt>绝对仓位上限</dt>
+              <dd>{formatPercent(layers.portfolioRole.hardMaxWeight)}</dd>
             </div>
           </dl>
           <p>{layers.portfolioRole.capacityExplanation}</p>
@@ -246,7 +244,7 @@ export function PositionDetailPage() {
           </p>
           <p>
             <strong>证据质量：</strong>
-            {layers.fundamentals.quality ?? "MISSING"}
+            {presentReadiness(layers.fundamentals.quality).label}
           </p>
           <p>
             {layers.fundamentals.available
@@ -259,7 +257,7 @@ export function PositionDetailPage() {
           <h2>估值</h2>
           <p>
             <strong>{layers.valuation.state ?? "数据不足"}</strong> · 置信度{" "}
-            {layers.valuation.confidence ?? "MISSING"}
+            {presentConfidence(layers.valuation.confidence).label}
           </p>
           <p>
             {layers.valuation.attractiveButCannotAdd

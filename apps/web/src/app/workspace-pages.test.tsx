@@ -59,9 +59,28 @@ describe("Packet 07 workspace", () => {
         })),
         topRisks: [],
         allHoldings: [],
-        market: { regime: "YELLOW", score: 52, confidence: "MEDIUM", qualityStatus: "HEALTHY", summary: "Balanced", dataAsOf: "2026-08-05T20:00:00Z" },
-        capital: { totalLiquidAssets: "12000", emergencyReserve: "1000", deployableCash: "1000", investableAssets: "11000", tacticalReserve: "1000" },
-        portfolio: { drawdown: "0.02", drawdownSource: "MARKET_DRIVEN", technologyExposure: "0.4", openRisk: "0.01", clusterRisk: "0.02" },
+        market: {
+          regime: "YELLOW",
+          score: 52,
+          confidence: "MEDIUM",
+          qualityStatus: "HEALTHY",
+          summary: "Balanced",
+          dataAsOf: "2026-08-05T20:00:00Z",
+        },
+        capital: {
+          totalLiquidAssets: "12000",
+          emergencyReserve: "1000",
+          deployableCash: "1000",
+          investableAssets: "11000",
+          tacticalReserve: "1000",
+        },
+        portfolio: {
+          drawdown: "0.02",
+          drawdownSource: "MARKET_DRIVEN",
+          technologyExposure: "0.4",
+          openRisk: "0.01",
+          clusterRisk: "0.02",
+        },
         portfolioHealth: { status: "WARNING", reasons: [] },
         dataReadiness: {
           status: "HEALTHY",
@@ -78,7 +97,7 @@ describe("Packet 07 workspace", () => {
     );
     renderPage(<DashboardPage />);
     expect(await screen.findByText("S1")).toBeInTheDocument();
-    expect(screen.getAllByText("REVIEW")).toHaveLength(3);
+    expect(screen.getAllByText("需要复核后再决定")).toHaveLength(3);
     expect(screen.queryByText("S4")).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(1);
     expect(get).toHaveBeenCalledWith("/api/v1/brief/today");

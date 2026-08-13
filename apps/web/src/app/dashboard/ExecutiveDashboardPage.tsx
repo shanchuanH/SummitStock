@@ -5,6 +5,10 @@ import { DataReadinessBanner } from "./DataReadinessBanner";
 import { EmptyPortfolioState } from "./EmptyPortfolioState";
 import { PortfolioHealthCard } from "./PortfolioHealthCard";
 import { WorkspaceNav } from "../workspace-nav";
+import { presentAction } from "../presentation/action-presentation";
+import { presentClassification } from "../presentation/classification-presentation";
+import { presentPriority } from "../presentation/priority-presentation";
+import { presentReadiness } from "../presentation/readiness-presentation";
 
 type ExecutiveBrief = components["schemas"]["ExecutiveBrief"];
 class BriefRequestError extends Error {
@@ -269,17 +273,17 @@ export function ExecutiveDashboardPage() {
                         </a>
                         <small>{holding.companyName}</small>
                       </td>
-                      <td>{holding.classification ?? "待确认"}</td>
+                      <td>{presentClassification(holding.classification)}</td>
                       <td>
                         <span
-                          className={`priority-pill ${holding.priority.toLowerCase()}`}
+                          className={`priority-pill ${presentPriority(holding.priority).tone}`}
                         >
-                          {holding.priority}
+                          {presentPriority(holding.priority).label}
                         </span>
                       </td>
-                      <td>{holding.action}</td>
+                      <td>{presentAction(holding.action).shortTitle}</td>
                       <td>{percent(holding.currentWeight)}</td>
-                      <td>{holding.dataStatus}</td>
+                      <td>{presentReadiness(holding.dataStatus).label}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -291,7 +295,9 @@ export function ExecutiveDashboardPage() {
             <article className="context-card">
               <p className="eyebrow">PORTFOLIO</p>
               <h2>{brief.data.summary.openPositions} 个持仓</h2>
-              <p>全部持仓已按 MUST_ACT → DO_NOT → WATCH → HOLD 排序。</p>
+              <p>
+                全部持仓已按“今天处理、现在不要做、继续观察、暂无动作”排序。
+              </p>
             </article>
           </section>
           <details className="context-card audit-details">

@@ -460,3 +460,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Final browser acceptance covers Fidelity preview recognition of a stock, ETF, and cash; explicit classification and Emergency Cash confirmation; all eight analysis stages; no more than three priority actions; and a holding report that answers sizing, valuation, earnings-risk, evidence, uncertainty, and change-condition questions.
 - The OpenAPI artifact is normalized by the locked generator with no semantic contract change, eliminating formatting-only drift in the required contract gate.
 - Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 218 backend tests; frontend ESLint, typecheck, 15 Vitest files / 30 tests, generated-client and production builds pass; Playwright passes 6/6 desktop and mobile journeys; local Docker Compose configuration and whitespace checks pass.
+
+## User-Friendly Strategy Manual — Baseline and UI-0 — 2026-08-13
+
+- Baseline is the exact audited `main` commit `26bbb0bc28d7eeafb1f7e8beac7abc89cd015685`; the feature branch is `modification/user-friendly-strategy-v1`. The clean baseline passes 9 quant, 35 strategy, 10 backtest, and 210 backend tests, plus 15 frontend files / 30 tests, production build, generated API drift, and 6 desktop/mobile browser journeys.
+- A single presentation layer now owns exhaustive owner-facing action, priority, classification, confidence, readiness, reason, number, and date language. Unknown future action values fail safe to “暂不操作” and are never exposed as raw UI copy.
+- The presentation contract test reads the deterministic backend `RecommendationAction` enum and fails whenever a backend action lacks a frontend mapping. Dashboard, holdings, holding report, opportunities, review, and ETF-dip history now consume the shared action language instead of local maps.
+- The holding hero now reads the absolute position limit from `layers.portfolioRole.hardMaxWeight`, eliminating the former speculative-only hard-limit source. Missing numbers render as unavailable rather than zero.
+- Verification: frontend ESLint and TypeScript pass; 16 Vitest files / 32 tests pass; generated client and production Vite build pass. No strategy threshold, recommendation precedence, quantity calculation, or drawdown definition changed in UI-0.
