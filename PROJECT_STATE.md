@@ -411,3 +411,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Drawdown attribution now compares peak-date and current position values instead of using current market-value weights as a proxy. Profit-cushion R uses immutable entry and initial-stop evidence.
 - Earnings gap percentiles are derived from the actual gap distribution. ETF-dip scoring consumes independent volatility, credit, term-structure, breadth, and trend evidence and uses real time-series confirmation triggers.
 - Verification: Maven reactor passes 9 quant, 34 strategy, 10 backtest, and 205 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, and production Vite build pass.
+
+## Modification Manual V1 — Phase 2 — 2026-08-12
+
+- Strategy V3 (`3.0.0-draft`) is the active runtime strategy. Its allocation targets are Broad 35%, Tech 15%, International 10%, Quality 15%, Thematic 8%, Tactical 5%, Speculative 2%, and Tactical Reserve 10% within an ordered 8–12% range.
+- The typed definition now owns allocation, emergency cash, drawdown, risk, liquidity participation, thematic risk proxy, stop multipliers, speculative time stop, cash-flow allocation, ETF-dip, freshness, and decision parameters. Runtime sizing, portfolio-risk snapshots, stop calculation/preview, and cash-flow planning consume those typed values.
+- Publication validation fails closed unless allocations sum to 100%, position bounds are ordered, trade risk remains below the absolute cap, cluster risk does not exceed total risk, drawdown thresholds strictly increase, ETF-dip tranches total 100%, Must Act is capped at three, and execution remains manual-only.
+- The active production/test fixtures, application defaults, frontend strategy status, and container artifact assertion now reference V3; V1/V2 files remain only as immutable historical strategy artifacts.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 207 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.

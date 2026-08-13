@@ -1,5 +1,6 @@
 package com.example.portfolio.portfolio;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import com.example.portfolio.strategy.position.EarningsPolicy;
 import com.example.portfolio.strategy.position.StopEngine;
@@ -36,16 +37,19 @@ public class PositionIntelligenceController {
     private final PositionIntelligenceStore store;
     private final Optional<DebugApiAccess> debugAccess;
     private final Clock clock;
+    private final PublishedStrategyService strategies;
 
     public PositionIntelligenceController(
             PortfolioStore portfolio,
             PositionIntelligenceStore store,
             Optional<DebugApiAccess> debugAccess,
-            Clock clock) {
+            Clock clock,
+            PublishedStrategyService strategies) {
         this.portfolio = portfolio;
         this.store = store;
         this.debugAccess = debugAccess;
         this.clock = clock;
+        this.strategies = strategies;
     }
 
     @GetMapping("/intelligence")
@@ -96,16 +100,18 @@ public class PositionIntelligenceController {
     StopPreviewResponse previewStop(
             @PathVariable UUID positionId, @Valid @RequestBody StopPreviewRequest request, Principal principal) {
         requireOwned(positionId, principal);
-        var result = StopEngine.calculate(new StopEngine.Input(
-                classification(request.classification()),
-                request.entry(),
-                request.confirmedSwingLow(),
-                request.atr(),
-                request.previousLiveStop(),
-                request.chandelier(),
-                request.ema20(),
-                request.confirmedHigherLow(),
-                request.dailyClose()));
+        var result = StopEngine.calculate(
+                new StopEngine.Input(
+                        classification(request.classification()),
+                        request.entry(),
+                        request.confirmedSwingLow(),
+                        request.atr(),
+                        request.previousLiveStop(),
+                        request.chandelier(),
+                        request.ema20(),
+                        request.confirmedHigherLow(),
+                        request.dailyClose()),
+                strategies.current().stopEnginePolicy());
         return StopPreviewResponse.from(result);
     }
 

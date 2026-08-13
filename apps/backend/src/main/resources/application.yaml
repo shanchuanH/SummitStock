@@ -56,8 +56,8 @@ springdoc:
 
 portfolio:
   runtime-mode: ${PORTFOLIO_RUNTIME_MODE:api}
-  strategy-version: ${PORTFOLIO_STRATEGY_VERSION:2.0.0-draft}
-  strategy-config-path: ${PORTFOLIO_STRATEGY_CONFIG:strategy/STRATEGY_CONFIG_V2_DRAFT.yaml}
+  strategy-version: ${PORTFOLIO_STRATEGY_VERSION:3.0.0-draft}
+  strategy-config-path: ${PORTFOLIO_STRATEGY_CONFIG:strategy/STRATEGY_CONFIG_V3_DRAFT.yaml}
   allow-draft-strategy: ${PORTFOLIO_ALLOW_DRAFT_STRATEGY:false}
   providers:
     market:

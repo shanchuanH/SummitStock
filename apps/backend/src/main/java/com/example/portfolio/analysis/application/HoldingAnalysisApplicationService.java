@@ -337,15 +337,20 @@ public final class HoldingAnalysisApplicationService {
                 .toList();
         if (volumes.isEmpty()) return null;
         var median = volumes.get(volumes.size() / 2);
-        return median.multiply(new BigDecimal("0.10"));
+        return median.multiply(evidence.strategy().executionRisk().liquidityParticipationMax());
     }
 
     private static BigDecimal themeRiskProxyPerShare(HoldingEvidence evidence) {
         if (evidence.position().classification() != HoldingClassification.THEMATIC_ETF) return null;
         if (evidence.indicators().atr() != null && evidence.indicators().atr() > 0) {
-            return BigDecimal.valueOf(evidence.indicators().atr()).multiply(new BigDecimal("3"));
+            return BigDecimal.valueOf(evidence.indicators().atr())
+                    .multiply(evidence.strategy().executionRisk().thematicAtrRiskMultiple());
         }
-        return evidence.quote().last() == null ? null : evidence.quote().last().multiply(new BigDecimal("0.10"));
+        return evidence.quote().last() == null
+                ? null
+                : evidence.quote()
+                        .last()
+                        .multiply(evidence.strategy().executionRisk().thematicFallbackRiskFraction());
     }
 
     private static Policy policy(HoldingClassification classification, StrategyDefinition strategy) {

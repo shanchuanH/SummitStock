@@ -17,7 +17,7 @@ final class HoldingEvidenceFixtures {
         var now = Instant.parse("2026-08-05T20:00:00Z");
         var positionId = UUID.nameUUIDFromBytes(symbol.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var strategy = new StrategyDefinition(
-                "2.0.0-draft",
+                "3.0.0-draft",
                 "a".repeat(64),
                 "DRAFT",
                 new BigDecimal("20000"),

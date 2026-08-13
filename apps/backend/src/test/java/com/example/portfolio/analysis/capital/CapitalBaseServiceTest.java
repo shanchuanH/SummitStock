@@ -138,7 +138,7 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
                         .param("id", USER.toString())
                         .query(String.class)
                         .single())
-                .isEqualTo("2.0.0-draft");
+                .isEqualTo("3.0.0-draft");
     }
 
     @Test
@@ -175,8 +175,8 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
                 """
                 INSERT INTO position_risk_snapshot (id,position_id,strategy_version,current_weight,open_risk_fraction,
                   cluster_risk_fraction,risk_amount,quality_status,evidence_checksum,data_as_of,created_at) VALUES
-                (UUID_TO_BIN('a9000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),'2.0.0-draft',0.10,0.0030,0,240,'HEALTHY',SHA2('risk1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
-                (UUID_TO_BIN('a9000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),'2.0.0-draft',0.15,0.0025,0,200,'HEALTHY',SHA2('risk2',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                (UUID_TO_BIN('a9000000-0000-0000-0000-000000000001'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),'3.0.0-draft',0.10,0.0030,0,240,'HEALTHY',SHA2('risk1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('a9000000-0000-0000-0000-000000000002'),UUID_TO_BIN('a4000000-0000-0000-0000-000000000002'),'3.0.0-draft',0.15,0.0025,0,200,'HEALTHY',SHA2('risk2',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
                 """);
 
         assertThat(clusterRisks.capture(USER, clock.instant())).isEqualTo(1);

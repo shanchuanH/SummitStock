@@ -52,7 +52,7 @@ public class PortfolioAllocationService {
             var sleeve = sleeve(HoldingClassification.valueOf(row.classification()));
             if (sleeve != null) values.merge(sleeve, row.marketValue(), BigDecimal::add);
         }
-        values.put(PortfolioSleeve.CASH_RESERVE, capital.deployableCash());
+        values.put(PortfolioSleeve.TACTICAL_RESERVE, capital.deployableCash());
         var result = new EnumMap<PortfolioSleeve, SleeveAllocation>(PortfolioSleeve.class);
         for (var sleeve : PortfolioSleeve.values()) {
             var amount = values.get(sleeve);
@@ -132,9 +132,14 @@ public class PortfolioAllocationService {
     private static BigDecimal target(
             PortfolioSleeve sleeve, com.example.portfolio.analysis.domain.StrategyDefinition strategy) {
         return switch (sleeve) {
-            case BROAD_CORE -> strategy.broadCoreTarget();
-            case TECH_CORE -> strategy.techCoreTarget();
-            default -> null;
+            case BROAD_CORE -> strategy.sleeveAllocations().broad();
+            case TECH_CORE -> strategy.sleeveAllocations().tech();
+            case INTERNATIONAL_CORE -> strategy.sleeveAllocations().international();
+            case QUALITY -> strategy.sleeveAllocations().quality();
+            case THEMATIC -> strategy.sleeveAllocations().thematic();
+            case TACTICAL -> strategy.sleeveAllocations().tactical();
+            case SPECULATIVE -> strategy.sleeveAllocations().speculative();
+            case TACTICAL_RESERVE -> strategy.sleeveAllocations().tacticalReserve();
         };
     }
 
@@ -143,6 +148,7 @@ public class PortfolioAllocationService {
         return switch (sleeve) {
             case BROAD_CORE -> strategy.broadCorePrimaryInstrument();
             case TECH_CORE -> strategy.techCorePrimaryInstrument();
+            case INTERNATIONAL_CORE -> strategy.sleeveAllocations().internationalPrimaryInstrument();
             default -> null;
         };
     }

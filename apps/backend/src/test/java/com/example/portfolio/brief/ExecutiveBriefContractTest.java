@@ -160,13 +160,13 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
         update(
                 """
                 INSERT INTO holding_analysis_snapshot (id, position_id, strategy_version, analysis_status, confidence, current_weight, exact_quantity_allowed, reasons, risks, change_conditions, rule_ids, evidence_checksum, data_as_of, valid_until, created_at)
-                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '2.0.0-draft', 'READY', 'HIGH', 1, TRUE, JSON_ARRAY('ready'), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY('BRIEF.READY.001'), REPEAT('8',64), UTC_TIMESTAMP(6), '2099-01-01', UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '3.0.0-draft', 'READY', 'HIGH', 1, TRUE, JSON_ARRAY('ready'), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY('BRIEF.READY.001'), REPEAT('8',64), UTC_TIMESTAMP(6), '2099-01-01', UTC_TIMESTAMP(6))
                 """
                         .formatted(ANALYSIS_ID, POSITION_ID));
         update(
                 """
                 INSERT INTO recommendation (id, user_id, position_id, holding_analysis_id, strategy_version, action, priority, confidence, reasons, risks, change_conditions, rule_ids, evidence_checksum, data_as_of, valid_until, status, created_at)
-                VALUES (UUID_TO_BIN('71000000-0000-0000-0000-000000000013'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '2.0.0-draft', 'REVIEW', 'MUST_ACT', 'HIGH', JSON_ARRAY('review'), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY('BRIEF.ACTION.001'), REPEAT('9',64), UTC_TIMESTAMP(6), '2099-01-01', 'ACTIVE', UTC_TIMESTAMP(6))
+                VALUES (UUID_TO_BIN('71000000-0000-0000-0000-000000000013'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), UUID_TO_BIN('%s'), '3.0.0-draft', 'REVIEW', 'MUST_ACT', 'HIGH', JSON_ARRAY('review'), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY('BRIEF.ACTION.001'), REPEAT('9',64), UTC_TIMESTAMP(6), '2099-01-01', 'ACTIVE', UTC_TIMESTAMP(6))
                 """
                         .formatted(USER_ID, POSITION_ID, ANALYSIS_ID));
     }

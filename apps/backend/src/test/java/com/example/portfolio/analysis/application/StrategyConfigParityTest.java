@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 class StrategyConfigParityTest {
-    private static final String CONFIG = "strategy/STRATEGY_CONFIG_V2_DRAFT.yaml";
+    private static final String CONFIG = "strategy/STRATEGY_CONFIG_V3_DRAFT.yaml";
     private final StrategyDefinitionLoader loader = new StrategyDefinitionLoader(new DefaultResourceLoader());
 
     @Test
@@ -35,8 +35,14 @@ class StrategyConfigParityTest {
         assertThat(strategy.coolingHours()).isEqualTo(48);
         assertThat(strategy.deepDiscountStarterEnabled()).isTrue();
         assertThat(strategy.speculativeAverageDownAllowed()).isFalse();
-        assertThat(strategy.speculativeTimeStopTradingDays()).isEqualTo(60);
-        assertThat(strategy.tacticalReserveTargets()).containsExactly(new BigDecimal("0.10"), new BigDecimal("0.15"));
+        assertThat(strategy.speculativeTimeStopTradingDays()).isEqualTo(25);
+        assertThat(strategy.tacticalReserveTargets())
+                .containsExactly(new BigDecimal("0.08"), new BigDecimal("0.10"), new BigDecimal("0.12"));
+        assertThat(strategy.sleeveAllocations().total()).isEqualByComparingTo("1.00");
+        assertThat(strategy.sleeveAllocations().international()).isEqualByComparingTo("0.10");
+        assertThat(strategy.sleeveAllocations().quality()).isEqualByComparingTo("0.15");
+        assertThat(strategy.executionRisk().liquidityParticipationMax()).isEqualByComparingTo("0.10");
+        assertThat(strategy.stops().speculativeVolatilityAtr()).isEqualByComparingTo("3.5");
         assertThat(strategy.manualExecutionOnly()).isTrue();
         assertThat(strategy.primaryGrowthBenchmark()).isEqualTo("QQQ");
         assertThat(strategy.broadMarketBenchmark()).isEqualTo("SPY");

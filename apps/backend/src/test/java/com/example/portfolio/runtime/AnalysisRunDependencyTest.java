@@ -48,7 +48,7 @@ class AnalysisRunDependencyTest extends MySqlIntegrationTest {
                         """
                 INSERT INTO portfolio_analysis_run (
                     id,user_id,market_date,strategy_version,status,run_key,created_at,updated_at,version
-                ) VALUES(UUID_TO_BIN(:id),UUID_TO_BIN(:user),:date,'2.0.0-draft','QUEUED',:key,:now,:now,0)
+                ) VALUES(UUID_TO_BIN(:id),UUID_TO_BIN(:user),:date,'3.0.0-draft','QUEUED',:key,:now,:now,0)
                 """)
                 .param("id", runId.toString())
                 .param("user", userId.toString())

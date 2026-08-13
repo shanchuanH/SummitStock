@@ -1,6 +1,7 @@
 package com.example.portfolio.runtime;
 
 import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
@@ -42,6 +43,7 @@ public class PortfolioAnalysisPipelineService {
     private final ClusterRiskService clusterRisks;
     private final PortfolioNavService portfolioNav;
     private final DrawdownAttributionService drawdownAttribution;
+    private final PublishedStrategyService strategies;
     private final MacroApplicationService macro;
     private final BreadthService breadthService;
     private final Clock clock;
@@ -57,6 +59,7 @@ public class PortfolioAnalysisPipelineService {
             ClusterRiskService clusterRisks,
             PortfolioNavService portfolioNav,
             DrawdownAttributionService drawdownAttribution,
+            PublishedStrategyService strategies,
             MacroApplicationService macro,
             BreadthService breadthService,
             Clock clock) {
@@ -70,6 +73,7 @@ public class PortfolioAnalysisPipelineService {
         this.clusterRisks = clusterRisks;
         this.portfolioNav = portfolioNav;
         this.drawdownAttribution = drawdownAttribution;
+        this.strategies = strategies;
         this.macro = macro;
         this.breadthService = breadthService;
         this.clock = clock;
@@ -228,18 +232,20 @@ public class PortfolioAnalysisPipelineService {
             var atr = BigDecimal.valueOf(row.atr());
             var swing = confirmedSwingLow(row.instrumentId(), marketDate);
             if (swing == null) continue;
-            var result = StopEngine.calculate(new StopEngine.Input(
-                    HoldingClassification.valueOf(row.classification()),
-                    row.entryPrice(),
-                    swing,
-                    atr,
-                    row.previousLiveStop(),
-                    null,
-                    BigDecimal.valueOf(row.ema20()),
-                    swing,
-                    row.closePrice(),
-                    BigDecimal.valueOf(row.rollingHigh()),
-                    null));
+            var result = StopEngine.calculate(
+                    new StopEngine.Input(
+                            HoldingClassification.valueOf(row.classification()),
+                            row.entryPrice(),
+                            swing,
+                            atr,
+                            row.previousLiveStop(),
+                            null,
+                            BigDecimal.valueOf(row.ema20()),
+                            swing,
+                            row.closePrice(),
+                            BigDecimal.valueOf(row.rollingHigh()),
+                            null),
+                    strategies.current().stopEnginePolicy());
             if (!result.ordinaryStopApplicable()) continue;
             var checksum = sha256(row + ":" + marketDate);
             affected += jdbc.sql(
@@ -312,7 +318,7 @@ public class PortfolioAnalysisPipelineService {
                         ), calculated AS (
                             SELECT e.*,:investable equity,
                                    CASE WHEN e.classification='THEMATIC_ETF' AND e.last_price IS NOT NULL
-                                        THEN GREATEST(COALESCE(e.atr*3,e.last_price*0.10)*e.quantity,0)
+                                        THEN GREATEST(COALESCE(e.atr*:themeAtrMultiple,e.last_price*:themeFallbackFraction)*e.quantity,0)
                                         WHEN e.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT')
                                                   AND e.last_price IS NOT NULL AND e.live_stop IS NOT NULL
                                         THEN GREATEST((e.last_price-e.live_stop)*e.quantity,0)
@@ -332,6 +338,10 @@ public class PortfolioAnalysisPipelineService {
                         FROM calculated c WHERE c.equity>0
                         """)
                 .param("userId", userId.toString())
+                .param("themeAtrMultiple", strategies.current().executionRisk().thematicAtrRiskMultiple())
+                .param(
+                        "themeFallbackFraction",
+                        strategies.current().executionRisk().thematicFallbackRiskFraction())
                 .param("investable", investable)
                 .param("strategy", properties.strategyVersion())
                 .param("now", clock.instant())
