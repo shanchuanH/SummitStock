@@ -222,7 +222,14 @@ public class DipCashflowController {
             String ruleIdsJson,
             Instant dataAsOf,
             Instant validUntil,
-            String status) {
+            String status,
+            String decisionType,
+            String rationale,
+            Instant acknowledgedAt,
+            String initialWeight,
+            String currentWeight,
+            String decisionPrice,
+            String currentPrice) {
         static HistoryResponse from(DipCashflowStore.HistoryView v) {
             return new HistoryResponse(
                     v.symbol(),
@@ -233,7 +240,14 @@ public class DipCashflowController {
                     v.ruleIds(),
                     instant(v.dataAsOf()),
                     instant(v.validUntil()),
-                    v.status());
+                    v.status(),
+                    v.decisionType(),
+                    v.rationale(),
+                    instant(v.acknowledgedAt()),
+                    decimal(v.initialWeight()),
+                    decimal(v.currentWeight()),
+                    decimal(v.decisionPrice()),
+                    decimal(v.currentPrice()));
         }
     }
 }

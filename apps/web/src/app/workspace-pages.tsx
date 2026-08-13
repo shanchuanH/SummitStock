@@ -320,53 +320,83 @@ export function ReviewPage() {
     retry: false,
   });
   const rows = history.data ?? [];
-  const completed = rows.filter(
-    (x) => !["ACTIVE", undefined].includes(x.status),
+  const handled = rows.filter((x) => x.decisionType);
+  const deferredMustAct = rows.filter(
+    (x) =>
+      x.priority === "MUST_ACT" &&
+      ["DEFERRED", "IGNORED"].includes(x.decisionType ?? ""),
   );
+  const decisionLabel: Record<string, string> = {
+    HANDLED: "已处理",
+    DEFERRED: "暂不处理",
+    IGNORED: "忽略",
+  };
+  function returnSince(row: History) {
+    if (!row.decisionPrice || !row.currentPrice) return "暂无可靠数据";
+    const initial = Number(row.decisionPrice);
+    const current = Number(row.currentPrice);
+    return initial > 0 && Number.isFinite(current)
+      ? formatPercent(current / initial - 1)
+      : "暂无可靠数据";
+  }
   return (
     <Frame eyebrow="DECISION REVIEW" title="复盘">
       <section className="review-grid">
         <article className="context-card">
-          <p className="eyebrow">WEEKLY</p>
-          <h2>本周行动结果</h2>
-          <strong className="large-status">
-            {completed.length} / {rows.length}
-          </strong>
-          <p>已关闭建议 / 全部建议记录</p>
-          <ul>
-            {rows.slice(0, 5).map((x, i) => (
-              <li key={`${x.symbol ?? "portfolio"}-${x.dataAsOf ?? String(i)}`}>
-                {x.symbol ?? "组合"} · {presentAction(x.action).shortTitle} ·{" "}
-                {x.status ?? "状态待确认"}
-              </li>
-            ))}
-          </ul>
+          <p className="eyebrow">最近做了什么？后来怎么样？</p>
+          <h2>最近处理过的建议</h2>
+          {handled.length ? (
+            handled.slice(0, 8).map((x, i) => (
+              <section
+                className="review-card"
+                key={`${x.symbol ?? "portfolio"}-${x.dataAsOf ?? String(i)}`}
+              >
+                <span>
+                  {x.acknowledgedAt
+                    ? new Date(x.acknowledgedAt).toLocaleDateString("zh-CN")
+                    : "日期待确认"}{" "}
+                  · {x.symbol ?? "组合"}
+                </span>
+                <p>系统建议：{presentAction(x.action).title}</p>
+                <p>
+                  你的决定：{decisionLabel[x.decisionType ?? ""] ?? "尚未记录"}
+                </p>
+                <p>
+                  之后：价格 {returnSince(x)} · 仓位{" "}
+                  {formatPercent(x.initialWeight)} →{" "}
+                  {formatPercent(x.currentWeight)}
+                </p>
+                <p className="quality-policy">
+                  策略评价：之后涨跌不代表原建议对错；原建议约束的是当时证据、仓位与风险。
+                </p>
+              </section>
+            ))
+          ) : (
+            <p>还没有已确认的处理记录。</p>
+          )}
         </article>
         <article className="context-card">
-          <p className="eyebrow">WEEKLY</p>
-          <h2>规则违反与最大错误</h2>
-          <p>规则 ID 与决策状态来自审计记录；没有可验证记录时不推断错误。</p>
-          <strong className="large-status">
-            {rows.filter((x) => x.status === "IGNORED").length}
-          </strong>
-          <p>被忽略的建议</p>
+          <p className="eyebrow">需要回看</p>
+          <h2>错过 / 延后的 MUST_ACT</h2>
+          <strong className="large-status">{deferredMustAct.length}</strong>
+          <p>只统计真实确认记录，不把未打开页面视作忽略。</p>
         </article>
         <article className="context-card">
-          <p className="eyebrow">MONTHLY</p>
-          <h2>组合绩效</h2>
+          <p className="eyebrow">主动仓有没有增加收益？</p>
+          <h2>主动仓表现</h2>
           <p>
-            组合收益、QQQ /
-            SPY、主动仓位、最大回撤和换手率将在可验证绩效序列生成后显示。
+            需要现金流调整后的 NAV、基准和 sleeve
+            归因同时可用后才下结论；当前接口未提供完整归因，因此不生成假精确评价。
           </p>
+          <a href="/advanced/backtest">查看可验证回测与归因 →</a>
         </article>
         <article className="context-card">
-          <p className="eyebrow">MONTHLY</p>
-          <h2>交易质量</h2>
+          <p className="eyebrow">是否承担不必要回撤？</p>
+          <h2>行为规则提醒</h2>
           <p>
-            平均 R、MFE / MAE 与水下曲线仅从真实 journal
-            和净值数据计算，不使用占位数值。
+            短期上涨不会推翻集中度限制，短期下跌也不会自动证明卖出建议正确。复盘评价必须回到当时规则
+            ID、证据和风险预算。
           </p>
-          <a href="/portfolio">打开持仓日志 →</a>
         </article>
       </section>
       {history.isError ? <p role="alert">无法读取复盘历史。</p> : null}

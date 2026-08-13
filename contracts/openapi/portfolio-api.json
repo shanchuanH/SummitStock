@@ -2237,6 +2237,28 @@
           },
           "status": {
             "type": "string"
+          },
+          "decisionType": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "acknowledgedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "initialWeight": {
+            "type": "string"
+          },
+          "currentWeight": {
+            "type": "string"
+          },
+          "decisionPrice": {
+            "type": "string"
+          },
+          "currentPrice": {
+            "type": "string"
           }
         }
       },

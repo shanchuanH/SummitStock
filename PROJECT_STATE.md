@@ -509,3 +509,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - ETF Dip exposes its canonical setup score, confirmation count/codes, portfolio and instrument drawdown, market-driven classification, Emergency Cash protection, tactical reserve before/after, and evidence quality. Detailed evidence is collapsed by default, and a non-ready setup explicitly says not to deploy the next tranche.
 - The owner summary exposes the real deployable-cash, total planned-risk, cluster-risk, and data-completeness gates. Missing values remain unavailable, and an attractive asset absent from the engine-approved opportunities list is not presented as buyable.
 - Verification: backend compilation and OpenAPI generation pass; frontend ESLint, typecheck, 18 Vitest files / 39 tests, API-client build, and production Vite build pass. The added opportunity test verifies the single top status and persisted ETF confirmation evidence.
+
+## User-Friendly Strategy Manual — UI-6 — 2026-08-13
+
+- Recommendation history now projects the persisted owner decision, rationale and acknowledgement time, plus the recommendation-time/latest canonical position weights and decision prices. Missing comparison points remain unavailable rather than being reconstructed from fabricated values.
+- Review cards answer what the engine recommended, what the owner recorded, and what price/weight changed afterward. Every card explicitly states that subsequent price direction does not establish whether the original recommendation was correct; evaluation remains tied to contemporaneous evidence, exposure, and risk.
+- Deferred or ignored MUST_ACT counts use acknowledgement records only. A recommendation the owner never opened is not silently classified as ignored.
+- Active-sleeve performance remains explicitly unavailable until cash-flow-adjusted NAV, benchmark, and sleeve attribution are jointly present. The behavior reminder prevents concentration constraints from being reinterpreted as short-term price forecasts.
+- Verification: backend compilation and generated contracts pass; frontend ESLint, typecheck, 18 Vitest files / 40 tests, API-client build, and production Vite build pass. The review test verifies real return/weight presentation and the no-right-or-wrong framing.

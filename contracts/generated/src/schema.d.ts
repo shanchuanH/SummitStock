@@ -1045,6 +1045,14 @@ export interface components {
       /** Format: date-time */
       validUntil?: string;
       status?: string;
+      decisionType?: string;
+      rationale?: string;
+      /** Format: date-time */
+      acknowledgedAt?: string;
+      initialWeight?: string;
+      currentWeight?: string;
+      decisionPrice?: string;
+      currentPrice?: string;
     };
     JournalResponse: {
       /** Format: uuid */

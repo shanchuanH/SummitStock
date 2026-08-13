@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DashboardPage,
   OpportunitiesPage,
+  ReviewPage,
   SettingsPage,
 } from "./workspace-pages";
 
@@ -210,5 +211,27 @@ describe("Packet 07 workspace", () => {
     expect(screen.getByText(/当前设置分：68 \/ 100/)).toBeInTheDocument();
     expect(screen.getByText("因此：暂不部署下一档。")).toBeInTheDocument();
     expect(screen.getByText(/RSI 重新站上 40/)).toBeInTheDocument();
+  });
+
+  it("reviews outcomes without declaring a recommendation right or wrong", async () => {
+    get.mockResolvedValueOnce(
+      await ok([
+        {
+          symbol: "GOOGL",
+          action: "HOLD_DO_NOT_ADD",
+          priority: "DO_NOT",
+          decisionType: "DEFERRED",
+          acknowledgedAt: "2026-08-03T20:00:00Z",
+          decisionPrice: "200",
+          currentPrice: "206.4",
+          initialWeight: "0.138",
+          currentWeight: "0.144",
+        },
+      ]),
+    );
+    renderPage(<ReviewPage />);
+    expect(await screen.findByText(/价格 3.2%/)).toBeInTheDocument();
+    expect(screen.getByText(/之后涨跌不代表原建议对错/)).toBeInTheDocument();
+    expect(screen.queryByText(/^策略评价：建议(正确|错误)$/)).not.toBeInTheDocument();
   });
 });

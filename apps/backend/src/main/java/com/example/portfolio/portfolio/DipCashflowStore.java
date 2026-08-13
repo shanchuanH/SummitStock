@@ -36,9 +36,16 @@ public class DipCashflowStore {
         return jdbc.sql(
                         """
                 SELECT BIN_TO_UUID(r.id) id, i.symbol, r.action, r.priority, r.confidence,
-                       r.strategy_version, r.rule_ids, r.data_as_of, r.valid_until, r.status
+                       r.strategy_version, r.rule_ids, r.data_as_of, r.valid_until, r.status,
+                       ack.decision_type decisionType,ack.rationale,ack.acknowledged_at acknowledgedAt,
+                       initial.current_weight initialWeight,latest.current_weight currentWeight,
+                       (SELECT m.decision_price FROM position_mark_snapshot m WHERE m.position_id=r.position_id AND m.data_as_of<=r.data_as_of ORDER BY m.market_date DESC,m.data_as_of DESC LIMIT 1) decisionPrice,
+                       (SELECT m.decision_price FROM current_position_mark m WHERE m.position_id=r.position_id) currentPrice
                 FROM recommendation r JOIN app_user u ON u.id=r.user_id
                 LEFT JOIN position p ON p.id=r.position_id LEFT JOIN instrument i ON i.id=p.instrument_id
+                LEFT JOIN holding_analysis_snapshot initial ON initial.id=r.holding_analysis_id
+                LEFT JOIN holding_analysis_snapshot latest ON latest.id=(SELECT h.id FROM holding_analysis_snapshot h WHERE h.position_id=r.position_id ORDER BY h.data_as_of DESC,h.created_at DESC LIMIT 1)
+                LEFT JOIN recommendation_acknowledgement ack ON ack.id=(SELECT a.id FROM recommendation_acknowledgement a WHERE a.recommendation_id=r.id AND a.user_id=r.user_id ORDER BY a.acknowledged_at DESC LIMIT 1)
                 WHERE u.email=:email ORDER BY r.created_at DESC LIMIT 100
                 """)
                 .param("email", email)
@@ -77,5 +84,12 @@ public class DipCashflowStore {
             String ruleIds,
             LocalDateTime dataAsOf,
             LocalDateTime validUntil,
-            String status) {}
+            String status,
+            String decisionType,
+            String rationale,
+            LocalDateTime acknowledgedAt,
+            BigDecimal initialWeight,
+            BigDecimal currentWeight,
+            BigDecimal decisionPrice,
+            BigDecimal currentPrice) {}
 }
