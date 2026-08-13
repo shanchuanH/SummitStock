@@ -443,3 +443,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Rule IDs, evidence references, strategy version, configuration hash, data quality, and timestamps remain behind the Evidence Drawer; missing six-layer evidence fails closed rather than rendering a partial or fabricated report.
 - GOOGL quality-stock, DRAM thematic-ETF, and DXYZ speculative fixtures verify distinct 15%, 10%, and 2% hard limits and the complete six-layer contract. The owner page leads with the conclusion and renders six modules rather than an engineering-first chart wall.
 - Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 209 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client build, production Vite build, and OpenAPI regeneration pass.
+
+## Modification Manual V1 — Phase 6 — 2026-08-12
+
+- Owner-facing readiness now presents conservative completeness as a plain-language percentage alongside market and fundamental coverage. The information hierarchy remains action, reason, owner data, then technical evidence.
+- API failures now use stable problem details for not-found, analysis-not-ready, owner-input-required, and dependency-unavailable cases, including a request ID, retry semantics, and a concrete next action. The web request layer preserves those semantics instead of reducing every failure to a status number.
+- Recommendation acknowledgement remains idempotent and explicitly never submits an execution. Dashboard controls are limited to full analysis, handled, and defer; Evidence Drawer content remains collapsed by default.
+- Browser acceptance runs the owner brief and six-layer holding report in both desktop Chrome and a Pixel 7 mobile viewport, verifies no horizontal page overflow, validates the completeness badge and evidence drawer, and asserts that no trading or order button exists.
+- Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 210 backend tests; frontend ESLint, typecheck, 14 Vitest files / 29 tests, generated-client and production builds pass; Playwright passes 4/4 desktop and mobile journeys.

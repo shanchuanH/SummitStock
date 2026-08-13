@@ -53,6 +53,9 @@ button { padding: 9px 13px; color: var(--text); background: var(--surface-2); bo
 button:hover, button.active { border-color: var(--green); color: var(--green); }
 .acknowledgement button + button { margin-left: 8px; }
 .status-pill, .priority-pill { display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid var(--border); border-radius: 99px; color: var(--muted); font-size: 11px; }
+.data-completeness-badge { display: inline-flex; padding: 5px 9px; border: 1px solid var(--amber); border-radius: 99px; color: var(--amber); font-size: 12px; }
+.data-completeness-badge[data-status="complete"] { border-color: var(--green); color: var(--green); }
+.evidence-drawer { margin-top: 18px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 .priority-pill.must_act { color: var(--red); border-color: var(--red); }
 .priority-pill.do_not { color: var(--amber); border-color: var(--amber); }
 .priority-pill.watch { color: var(--blue); border-color: var(--blue); }
