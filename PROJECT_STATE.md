@@ -609,3 +609,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - An authenticated owner can now request an immediate analysis with `POST /api/v1/analysis/runs` after importing an active portfolio. The command uses the same durable 27-step analysis pipeline as scheduled runs and is scoped to the signed-in owner.
 - If that owner already has a queued, running, or waiting analysis, the endpoint returns the existing run instead of creating concurrent duplicate work. Completed runs remain immutable and a later request creates a new auditable run with the configured market date and strategy version.
 - Focused MySQL integration coverage proves a completed import can queue a distinct rerun, initializes all 27 steps, and returns the same run for a repeated request while it remains active.
+
+## Yahoo Market Data Adapter — 2026-08-16
+
+- Real-data deployments can select `yahoo` for quote, adjusted daily-bar, dividend, and split evidence through the Yahoo Finance Chart endpoint. Every observation is tagged `yahoo-finance-chart`, includes a checksum and explicit unofficial-endpoint warning, and fails closed on provider errors or missing adjusted-close evidence.
+- A 30-minute per-symbol cache deliberately reuses one broad chart response across quote, bar, and corporate-action stages. The current 15-symbol portfolio therefore needs about 15 Yahoo requests per daily run instead of separate requests for every evidence type.
+- Alpha Vantage earnings-calendar collection now downloads the documented all-symbol calendar once and filters it deterministically for each eligible holding. Estimates remain symbol-scoped, keeping expected Alpha Vantage usage for the current portfolio below the free daily request allowance.
+- Contract coverage proves adjusted OHLC normalization, quote freshness, dividends, splits, provenance, cache reuse, malformed/error rejection, and production startup without a Yahoo API key.
+- Benchmark return-from-peak reads now canonicalize multiple provider observations for the same instrument/date by latest evidence time before calculating the peak. A MySQL regression proves a provider transition cannot create a multi-row failure in the drawdown stage.

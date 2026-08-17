@@ -95,7 +95,8 @@ public record ProviderProperties(
     public enum MarketType {
         DISABLED,
         FAKE,
-        ALPHA_VANTAGE
+        ALPHA_VANTAGE,
+        YAHOO
     }
 
     public enum FundamentalsType {

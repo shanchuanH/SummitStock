@@ -24,6 +24,9 @@ class ProductionProviderSafetyConfiguration {
                 && (!StringUtils.hasText(market.baseUrl()) || !StringUtils.hasText(market.apiKey()))) {
             throw new IllegalStateException("Production market provider requires base URL and API key");
         }
+        if (market.type() == ProviderProperties.MarketType.YAHOO && !StringUtils.hasText(market.baseUrl())) {
+            throw new IllegalStateException("Yahoo market provider requires a base URL");
+        }
         if (fundamentals.type() == ProviderProperties.FundamentalsType.DISABLED
                 || fundamentals.type() == ProviderProperties.FundamentalsType.FAKE) {
             unavailable.add("fundamentals");

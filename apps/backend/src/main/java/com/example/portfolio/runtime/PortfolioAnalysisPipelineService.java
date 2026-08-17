@@ -437,16 +437,26 @@ public class PortfolioAnalysisPipelineService {
         return value == null ? 0 : value.doubleValue();
     }
 
-    private double returnFromPeak(String symbol, LocalDate date) {
+    double returnFromPeak(String symbol, LocalDate date) {
         return jdbc.sql(
                         """
-                        SELECT COALESCE(latest.close_price/MAX(p.close_price)-1,0)
-                        FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
-                        JOIN price_bar latest ON latest.instrument_id=p.instrument_id AND latest.adjusted=TRUE
-                          AND latest.market_date=(SELECT MAX(x.market_date) FROM price_bar x
-                                                  WHERE x.instrument_id=p.instrument_id AND x.market_date<=:date)
-                        WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
-                        GROUP BY latest.close_price
+                        WITH ranked AS (
+                          SELECT p.market_date,p.close_price,
+                            ROW_NUMBER() OVER (
+                              PARTITION BY p.instrument_id,p.market_date
+                              ORDER BY p.data_as_of DESC,p.created_at DESC,p.id DESC
+                            ) evidence_rank
+                          FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
+                          WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
+                        ), canonical AS (
+                          SELECT market_date,close_price FROM ranked WHERE evidence_rank=1
+                        )
+                        SELECT COALESCE(
+                          (SELECT close_price FROM canonical ORDER BY market_date DESC LIMIT 1)
+                          / NULLIF(MAX(close_price),0)-1,
+                          0
+                        )
+                        FROM canonical
                         """)
                 .param("symbol", symbol)
                 .param("date", date)

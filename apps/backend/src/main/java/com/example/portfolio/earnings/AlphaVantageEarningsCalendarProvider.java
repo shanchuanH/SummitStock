@@ -8,6 +8,8 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -22,9 +24,11 @@ import org.springframework.stereotype.Component;
 @Profile("!test & !local-fixture")
 @ConditionalOnProperty(name = "portfolio.providers.earnings-calendar.type", havingValue = "alpha-vantage")
 public final class AlphaVantageEarningsCalendarProvider implements EarningsCalendarProvider {
+    private static final Duration CACHE_TTL = Duration.ofHours(6);
     private final ProviderHttpClient http;
     private final ProviderProperties properties;
     private final Clock clock;
+    private volatile CachedCalendar cache;
 
     public AlphaVantageEarningsCalendarProvider(
             @Qualifier("earningsCalendarProviderHttpClient") ProviderHttpClient http,
@@ -38,23 +42,21 @@ public final class AlphaVantageEarningsCalendarProvider implements EarningsCalen
     @Override
     public CalendarResult fetch(String symbol, LocalDate from, LocalDate to) {
         var normalized = symbol.strip().toUpperCase(java.util.Locale.ROOT);
-        var config = properties.earningsCalendar();
-        var separator = config.baseUrl().contains("?") ? "&" : "?";
-        var uri = URI.create(config.baseUrl() + separator + "function=EARNINGS_CALENDAR&symbol=" + encode(normalized)
-                + "&horizon=3month&apikey=" + encode(config.apiKey()));
-        var raw = http.getText(uri, Map.of("Accept", "text/csv"));
-        var rows = csv(raw);
-        if (rows.isEmpty() || !rows.getFirst().contains("reportDate")) {
-            throw new ProviderCallException(
-                    "PROVIDER_MALFORMED", "Earnings calendar CSV header is missing", 200, false);
-        }
+        var rows = calendarRows();
         var header = rows.getFirst();
+        int symbolColumn = header.indexOf("symbol");
         int reportDate = header.indexOf("reportDate");
         int fiscalDate = header.indexOf("fiscalDateEnding");
+        if (symbolColumn < 0 || reportDate < 0) {
+            throw new ProviderCallException(
+                    "PROVIDER_MALFORMED", "Earnings calendar required columns are missing", 200, false);
+        }
         var events = new ArrayList<CalendarEvent>();
         for (int index = 1; index < rows.size(); index++) {
             var row = rows.get(index);
-            if (row.size() <= reportDate || row.get(reportDate).isBlank()) continue;
+            if (row.size() <= Math.max(symbolColumn, reportDate)
+                    || !normalized.equalsIgnoreCase(row.get(symbolColumn))
+                    || row.get(reportDate).isBlank()) continue;
             try {
                 var marketDate = LocalDate.parse(row.get(reportDate));
                 if (marketDate.isBefore(from) || marketDate.isAfter(to)) continue;
@@ -65,13 +67,30 @@ public final class AlphaVantageEarningsCalendarProvider implements EarningsCalen
                         Timing.UNKNOWN,
                         fiscalPeriod,
                         true,
-                        config.baseUrl()));
+                        properties.earningsCalendar().baseUrl()));
             } catch (RuntimeException exception) {
                 throw new ProviderCallException("PROVIDER_MALFORMED", "Invalid earnings calendar row", 200, false);
             }
         }
         var quality = events.isEmpty() ? ProviderModels.QualityStatus.MISSING : ProviderModels.QualityStatus.HEALTHY;
         return new CalendarResult(normalized, events, "alpha-vantage", clock.instant(), quality);
+    }
+
+    private synchronized List<List<String>> calendarRows() {
+        var now = clock.instant();
+        if (cache != null && now.isBefore(cache.expiresAt())) return cache.rows();
+        var config = properties.earningsCalendar();
+        var separator = config.baseUrl().contains("?") ? "&" : "?";
+        var uri = URI.create(config.baseUrl() + separator + "function=EARNINGS_CALENDAR&horizon=3month&apikey="
+                + encode(config.apiKey()));
+        var raw = http.getText(uri, Map.of("Accept", "text/csv"));
+        var rows = csv(raw);
+        if (rows.isEmpty() || !rows.getFirst().contains("reportDate")) {
+            throw new ProviderCallException(
+                    "PROVIDER_MALFORMED", "Earnings calendar CSV header is missing", 200, false);
+        }
+        cache = new CachedCalendar(List.copyOf(rows), now.plus(CACHE_TTL));
+        return cache.rows();
     }
 
     static List<List<String>> csv(String raw) {
@@ -106,4 +125,6 @@ public final class AlphaVantageEarningsCalendarProvider implements EarningsCalen
     private static String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
+
+    private record CachedCalendar(List<List<String>> rows, Instant expiresAt) {}
 }

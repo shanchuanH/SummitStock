@@ -23,7 +23,7 @@ class ProviderConfiguration {
                 execution.retryDelay(),
                 execution.minimumInterval(),
                 journal,
-                "alpha-vantage");
+                properties.market().type() == ProviderProperties.MarketType.YAHOO ? "yahoo" : "alpha-vantage");
     }
 
     @Bean

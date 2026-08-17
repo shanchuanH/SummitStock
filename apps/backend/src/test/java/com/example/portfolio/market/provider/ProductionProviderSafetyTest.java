@@ -53,6 +53,19 @@ class ProductionProviderSafetyTest {
     }
 
     @Test
+    void yahooMarketConfigurationDoesNotRequireAnApiKey() {
+        runner("yahoo", "sec")
+                .withPropertyValues(
+                        "portfolio.providers.market.base-url=https://query1.finance.yahoo.com/v8/finance/chart",
+                        "portfolio.providers.market.api-key=")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(ProviderRuntimeStatus.class).status())
+                            .isEqualTo("COMPLETE");
+                });
+    }
+
+    @Test
     void explicitlyAllowedIncompleteProductionIsReportedPartial() {
         runner("alpha-vantage", "sec")
                 .withPropertyValues(
