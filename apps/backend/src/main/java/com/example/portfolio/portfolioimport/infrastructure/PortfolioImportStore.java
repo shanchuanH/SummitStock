@@ -39,20 +39,26 @@ public class PortfolioImportStore {
 
     @Transactional
     public PortfolioImportPreview savePreview(
-            String email, ImportSource source, String filename, String checksum, PortfolioImportPreview parsed) {
+            String email,
+            ImportSource source,
+            String filename,
+            String checksum,
+            String parserRevision,
+            PortfolioImportPreview parsed) {
         var userId = ensureUser(email);
-        var existing = findBatch(email, source.name(), checksum);
+        var existing = findBatch(email, source.name(), checksum, parserRevision);
         if (existing.isPresent()) return preview(email, existing.orElseThrow().id());
         var batchId = UUID.randomUUID();
         var summary = parsed.summary();
         jdbc.sql(
                         """
                         INSERT INTO portfolio_import_batch (
-                            id, user_id, source, filename, status, source_checksum,
+                            id, user_id, source, filename, status, source_checksum, parser_revision,
                             row_count, valid_row_count, error_row_count, data_as_of,
                             created_at, updated_at, version
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:userId), :source, :filename, 'PREVIEW', :checksum,
+                            :parserRevision,
                             :rowCount, :validCount, :errorCount, :dataAsOf, :now, :now, 0
                         )
                         """)
@@ -61,6 +67,7 @@ public class PortfolioImportStore {
                 .param("source", source.name())
                 .param("filename", filename)
                 .param("checksum", checksum)
+                .param("parserRevision", parserRevision)
                 .param("rowCount", summary.rowCount())
                 .param("validCount", summary.validRowCount())
                 .param("errorCount", summary.errorRowCount())
@@ -185,16 +192,18 @@ public class PortfolioImportStore {
                 .single();
     }
 
-    private Optional<BatchIdentity> findBatch(String email, String source, String checksum) {
+    private Optional<BatchIdentity> findBatch(String email, String source, String checksum, String parserRevision) {
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(b.id) id
                         FROM portfolio_import_batch b JOIN app_user u ON u.id=b.user_id
                         WHERE u.email=:email AND b.source=:source AND b.source_checksum=:checksum
+                          AND b.parser_revision=:parserRevision
                         """)
                 .param("email", email)
                 .param("source", source)
                 .param("checksum", checksum)
+                .param("parserRevision", parserRevision)
                 .query(BatchIdentity.class)
                 .optional();
     }

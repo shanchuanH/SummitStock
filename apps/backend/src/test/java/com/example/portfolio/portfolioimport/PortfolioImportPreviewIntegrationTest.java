@@ -7,10 +7,60 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 class PortfolioImportPreviewIntegrationTest extends PortfolioImportIntegrationSupport {
+    @Test
+    void parserUpgradeDoesNotReuseAStaleLegacyPreviewForTheSameFile() throws Exception {
+        var proposedUserId = UUID.randomUUID();
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO app_user (
+                            id, email, password_hash, status, timezone, created_at, updated_at, version
+                        ) VALUES (UUID_TO_BIN(:id), :email, '{external-session}', 'ACTIVE', 'UTC', :now, :now, 0)
+                        """)
+                .param("id", proposedUserId.toString())
+                .param("email", EMAIL)
+                .param("now", Instant.now())
+                .update();
+        var userId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email=:email")
+                .param("email", EMAIL)
+                .query(UUID.class)
+                .single();
+        var legacyBatchId = UUID.randomUUID();
+        var source = fixture("fidelity-positions.csv");
+        var legacyChecksum =
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(source));
+        jdbc.sql(
+                        """
+                        INSERT INTO portfolio_import_batch (
+                            id, user_id, source, filename, status, source_checksum,
+                            row_count, valid_row_count, error_row_count, data_as_of,
+                            created_at, updated_at, version
+                        ) VALUES (
+                            UUID_TO_BIN(:id), UUID_TO_BIN(:userId), 'FIDELITY_CSV', :filename, 'PREVIEW',
+                            :checksum, 0, 0, 0, :now, :now, :now, 0
+                        )
+                        """)
+                .param("id", legacyBatchId.toString())
+                .param("userId", userId.toString())
+                .param("filename", "fidelity-positions.csv")
+                .param("checksum", legacyChecksum)
+                .param("now", Instant.now())
+                .update();
+
+        var refreshed = preview("fidelity-positions.csv");
+
+        assertThat(uuid(refreshed, "batchId")).isNotEqualTo(legacyBatchId);
+        assertThat(refreshed.path("summary").path("rowCount").asInt()).isEqualTo(6);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_import_batch")).isEqualTo(2);
+    }
+
     @Test
     void previewIsPersistedIdempotentlyWithoutMutatingThePortfolio() throws Exception {
         var first = preview("fidelity-positions.csv");

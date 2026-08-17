@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PortfolioImportPreviewService {
+    static final String FIDELITY_PARSER_REVISION = "fidelity-csv-v2";
+    static final String PASTED_TABLE_PARSER_REVISION = "pasted-table-v2";
+    static final String MANUAL_PARSER_REVISION = "manual-v1";
     private final FidelityCsvParser parser;
     private final PastedTableParser pastedTables;
     private final PortfolioImportStore store;
@@ -26,13 +29,20 @@ public class PortfolioImportPreviewService {
 
     public PortfolioImportPreview previewFidelity(String email, byte[] content, String filename) {
         var parsed = parser.parse(content, filename);
-        return store.savePreview(email, ImportSource.FIDELITY_CSV, safeFilename(filename), sha256(content), parsed);
+        return store.savePreview(
+                email,
+                ImportSource.FIDELITY_CSV,
+                safeFilename(filename),
+                sha256(content),
+                FIDELITY_PARSER_REVISION,
+                parsed);
     }
 
     public PortfolioImportPreview previewPastedTable(String email, String table) {
         var content = table == null ? new byte[0] : table.getBytes(StandardCharsets.UTF_8);
         var parsed = pastedTables.parse(table);
-        return store.savePreview(email, ImportSource.PASTED_TABLE, null, sha256(content), parsed);
+        return store.savePreview(
+                email, ImportSource.PASTED_TABLE, null, sha256(content), PASTED_TABLE_PARSER_REVISION, parsed);
     }
 
     public PortfolioImportPreview previewManual(String email, ManualHolding holding) {
@@ -64,7 +74,12 @@ public class PortfolioImportPreviewService {
                         clean(holding.assetType()));
         var parsed = pastedTables.parse(table);
         return store.savePreview(
-                email, ImportSource.MANUAL, null, sha256(table.getBytes(StandardCharsets.UTF_8)), parsed);
+                email,
+                ImportSource.MANUAL,
+                null,
+                sha256(table.getBytes(StandardCharsets.UTF_8)),
+                MANUAL_PARSER_REVISION,
+                parsed);
     }
 
     private static String clean(String value) {
