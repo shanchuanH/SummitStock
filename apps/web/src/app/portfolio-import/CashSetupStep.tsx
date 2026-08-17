@@ -32,6 +32,12 @@ export function CashSetupStep({
     <section className="context-card import-cash-card">
       <p className="eyebrow">第 4 步 / 生活备用金</p>
       <h2>生活备用金</h2>
+      {value?.location === "IN_FIDELITY" && value.amount === importedCash ? (
+        <p className="import-detected-cash" role="status">
+          已从本次 Fidelity 文件自动识别并填入 {formatMoney(importedCash)}。
+          如文件金额不代表你的生活备用金，可以在下方调整。
+        </p>
+      ) : null}
       <p>
         当前策略目标是 {formatMoney(emergencyTarget)}
         。这笔钱会始终受到保护，不会被算成可投资资金。

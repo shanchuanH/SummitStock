@@ -14,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -21,6 +22,8 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class FidelityCsvParser {
     private static final int MAX_BYTES = 5 * 1024 * 1024;
+    private static final Set<String> FIDELITY_CASH_SYMBOLS =
+            Set.of("SPAXX", "FCASH", "FDRXX", "FZFXX", "SPRXX", "FZCXX");
     private final ObjectMapper json;
     private final Clock clock;
 
@@ -49,7 +52,7 @@ public class FidelityCsvParser {
             var values = records.get(index);
             if (values.stream().allMatch(String::isBlank)) continue;
             var row = row(headers, values);
-            if (isFooter(row)) continue;
+            if (isFooter(row) || lacksPositionEvidence(row)) continue;
             parsedRows++;
             int rowNumber = index + 1;
             var accountName = value(row, "accountname");
@@ -64,7 +67,7 @@ public class FidelityCsvParser {
             var averageCost = decimal(value(row, "averagecostbasis"));
             var costBasis = decimal(value(row, "costbasistotal"));
             var rowType = rowType(symbol, description, sourceType);
-            var assetType = assetType(rowType, description, sourceType);
+            var assetType = assetType(rowType, symbol, description, sourceType);
 
             if ("HOLDING".equals(rowType) && currentValue == null && quantity != null && lastPrice != null) {
                 currentValue = quantity.multiply(lastPrice);
@@ -187,6 +190,13 @@ public class FidelityCsvParser {
                 || marker.contains("PENDING ACTIVITY");
     }
 
+    private static boolean lacksPositionEvidence(Map<String, String> row) {
+        return value(row, "symbol") == null
+                && value(row, "description") == null
+                && value(row, "quantity") == null
+                && value(row, "currentvalue") == null;
+    }
+
     private static String normalizeSymbol(String symbol) {
         if (symbol == null) return null;
         var normalized = symbol.toUpperCase(Locale.ROOT).replace("*", "").trim();
@@ -224,9 +234,9 @@ public class FidelityCsvParser {
         if (evidence.contains("UNVESTED") || evidence.contains(" RSU") || evidence.contains("RESTRICTED STOCK")) {
             return "UNVESTED_COMPENSATION";
         }
-        if ("SPAXX".equals(symbol)
+        if ((symbol != null && FIDELITY_CASH_SYMBOLS.contains(symbol))
                 || evidence.contains("MONEY MARKET")
-                || evidence.equals("CASH")
+                || "CASH".equalsIgnoreCase(description)
                 || evidence.contains("CASH BALANCE")) {
             return "CASH";
         }
@@ -234,7 +244,7 @@ public class FidelityCsvParser {
         return "UNKNOWN";
     }
 
-    private static String assetType(String rowType, String description, String type) {
+    private static String assetType(String rowType, String symbol, String description, String type) {
         if ("CASH".equals(rowType)) return "CASH";
         if ("UNVESTED_COMPENSATION".equals(rowType)) return "COMPENSATION";
         var evidence =
@@ -242,6 +252,11 @@ public class FidelityCsvParser {
         if (evidence.contains("ETF") || evidence.contains("EXCHANGE TRADED")) return "ETF";
         if (evidence.contains("MUTUAL FUND")) return "MUTUAL_FUND";
         if (evidence.contains("EQUITY") || evidence.contains("STOCK") || evidence.contains("COMMON")) return "EQUITY";
+        if (evidence.contains(" OPTION")
+                || evidence.contains(" BOND")
+                || evidence.contains(" TREASURY")
+                || evidence.contains(" CERTIFICATE OF DEPOSIT")) return "UNKNOWN";
+        if (symbol != null && ("CASH".equalsIgnoreCase(type) || "MARGIN".equalsIgnoreCase(type))) return "EQUITY";
         return "UNKNOWN";
     }
 

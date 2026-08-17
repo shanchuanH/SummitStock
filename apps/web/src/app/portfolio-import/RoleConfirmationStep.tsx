@@ -5,17 +5,13 @@ import type { ImportPreview, RowOverride } from "./types";
 export function RoleConfirmationStep({
   preview,
   overrides,
-  reviewedRows,
   onOverride,
-  onReviewed,
   onBack,
   onNext,
 }: {
   preview: ImportPreview;
   overrides: Record<number, RowOverride>;
-  reviewedRows: Set<number>;
   onOverride: (value: RowOverride) => void;
-  onReviewed: (rowNumber: number, reviewed: boolean) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -27,11 +23,7 @@ export function RoleConfirmationStep({
   );
   const ready = holdings.every((row) => {
     const classification = overrides[row.rowNumber]?.classification;
-    return Boolean(
-      classification &&
-      classification !== "UNKNOWN" &&
-      reviewedRows.has(row.rowNumber),
-    );
+    return Boolean(classification && classification !== "UNKNOWN");
   });
   return (
     <section className="import-role-step">
@@ -80,7 +72,6 @@ export function RoleConfirmationStep({
                       ignored: false,
                       classification: event.target.value,
                     });
-                    onReviewed(row.rowNumber, false);
                   }}
                 >
                   <option value="UNKNOWN">请选择角色</option>
@@ -97,17 +88,11 @@ export function RoleConfirmationStep({
                   <option value="SPECULATIVE">投机仓</option>
                 </select>
               </label>
-              <label className="role-confirmation-check">
-                <input
-                  type="checkbox"
-                  checked={reviewedRows.has(row.rowNumber)}
-                  disabled={classification === "UNKNOWN"}
-                  onChange={(event) => {
-                    onReviewed(row.rowNumber, event.target.checked);
-                  }}
-                />
-                我确认这个角色适合该持仓
-              </label>
+              <p className="role-detection-status" role="status">
+                {classification === "UNKNOWN"
+                  ? "尚未识别，请选择正确的组合角色。"
+                  : "已自动识别；如不正确，请在上方修改。"}
+              </p>
             </article>
           );
         })}

@@ -58,7 +58,6 @@ export function PortfolioImportPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [cashSetup, setCashSetup] = useState<CashSetup>();
-  const [reviewedRows, setReviewedRows] = useState<Set<number>>(new Set());
 
   async function request(factory: () => Promise<ImportPreview>) {
     setBusy(true);
@@ -82,8 +81,14 @@ export function PortfolioImportPage() {
         };
       }
       setOverrides(initialOverrides);
-      setCashSetup(undefined);
-      setReviewedRows(new Set());
+      setCashSetup(
+        value.cash.length > 0
+          ? {
+              location: "IN_FIDELITY",
+              amount: value.summary.estimatedCashValue,
+            }
+          : undefined,
+      );
       setStep(2);
     } catch (value) {
       setError(
@@ -99,7 +104,6 @@ export function PortfolioImportPage() {
     setResult(undefined);
     setOverrides({});
     setCashSetup(undefined);
-    setReviewedRows(new Set());
     setStep(1);
     setError(undefined);
   }
@@ -125,9 +129,7 @@ export function PortfolioImportPage() {
       if ((value?.rowType ?? row.rowType) !== "HOLDING")
         return row.status !== "ERROR";
       return Boolean(
-        value?.classification &&
-        value.classification !== "UNKNOWN" &&
-        reviewedRows.has(row.rowNumber),
+        value?.classification && value.classification !== "UNKNOWN",
       );
     }) ?? false;
   const cashReady =
@@ -244,20 +246,11 @@ export function PortfolioImportPage() {
         <RoleConfirmationStep
           preview={preview}
           overrides={overrides}
-          reviewedRows={reviewedRows}
           onOverride={(value) => {
             setOverrides((current) => ({
               ...current,
               [value.rowNumber]: value,
             }));
-          }}
-          onReviewed={(rowNumber, reviewed) => {
-            setReviewedRows((current) => {
-              const next = new Set(current);
-              if (reviewed) next.add(rowNumber);
-              else next.delete(rowNumber);
-              return next;
-            });
           }}
           onBack={() => {
             setStep(2);

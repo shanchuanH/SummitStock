@@ -144,11 +144,15 @@ describe("PortfolioImportPageTest", () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: /ignore/i }));
     await user.click(screen.getByRole("button", { name: /继续确认角色/i }));
-    await user.click(screen.getByRole("checkbox", { name: /我确认这个角色/i }));
+    expect(screen.getByText(/已自动识别；如不正确/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /继续设置备用金/i }),
+    ).toBeEnabled();
     await user.click(screen.getByRole("button", { name: /继续设置备用金/i }));
-    await user.click(screen.getByRole("radio", { name: /^全部在外部银行$/i }));
-    expect(screen.getByLabelText("确认生活备用金金额")).toHaveValue(null);
-    await user.type(screen.getByLabelText("确认生活备用金金额"), "14000");
+    expect(screen.getByLabelText("确认生活备用金金额")).toHaveValue(14000);
+    expect(
+      screen.getByText(/已从本次 Fidelity 文件自动识别并填入/),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /继续最终确认/i }));
     const confirm = screen.getByRole("button", { name: /确认并开始分析/i });
     await user.click(confirm);
@@ -179,13 +183,7 @@ describe("PortfolioImportPageTest", () => {
       "SPECULATIVE",
     );
     await user.click(screen.getByRole("button", { name: /继续确认角色/i }));
-    const confirmations = screen.getAllByRole("checkbox", {
-      name: /我确认这个角色/i,
-    });
-    expect(confirmations).toHaveLength(2);
-    for (const confirmationBox of confirmations) {
-      await user.click(confirmationBox);
-    }
+    expect(screen.getAllByText(/已自动识别；如不正确/)).toHaveLength(2);
     expect(
       screen.getByRole("button", { name: /继续设置备用金/i }),
     ).toBeEnabled();

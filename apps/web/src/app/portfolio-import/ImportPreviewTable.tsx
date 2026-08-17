@@ -1,3 +1,4 @@
+import { formatMoney } from "../presentation/number-format";
 import type { ImportPreview, RowOverride } from "./types";
 
 type Props = {
@@ -34,6 +35,20 @@ export function ImportPreviewTable({ preview, overrides, onOverride }: Props) {
         识别金额：持仓 ${preview.summary.estimatedInvestedValue} · Fidelity 现金
         ${preview.summary.estimatedCashValue}
       </p>
+      {preview.cash.length > 0 ? (
+        <div className="import-detected-cash" role="status">
+          <strong>
+            已从 Fidelity 文件识别现金：
+            {formatMoney(preview.summary.estimatedCashValue)}
+          </strong>
+          <span>
+            {preview.cash.map((row) => row.symbol ?? "现金余额").join("、")}
+            ；下一步会使用这个实际导入金额，不会用策略目标替代。
+          </span>
+        </div>
+      ) : (
+        <p className="import-warning">文件中没有识别到 Fidelity 现金。</p>
+      )}
       {preview.warnings.map((warning) => (
         <p className="import-warning" key={warning}>
           {warning}

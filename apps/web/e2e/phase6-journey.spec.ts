@@ -407,15 +407,17 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
     await expect(
       page.locator('.import-role-card[data-mobile-active="true"]'),
     ).toHaveCount(1);
-    await page
-      .locator('.import-role-card[data-mobile-active="true"]')
-      .getByRole("checkbox", { name: "我确认这个角色适合该持仓" })
-      .check();
+    await expect(
+      page
+        .locator('.import-role-card[data-mobile-active="true"]')
+        .getByText(/已自动识别；如不正确/),
+    ).toBeVisible();
     await page.getByRole("button", { name: "下一个持仓" }).click();
-    await page
-      .locator('.import-role-card[data-mobile-active="true"]')
-      .getByRole("checkbox", { name: "我确认这个角色适合该持仓" })
-      .check();
+    await expect(
+      page
+        .locator('.import-role-card[data-mobile-active="true"]')
+        .getByText(/已自动识别；如不正确/),
+    ).toBeVisible();
     expect(
       await page.evaluate(
         () =>
@@ -423,18 +425,12 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
           document.documentElement.clientWidth,
       ),
     ).toBe(true);
-  } else {
-    for (const confirmation of await page
-      .getByRole("checkbox", {
-        name: "我确认这个角色适合该持仓",
-      })
-      .all()) {
-      await confirmation.check();
-    }
   }
   await page.getByRole("button", { name: "继续设置备用金" }).click();
-  await page.getByRole("radio", { name: /Fidelity 现金/ }).check();
-  await page.getByLabel("确认生活备用金金额").fill("20000");
+  await expect(page.getByLabel("确认生活备用金金额")).toHaveValue("20000");
+  await expect(
+    page.getByText(/已从本次 Fidelity 文件自动识别并填入/),
+  ).toBeVisible();
   await page.getByRole("button", { name: "继续最终确认" }).click();
   const confirmButton = page.getByRole("button", { name: "确认并开始分析" });
   await expect(confirmButton).toBeInViewport();
