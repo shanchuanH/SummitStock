@@ -1,18 +1,23 @@
 package com.example.portfolio.estimates;
 
 import com.example.portfolio.market.provider.ProviderCallException;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EstimateCollectionService {
+    private static final Duration REFRESH_INTERVAL = Duration.ofDays(7);
     private final EstimateDataProvider provider;
     private final EstimateEvidenceStore store;
+    private final Clock clock;
 
-    public EstimateCollectionService(EstimateDataProvider provider, EstimateEvidenceStore store) {
+    public EstimateCollectionService(EstimateDataProvider provider, EstimateEvidenceStore store, Clock clock) {
         this.provider = provider;
         this.store = store;
+        this.clock = clock;
     }
 
     public CollectionResult collectAll() {
@@ -20,7 +25,7 @@ public class EstimateCollectionService {
         int affected = 0;
         var failed = new ArrayList<String>();
         var warnings = new ArrayList<String>();
-        for (var instrument : store.eligibleInstruments()) {
+        for (var instrument : store.instrumentsNeedingRefresh(clock.instant().minus(REFRESH_INTERVAL))) {
             final EarningsEstimateResult result;
             try {
                 result = provider.fetchEstimates(instrument.symbol());

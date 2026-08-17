@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -26,6 +27,22 @@ public class EstimateEvidenceStore {
 
     public List<InstrumentRef> eligibleInstruments() {
         return jdbc.sql("SELECT BIN_TO_UUID(id) id, symbol FROM instrument WHERE active=TRUE AND asset_type='EQUITY'")
+                .query(InstrumentRef.class)
+                .list();
+    }
+
+    public List<InstrumentRef> instrumentsNeedingRefresh(Instant cutoff) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(i.id) id,i.symbol
+                        FROM instrument i
+                        WHERE i.active=TRUE AND i.asset_type='EQUITY' AND NOT EXISTS (
+                          SELECT 1 FROM estimate_observation e
+                          WHERE e.instrument_id=i.id AND e.quality='HEALTHY' AND e.data_as_of>=:cutoff
+                        )
+                        ORDER BY i.symbol
+                        """)
+                .param("cutoff", cutoff)
                 .query(InstrumentRef.class)
                 .list();
     }
