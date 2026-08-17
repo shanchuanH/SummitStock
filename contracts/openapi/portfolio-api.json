@@ -464,6 +464,24 @@
         }
       }
     },
+    "/api/v1/analysis/runs": {
+      "post": {
+        "tags": ["analysis-command-controller"],
+        "operationId": "run",
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/active-sleeve/review": {
       "post": {
         "tags": ["dip-cashflow-controller"],
@@ -2241,6 +2259,18 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "RunResponse": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
           }
         }
       },

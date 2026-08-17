@@ -212,6 +212,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/analysis/runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["run"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/active-sleeve/review": {
     parameters: {
       query?: never;
@@ -1042,6 +1058,11 @@ export interface components {
       tacticalReserve?: string;
       qualityOpportunity?: string;
       ruleIds?: string[];
+    };
+    RunResponse: {
+      /** Format: uuid */
+      runId?: string;
+      state?: string;
     };
     AccountabilityRequest: {
       /** Format: int32 */
@@ -2256,6 +2277,26 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["CashflowPlanResponse"];
+        };
+      };
+    };
+  };
+  run: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Accepted */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["RunResponse"];
         };
       };
     };

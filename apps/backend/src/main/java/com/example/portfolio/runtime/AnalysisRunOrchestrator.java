@@ -4,6 +4,7 @@ import com.example.portfolio.configuration.PortfolioProperties;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -95,40 +96,77 @@ public class AnalysisRunOrchestrator {
         int scheduled = 0;
         for (var userId : users) {
             var key = "eod:" + userId + ":" + marketDate + ":" + properties.strategyVersion();
-            var proposed = UUID.randomUUID();
-            jdbc.sql(
-                            """
-                            INSERT IGNORE INTO portfolio_analysis_run (
-                                id, user_id, import_batch_id, market_date, strategy_version, status,
-                                run_key, created_at, updated_at, version
-                            ) VALUES (
-                                UUID_TO_BIN(:id), UUID_TO_BIN(:userId), NULL, :marketDate, :strategyVersion,
-                                'QUEUED', :runKey, :now, :now, 0
-                            )
-                            """)
-                    .param("id", proposed.toString())
-                    .param("userId", userId.toString())
-                    .param("marketDate", marketDate)
-                    .param("strategyVersion", properties.strategyVersion())
-                    .param("runKey", key)
-                    .param("now", clock.instant())
-                    .update();
-            var runId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run WHERE run_key=:runKey")
-                    .param("runKey", key)
-                    .query(UUID.class)
-                    .single();
-            initialize(runId);
-            var payload =
-                    "{\"runId\":\"" + runId + "\",\"userId\":\"" + userId + "\",\"marketDate\":\"" + marketDate + "\"}";
-            if (jobs.enqueue(
-                    "PORTFOLIO_ANALYSIS",
-                    "analysis:" + runId + ":PORTFOLIO_ANALYSIS",
-                    payload,
-                    100,
-                    clock.instant(),
-                    runId)) scheduled++;
+            if (schedule(userId, marketDate, properties.strategyVersion(), key)) scheduled++;
         }
         return scheduled;
+    }
+
+    @Transactional
+    public Optional<ScheduleResult> scheduleForUser(
+            String email, LocalDate marketDate, PortfolioProperties properties) {
+        var userId = jdbc.sql(
+                        """
+                        SELECT DISTINCT BIN_TO_UUID(u.id)
+                        FROM app_user u JOIN investment_account a ON a.user_id=u.id
+                        WHERE u.email=:email AND u.status='ACTIVE' AND a.active=TRUE
+                        """)
+                .param("email", email)
+                .query(UUID.class)
+                .optional();
+        if (userId.isEmpty()) return Optional.empty();
+        var activeRun = jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run
+                        WHERE user_id=UUID_TO_BIN(:userId) AND status IN ('QUEUED','RUNNING','WAITING')
+                        ORDER BY created_at DESC LIMIT 1
+                        """)
+                .param("userId", userId.orElseThrow().toString())
+                .query(UUID.class)
+                .optional();
+        if (activeRun.isPresent()) return Optional.of(new ScheduleResult(activeRun.orElseThrow(), true));
+        var runKey = "manual:" + userId.orElseThrow() + ":" + marketDate + ":" + properties.strategyVersion() + ":"
+                + UUID.randomUUID();
+        schedule(userId.orElseThrow(), marketDate, properties.strategyVersion(), runKey);
+        var runId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run WHERE run_key=:runKey")
+                .param("runKey", runKey)
+                .query(UUID.class)
+                .single();
+        return Optional.of(new ScheduleResult(runId, false));
+    }
+
+    private boolean schedule(UUID userId, LocalDate marketDate, String strategyVersion, String runKey) {
+        var proposed = UUID.randomUUID();
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO portfolio_analysis_run (
+                            id, user_id, import_batch_id, market_date, strategy_version, status,
+                            run_key, created_at, updated_at, version
+                        ) VALUES (
+                            UUID_TO_BIN(:id), UUID_TO_BIN(:userId), NULL, :marketDate, :strategyVersion,
+                            'QUEUED', :runKey, :now, :now, 0
+                        )
+                        """)
+                .param("id", proposed.toString())
+                .param("userId", userId.toString())
+                .param("marketDate", marketDate)
+                .param("strategyVersion", strategyVersion)
+                .param("runKey", runKey)
+                .param("now", clock.instant())
+                .update();
+        var runId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run WHERE run_key=:runKey")
+                .param("runKey", runKey)
+                .query(UUID.class)
+                .single();
+        initialize(runId);
+        var payload =
+                "{\"runId\":\"" + runId + "\",\"userId\":\"" + userId + "\",\"marketDate\":\"" + marketDate + "\"}";
+        return jobs.enqueue(
+                "PORTFOLIO_ANALYSIS",
+                "analysis:" + runId + ":PORTFOLIO_ANALYSIS",
+                payload,
+                100,
+                clock.instant(),
+                runId);
     }
 
     public void started(DurableJobStore.ClaimedJob job) {
@@ -255,4 +293,6 @@ public class AnalysisRunOrchestrator {
     }
 
     record NextStep(String stepType, UUID userId, LocalDate marketDate) {}
+
+    public record ScheduleResult(UUID runId, boolean alreadyRunning) {}
 }

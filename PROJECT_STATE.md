@@ -603,3 +603,9 @@ Configure production provider credentials, run the documented deployment smoke c
 - Deterministically suggested holding roles are accepted into the preview automatically and remain editable. The owner still performs one final import confirmation, but no longer has to check every correctly recognized holding individually.
 - A sanitized regression reproduces the August 2026 Fidelity header, settlement-type rows, decorated money-market symbol, trailing delimiter, and legal footer structure without committing the owner's source CSV or account data. The complete Maven reactor passes 224 backend tests; frontend ESLint, TypeScript, 18 Vitest files / 40 tests, and desktop/mobile Playwright pass 8/8.
 - Preview deduplication now includes an explicit parser revision while retaining the raw source checksum for audit. V45 marks historical batches as `legacy-v1`, so re-uploading the same file after a parser upgrade creates a freshly parsed preview instead of returning stale rows; repeat uploads within the same parser revision remain idempotent. The focused parser and MySQL cache-upgrade suite passes 6/6.
+
+## Immediate Analysis Reruns — 2026-08-16
+
+- An authenticated owner can now request an immediate analysis with `POST /api/v1/analysis/runs` after importing an active portfolio. The command uses the same durable 27-step analysis pipeline as scheduled runs and is scoped to the signed-in owner.
+- If that owner already has a queued, running, or waiting analysis, the endpoint returns the existing run instead of creating concurrent duplicate work. Completed runs remain immutable and a later request creates a new auditable run with the configured market date and strategy version.
+- Focused MySQL integration coverage proves a completed import can queue a distinct rerun, initializes all 27 steps, and returns the same run for a repeated request while it remains active.
