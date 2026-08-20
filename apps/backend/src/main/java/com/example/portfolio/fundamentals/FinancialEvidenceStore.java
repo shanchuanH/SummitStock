@@ -334,7 +334,8 @@ public class FinancialEvidenceStore {
 
     private static String unit(FinancialMetric metric) {
         if (isRatio(metric)) return "RATIO";
-        if (metric == FinancialMetric.DILUTED_SHARES) return "SHARES";
+        if (metric == FinancialMetric.DILUTED_WEIGHTED_AVG_SHARES
+                || metric == FinancialMetric.COMMON_SHARES_OUTSTANDING) return "SHARES";
         if (metric == FinancialMetric.DILUTED_EPS) return "USD_PER_SHARE";
         return "USD";
     }

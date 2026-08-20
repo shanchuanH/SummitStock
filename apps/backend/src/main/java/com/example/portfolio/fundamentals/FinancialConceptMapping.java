@@ -59,7 +59,7 @@ public final class FinancialConceptMapping {
     private static boolean validUnit(FinancialMetric metric, String unit) {
         if (unit == null) return false;
         return switch (metric) {
-            case DILUTED_SHARES -> "shares".equalsIgnoreCase(unit);
+            case DILUTED_WEIGHTED_AVG_SHARES, COMMON_SHARES_OUTSTANDING -> "shares".equalsIgnoreCase(unit);
             case DILUTED_EPS -> "USD/shares".equalsIgnoreCase(unit);
             default -> "USD".equalsIgnoreCase(unit);
         };
@@ -94,7 +94,8 @@ public final class FinancialConceptMapping {
                 FinancialMetric.CAPEX,
                 FinancialMetric.CASH,
                 FinancialMetric.TOTAL_DEBT,
-                FinancialMetric.DILUTED_SHARES);
+                FinancialMetric.DILUTED_WEIGHTED_AVG_SHARES,
+                FinancialMetric.COMMON_SHARES_OUTSTANDING);
         if (!required.stream().allMatch(result::containsValue)) {
             throw new IllegalStateException("Financial concept mapping is incomplete");
         }

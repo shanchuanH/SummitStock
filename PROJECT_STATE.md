@@ -592,3 +592,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - The canonical macro snapshot now stores 10Y and 2Y nominal Treasury yields, Fed funds, rate-context stress, curve state, and the reliable FRED `DFII10` 10-year real-yield series. Nominal DGS10 is never labeled as a real rate; absent DFII10 remains unavailable.
 - `DFII10` runs through the same live FRED provider abstraction. The explicit local fixture has a clearly identified deterministic value for development only; no live profile falls back to it.
 - Verification: 6/6 focused macro/volatility tests and 3/3 Market Context component tests pass; frontend typecheck and ESLint pass. The rate-context regression proves that changing rates changes rate stress/curve but not aggregate stress resilience.
+
+## Full Review Modification Manual V3 — Phase R17 — 2026-08-20
+
+- SEC share evidence is split into `DILUTED_WEIGHTED_AVG_SHARES` and `COMMON_SHARES_OUTSTANDING`. Weighted-average diluted shares remain the EPS denominator and dilution-analysis input; point-in-time common shares are the only share basis accepted for market-cap and enterprise-value multiples.
+- The live SEC provider supports multiple common-share concepts (`EntityCommonStockSharesOutstanding`, then `CommonStockSharesOutstanding`) while preserving the selected concept, period start/end, filing date/data-as-of, accession, form, and source through the existing canonical financial evidence model.
+- Historical `DILUTED_SHARES` observations are relabeled as weighted-average diluted shares, never silently promoted to common shares. When common shares are absent, market cap and dependent valuation metrics remain unavailable.
+- Verification: 11/11 focused financial-metric, period-resolution, SEC contract, and valuation-basis tests pass; market-cap/EV/FCF-yield math is asserted from common shares independently of diluted weighted-average shares.

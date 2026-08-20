@@ -23,14 +23,14 @@ class FinancialMetricEngineTest {
                         Map.entry(FinancialMetric.TOTAL_DEBT, bd("10")),
                         Map.entry(FinancialMetric.CURRENT_ASSETS, bd("50")),
                         Map.entry(FinancialMetric.CURRENT_LIABILITIES, bd("25")),
-                        Map.entry(FinancialMetric.DILUTED_SHARES, bd("102"))));
+                        Map.entry(FinancialMetric.DILUTED_WEIGHTED_AVG_SHARES, bd("102"))));
         var prior = FinancialTestFixtures.period(
                 "2024-12-31",
                 Map.of(
                         FinancialMetric.REVENUE, bd("100"),
                         FinancialMetric.OPERATING_INCOME, bd("25"),
                         FinancialMetric.DILUTED_EPS, bd("5"),
-                        FinancialMetric.DILUTED_SHARES, bd("100")));
+                        FinancialMetric.DILUTED_WEIGHTED_AVG_SHARES, bd("100")));
         var threeYears = FinancialTestFixtures.period("2022-12-31", Map.of(FinancialMetric.REVENUE, bd("80")));
 
         var result = new FinancialMetricEngine().compute(current, List.of(threeYears, prior, current));

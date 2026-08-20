@@ -51,7 +51,8 @@ class SecProviderContractTest {
                             "OperatingCashFlow",
                             "CapitalExpenditures",
                             "DilutedEPS",
-                            "SharesDiluted");
+                            "DilutedWeightedAverageShares",
+                            "CommonSharesOutstanding");
             assertThat(facts.facts()).allSatisfy(fact -> {
                 assertThat(fact.concept()).isNotBlank();
                 assertThat(fact.unit()).isNotBlank();
@@ -121,7 +122,8 @@ class SecProviderContractTest {
                         concept("NetCashProvidedByUsedInOperatingActivities", "USD", "250"),
                         concept("PaymentsToAcquirePropertyPlantAndEquipment", "USD", "50"),
                         concept("EarningsPerShareDiluted", "USD/shares", "2.5"),
-                        concept("WeightedAverageNumberOfDilutedSharesOutstanding", "shares", "100"))
+                        concept("WeightedAverageNumberOfDilutedSharesOutstanding", "shares", "100"),
+                        concept("EntityCommonStockSharesOutstanding", "shares", "98"))
                 + "}}}";
     }
 

@@ -58,7 +58,10 @@ public class ValuationEvidenceStore {
                           t.fcf_ttm freeCashFlow,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='CASH' ORDER BY m.data_as_of DESC LIMIT 1) cash,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='TOTAL_DEBT' ORDER BY m.data_as_of DESC LIMIT 1) totalDebt,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='DILUTED_SHARES' ORDER BY m.data_as_of DESC LIMIT 1) shares,
+                          (SELECT m.value_decimal FROM financial_metric_snapshot m
+                             JOIN financial_period mp ON mp.id=m.period_id
+                           WHERE m.instrument_id=i.id AND m.metric_code='COMMON_SHARES_OUTSTANDING'
+                           ORDER BY mp.end_date DESC,m.data_as_of DESC LIMIT 1) shares,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='REVENUE_YOY' ORDER BY m.data_as_of DESC LIMIT 1) revenueGrowth,
                           (SELECT h.overall_status FROM financial_health_snapshot h WHERE h.instrument_id=i.id ORDER BY h.data_as_of DESC LIMIT 1) health,
                           (SELECT r.overall_revision FROM estimate_revision_snapshot r WHERE r.instrument_id=i.id ORDER BY r.data_as_of DESC LIMIT 1) revision
