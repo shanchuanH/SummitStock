@@ -657,3 +657,8 @@ Configure production provider credentials, run the documented deployment smoke c
 - Production retains Secure session cookies, framework forwarded-header handling, real market/fundamentals providers, `ALLOW_PARTIAL_PRODUCTION=false`, `PORTFOLIO_ALLOW_DRAFT_STRATEGY=false`, and separate API/worker processes. None of the existing production gates were relaxed for local development.
 - The production profile disables both `/v3/api-docs` and Swagger UI. The production startup gate independently rejects any override that re-enables the OpenAPI endpoint, preventing an accidentally public deployment from exposing it.
 - Verification: 10/10 focused production security/provider tests pass, including the production YAML contract and fail-fast API-docs override. The Maven reactor compiled all dependent modules successfully.
+
+## Full Review Modification Manual V3 — Final release gate correction — 2026-08-20
+
+- The locked transitive `nanoid` dependency is upgraded from 3.3.17 to patched 3.3.18 after the required high-severity audit identified GHSA-2v37-7h3g-55p8. No application dependency, strategy rule, or runtime behavior changed.
+- Verification: `pnpm audit --audit-level high` reports no known vulnerabilities; frontend lint, Web/API-client typecheck, and both production builds pass after the lockfile update.
