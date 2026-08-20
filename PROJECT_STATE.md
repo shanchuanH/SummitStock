@@ -628,3 +628,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Sizing explanations are persisted with the holding analysis snapshot and surfaced in Position Detail, including a data-derived “why not more shares?” comparison and the actual post-trade planned-risk usage against the configured total-risk cap.
 - Risk language now consistently says `计划退出风险`. The UI explicitly warns that an overnight gap can make actual loss exceed the stop-based figure and never labels planned stop risk as maximum possible loss.
 - Verification: 9/9 sizing/readiness backend tests and 7/7 Position Detail component tests pass; frontend typecheck, ESLint, and diff checks pass. The Flyway migration compiles with the backend, but Docker-backed migration execution remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R22 — 2026-08-20
+
+- `/api/v1/review/performance` closes the recommendation loop with cashflow-adjusted portfolio TWR from canonical unit NAV, real adjusted SPY/QQQ returns, active-sleeve return, peak-to-trough drawdown, quantity-adjusted turnover, and contribution-to-return based on per-share return rather than current P&L.
+- The review page exposes 1M, 3M, YTD, 1Y, and since-inception periods. Missing history stays unavailable; no synthetic production performance series or placeholder number is emitted.
+- Decision outcomes are evaluated against deterministic rule objectives. In particular, `HOLD_DO_NOT_ADD` is evaluated as concentration control using subsequent recorded quantities, never as a short-term price forecast.
+- Active-sleeve accountability automatically uses a supported 12M or 24M evidence window and the existing Strategy policy: underperformance above 5 percentage points without drawdown improvement triggers the configured budget review. It displays active return, QQQ benchmark, relative return, active/core max drawdown, contribution, turnover, and budget multiplier.
+- Verification: 3/3 focused cashflow-adjusted performance/contribution/drawdown tests, the existing 12M/24M accountability assertions, and 4/4 workspace component tests pass; frontend typecheck and ESLint pass. Database-backed endpoint execution remains unclaimed while local MySQL/Docker is unavailable.
