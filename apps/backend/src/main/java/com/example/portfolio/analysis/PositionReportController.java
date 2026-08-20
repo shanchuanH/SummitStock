@@ -106,6 +106,7 @@ public final class PositionReportController {
                         value.confidence(),
                         decimal(value.recommendedQuantityMin()),
                         decimal(value.recommendedQuantityMax()),
+                        decimal(value.quantityBeforeLimitingConstraint()),
                         value.exactQuantityAllowed()),
                 new PortfolioRole(
                         value.classification(),
@@ -298,9 +299,12 @@ public final class PositionReportController {
                 decimal(value.plannedRiskFraction()),
                 decimal(evidence.clusterOpenRisk()),
                 decimal(evidence.totalOpenRisk()),
-                decimal(report.riskAfterFraction()),
-                null,
-                report.riskCalculationReason(),
+                decimal(evidence.strategy().totalOpenRiskMax()),
+                decimal(report.projectedPositionWeight()),
+                decimal(report.projectedTotalRisk()),
+                decimal(report.projectedClusterRisk()),
+                report.sizingLimitingConstraint(),
+                decimal(report.sizingRiskPerShare()),
                 value.quality(),
                 instant(value.dataAsOf()));
     }
@@ -494,6 +498,7 @@ public final class PositionReportController {
             String confidence,
             String quantityMin,
             String quantityMax,
+            String quantityBeforeLimitingConstraint,
             boolean exactQuantityAllowed) {}
 
     public record PortfolioRole(
@@ -619,9 +624,12 @@ public final class PositionReportController {
             String positionPlannedRiskPct,
             String clusterRisk,
             String totalPortfolioPlannedRisk,
+            String totalPortfolioRiskCap,
+            String projectedPositionWeight,
             String projectedTotalRiskAfterAction,
             String projectedClusterRiskAfterAction,
             String sizingLimitingConstraint,
+            String riskPerShare,
             String quality,
             Instant dataAsOf) {}
 

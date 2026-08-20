@@ -1,6 +1,7 @@
 package com.example.portfolio.analysis.infrastructure;
 
 import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService.RiskProjection;
+import com.example.portfolio.analysis.application.PositionSizing;
 import com.example.portfolio.analysis.domain.HoldingAnalysisResult;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
 import com.example.portfolio.analysis.narrative.NarrativeInput;
@@ -33,6 +34,7 @@ public class HoldingAnalysisStore {
             RecommendationResolution resolution,
             NarrativeInput narrativeInput,
             RiskProjection riskProjection,
+            PositionSizing.Result sizing,
             Instant createdAt) {
         var id = UUID.randomUUID();
         jdbc.sql(
@@ -41,12 +43,16 @@ public class HoldingAnalysisStore {
                             id, analysis_run_id, position_id, strategy_version, analysis_status, readiness, confidence,
                             current_weight, target_weight_min, target_weight_max, exact_quantity_allowed,
                             recommended_action, recommended_quantity_min, recommended_quantity_max,
+                            sizing_limiting_constraint, projected_position_weight, projected_total_risk,
+                            projected_cluster_risk, sizing_risk_per_share, quantity_before_limiting_constraint,
                             reasons, risks, change_conditions, rule_ids, evidence_refs, evidence_checksum, config_hash,
                             decision_payload, data_as_of, valid_until, created_at
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:analysisRunId), UUID_TO_BIN(:positionId), :strategyVersion, :analysisStatus,
                             :readiness, :confidence, :currentWeight, :targetMin, :targetMax, :exactQuantity,
-                            :action, :quantityMin, :quantityMax, CAST(:reasons AS JSON), CAST(:risks AS JSON),
+                            :action, :quantityMin, :quantityMax, :limitingConstraint, :projectedPositionWeight,
+                            :projectedTotalRisk, :projectedClusterRisk, :riskPerShare, :quantityBeforeConstraint,
+                            CAST(:reasons AS JSON), CAST(:risks AS JSON),
                             CAST(:conditions AS JSON), CAST(:rules AS JSON), CAST(:evidenceRefs AS JSON), :checksum, :configHash,
                             CAST(:decisionPayload AS JSON), :dataAsOf, :validUntil, :createdAt
                         )
@@ -65,6 +71,12 @@ public class HoldingAnalysisStore {
                 .param("action", value.recommendedAction().name())
                 .param("quantityMin", value.recommendedQuantityMin())
                 .param("quantityMax", value.recommendedQuantityMax())
+                .param("limitingConstraint", sizing.limitingConstraint())
+                .param("projectedPositionWeight", sizing.projectedPositionWeight())
+                .param("projectedTotalRisk", sizing.projectedTotalRisk())
+                .param("projectedClusterRisk", sizing.projectedClusterRisk())
+                .param("riskPerShare", sizing.riskPerShare())
+                .param("quantityBeforeConstraint", sizing.quantityBeforeLimitingConstraint())
                 .param("reasons", serialize(value.reasons()))
                 .param("risks", serialize(value.risks()))
                 .param("conditions", serialize(value.changeConditions()))
@@ -225,6 +237,12 @@ public class HoldingAnalysisStore {
                                h.recommended_action recommendedAction,
                                h.recommended_quantity_min recommendedQuantityMin,
                                h.recommended_quantity_max recommendedQuantityMax,
+                               h.sizing_limiting_constraint sizingLimitingConstraint,
+                               h.projected_position_weight projectedPositionWeight,
+                               h.projected_total_risk projectedTotalRisk,
+                               h.projected_cluster_risk projectedClusterRisk,
+                               h.sizing_risk_per_share sizingRiskPerShare,
+                               h.quantity_before_limiting_constraint quantityBeforeLimitingConstraint,
                                h.reasons, h.risks, h.change_conditions changeConditions, h.rule_ids ruleIds,
                                h.evidence_refs evidenceRefs,
                                h.strategy_version strategyVersion, h.config_hash configHash,
@@ -301,6 +319,12 @@ public class HoldingAnalysisStore {
             String recommendedAction,
             BigDecimal recommendedQuantityMin,
             BigDecimal recommendedQuantityMax,
+            String sizingLimitingConstraint,
+            BigDecimal projectedPositionWeight,
+            BigDecimal projectedTotalRisk,
+            BigDecimal projectedClusterRisk,
+            BigDecimal sizingRiskPerShare,
+            BigDecimal quantityBeforeLimitingConstraint,
             String reasons,
             String risks,
             String changeConditions,

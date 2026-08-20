@@ -90,6 +90,18 @@ function presentEvidenceValue(value?: string | null) {
   return labels[value] ?? "状态待复核";
 }
 
+function presentSizingConstraint(value?: string | null) {
+  const labels: Record<string, string> = {
+    TOTAL_RISK_CAP: "组合风险上限",
+    CLUSTER_RISK_CAP: "主题/行业风险上限",
+    POSITION_WEIGHT_CAP: "单一持仓上限",
+    TRADE_RISK_CAP: "单笔计划退出风险上限",
+    AVAILABLE_CASH: "可部署现金",
+    LIQUIDITY: "流动性上限",
+  };
+  return value ? (labels[value] ?? "组合约束") : null;
+}
+
 function valuationSentence(
   state?: string | null,
   attractiveButCannotAdd?: boolean,
@@ -235,6 +247,24 @@ export function PositionDetailPage() {
     eps90dAgo?: string | null;
     dispersionHigh?: boolean;
   };
+  const sizingDetails = layers.systemRecommendation as typeof layers.systemRecommendation & {
+    quantityBeforeLimitingConstraint?: string | null;
+  };
+  const riskDetails = layers.risk as typeof layers.risk & {
+    totalPortfolioRiskCap?: string | null;
+    projectedPositionWeight?: string | null;
+    projectedTotalRiskAfterAction?: string | null;
+    projectedClusterRiskAfterAction?: string | null;
+    sizingLimitingConstraint?: string | null;
+    riskPerShare?: string | null;
+  };
+  const limitingConstraint = presentSizingConstraint(
+    riskDetails.sizingLimitingConstraint,
+  );
+  const hasSizingExplanation =
+    layers.systemRecommendation.exactQuantityAllowed &&
+    layers.systemRecommendation.quantityMax != null &&
+    limitingConstraint != null;
   const classification = data.position?.classification;
   const isEtf = Boolean(data.assetEvidence?.etf?.etfModelApplied);
   const isSpeculative = classification === "SPECULATIVE";
@@ -574,6 +604,28 @@ export function PositionDetailPage() {
               }
             />
           </dl>
+          {hasSizingExplanation ? (
+            <div className="sizing-explanation">
+              <strong>
+                最多建议 {formatDecimal(layers.systemRecommendation.quantityMax)} 股
+              </strong>
+              {sizingDetails.quantityBeforeLimitingConstraint != null &&
+              Number(sizingDetails.quantityBeforeLimitingConstraint) >
+                Number(layers.systemRecommendation.quantityMax) ? (
+                <p>
+                  为什么不是 {formatDecimal(sizingDetails.quantityBeforeLimitingConstraint)} 股？
+                </p>
+              ) : null}
+              <p>
+                {limitingConstraint}是当前限制因素
+                {riskDetails.sizingLimitingConstraint === "TOTAL_RISK_CAP" &&
+                riskDetails.projectedTotalRiskAfterAction != null &&
+                riskDetails.totalPortfolioRiskCap != null
+                  ? `：交易后总计划风险 ${formatPercent(riskDetails.projectedTotalRiskAfterAction, 2)} / ${formatPercent(riskDetails.totalPortfolioRiskCap, 2)}`
+                  : "。"}
+              </p>
+            </div>
+          ) : null}
         </details>
 
         <details className="context-card analyst-layer" open>
@@ -784,7 +836,24 @@ export function PositionDetailPage() {
                 layers.priceRiskEarnings.earningsRisk,
               )}
             />
+            <Metric
+              label="计划退出风险"
+              value={formatPercent(layers.risk.positionPlannedRiskPct)}
+            />
+            <Metric
+              label="每股计划风险"
+              value={formatMoney(riskDetails.riskPerShare, 2)}
+            />
+            <Metric
+              label="交易后仓位"
+              value={formatPercent(riskDetails.projectedPositionWeight)}
+            />
           </dl>
+          {layers.risk.positionPlannedRiskPct != null ? (
+            <p className="risk-disclaimer">
+              计划退出风险基于正式止损；如果出现隔夜跳空，实际损失可能高于该数字。
+            </p>
+          ) : null}
           <div className="chart-range" aria-label="图表范围">
             {(["3M", "6M", "1Y", "3Y"] as const).map((range) => (
               <button

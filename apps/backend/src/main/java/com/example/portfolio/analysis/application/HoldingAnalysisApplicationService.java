@@ -120,7 +120,7 @@ public final class HoldingAnalysisApplicationService {
                 now.plus(VALIDITY),
                 AnalysisChecksum.sha256(evidence + ":" + state + ":" + resolution));
         var narrativeInput = narrativeInput(evidence, result, resolution);
-        var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, riskProjection, now);
+        var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, riskProjection, sizing, now);
         return new AnalyzedHolding(snapshotId, evidence, result, resolution, narrativeInput, riskProjection);
     }
 

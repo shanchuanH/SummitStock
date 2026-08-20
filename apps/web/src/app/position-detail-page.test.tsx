@@ -281,6 +281,52 @@ describe("PositionDetailPage", () => {
       expect.anything(),
     );
   });
+  it("explains the deterministic sizing constraint and planned stop risk", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const path = url(input);
+        if (path.endsWith("/analyst-report"))
+          return response({
+            ...report,
+            evidence: { ...report.evidence, exactQuantityAllowed: true },
+            recommendation: {
+              ...report.recommendation,
+              action: "ADD",
+              quantityMin: "10",
+              quantityMax: "17",
+            },
+            layers: {
+              ...report.layers,
+              systemRecommendation: {
+                ...report.layers.systemRecommendation,
+                action: "ADD",
+                exactQuantityAllowed: true,
+                quantityMin: "10",
+                quantityMax: "17",
+                quantityBeforeLimitingConstraint: "30",
+              },
+              risk: {
+                ...report.layers.risk,
+                totalPortfolioRiskCap: "0.02",
+                projectedPositionWeight: "0.11",
+                projectedTotalRiskAfterAction: "0.0199",
+                projectedClusterRiskAfterAction: "0.014",
+                riskPerShare: "26.14",
+              },
+            },
+          });
+        if (path.includes("/chart")) return response(chart);
+        throw new Error(path);
+      }),
+    );
+    renderPage();
+    await screen.findByText("最多建议 17 股");
+    expect(screen.getByText("为什么不是 30 股？")).toBeInTheDocument();
+    expect(screen.getByText(/交易后总计划风险 1.99% \/ 2.00%/)).toBeInTheDocument();
+    expect(screen.getByText(/如果出现隔夜跳空/)).toBeInTheDocument();
+    expect(screen.queryByText(/最大可能损失/)).not.toBeInTheDocument();
+  });
   it("explains when estimate dispersion lowers forward valuation confidence", async () => {
     vi.stubGlobal(
       "fetch",

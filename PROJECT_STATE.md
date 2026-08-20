@@ -621,3 +621,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Prior consensus is deterministically reconstructed from the persisted current consensus and fractional revision. Missing inputs and non-positive denominators remain unavailable rather than producing invented history.
 - High dispersion uses the estimate engine's existing 50% quality boundary. When exceeded, the owner UI states exactly: `分析师对盈利路径分歧较大，因此 forward valuation 置信度下降。`; no Strategy V3 decision threshold changed.
 - Verification: 4/4 focused backend estimate tests and 6/6 Position Detail component tests pass; frontend typecheck and ESLint pass.
+
+## Full Review Modification Manual V3 — Phase R21 — 2026-08-20
+
+- The existing deterministic sizing math is unchanged, but each exact sizing result now records its binding constraint, projected position weight, projected total and cluster planned risk, risk per share, and the trade-risk quantity before tighter portfolio constraints.
+- Sizing explanations are persisted with the holding analysis snapshot and surfaced in Position Detail, including a data-derived “why not more shares?” comparison and the actual post-trade planned-risk usage against the configured total-risk cap.
+- Risk language now consistently says `计划退出风险`. The UI explicitly warns that an overnight gap can make actual loss exceed the stop-based figure and never labels planned stop risk as maximum possible loss.
+- Verification: 9/9 sizing/readiness backend tests and 7/7 Position Detail component tests pass; frontend typecheck, ESLint, and diff checks pass. The Flyway migration compiles with the backend, but Docker-backed migration execution remains unavailable locally and is not claimed as passing.

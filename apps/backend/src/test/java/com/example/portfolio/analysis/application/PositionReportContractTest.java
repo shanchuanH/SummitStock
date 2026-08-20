@@ -87,7 +87,11 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
                 .andExpect(jsonPath("$.layers.estimates.fy1Eps").value("8.42"))
                 .andExpect(jsonPath("$.layers.estimates.epsRevision30d").value("0.021"))
                 .andExpect(jsonPath("$.layers.estimates.analystCount").value(39))
+                .andExpect(jsonPath("$.layers.risk.projectedPositionWeight").isNotEmpty())
+                .andExpect(
+                        jsonPath("$.layers.risk.projectedTotalRiskAfterAction").isNotEmpty())
                 .andExpect(jsonPath("$.layers.risk.projectedClusterRiskAfterAction")
-                        .doesNotExist());
+                        .isNotEmpty())
+                .andExpect(jsonPath("$.layers.risk.riskPerShare").isNotEmpty());
     }
 }
