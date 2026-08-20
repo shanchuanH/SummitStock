@@ -1,5 +1,6 @@
 package com.example.portfolio.context;
 
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.nio.charset.StandardCharsets;
@@ -75,18 +76,23 @@ public class BreadthService {
     }
 
     public CompositeBreadth latest(LocalDate marketDate) {
+        return latest(DecisionAsOfContext.marketClose(marketDate, "CURRENT"));
+    }
+
+    public CompositeBreadth latest(DecisionAsOfContext context) {
         var rows = jdbc.sql(
                         """
                         WITH ranked AS (
                           SELECT universe_code,pct_above_sma50,pct_above_sma200,coverage,quality,data_as_of,
                                  ROW_NUMBER() OVER (PARTITION BY universe_code ORDER BY market_date DESC,data_as_of DESC,created_at DESC) rn
-                          FROM breadth_snapshot WHERE market_date<=:marketDate
+                          FROM breadth_snapshot WHERE market_date<=:marketDate AND data_as_of<=:cutoff
                             AND universe_code IN ('SP500','NASDAQ100')
                         )
                         SELECT universe_code code,pct_above_sma50 pctAbove50,pct_above_sma200 pctAbove200,
                                coverage,quality,data_as_of dataAsOf FROM ranked WHERE rn=1
                         """)
-                .param("marketDate", marketDate)
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(SnapshotRow.class)
                 .list();
         if (rows.size() != 2 || rows.stream().anyMatch(row -> row.pctAbove50() == null)) {

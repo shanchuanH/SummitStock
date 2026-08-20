@@ -1,6 +1,7 @@
 package com.example.portfolio.macro;
 
 import com.example.portfolio.analysis.application.StrategyDefinitionLoader;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.market.provider.ProviderCallException;
 import java.math.BigDecimal;
@@ -163,13 +164,19 @@ public class MacroApplicationService {
     }
 
     public MacroSnapshot latestFactors(LocalDate marketDate) {
+        return latestFactors(DecisionAsOfContext.marketClose(marketDate, "CURRENT"));
+    }
+
+    public MacroSnapshot latestFactors(DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT stress_resilience stressResilience,volatility_stress volatilityStress,
                                credit_stress creditStress,quality
-                        FROM macro_factor_snapshot WHERE market_date<=:date ORDER BY market_date DESC LIMIT 1
+                        FROM macro_factor_snapshot WHERE market_date<=:date AND data_as_of<=:cutoff
+                        ORDER BY market_date DESC,data_as_of DESC LIMIT 1
                         """)
-                .param("date", marketDate)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(MacroSnapshot.class)
                 .optional()
                 .orElse(new MacroSnapshot(null, null, null, "MISSING"));
@@ -207,17 +214,26 @@ public class MacroApplicationService {
     }
 
     public BigDecimal latestValue(String code, LocalDate marketDate) {
-        return latest(code, marketDate);
+        return latestValue(code, DecisionAsOfContext.marketClose(marketDate, "CURRENT"));
     }
 
-    private BigDecimal latest(String code, LocalDate date) {
+    public BigDecimal latestValue(String code, DecisionAsOfContext context) {
+        return latest(code, context);
+    }
+
+    private BigDecimal latest(String code, DecisionAsOfContext context) {
         return jdbc.sql(
-                        "SELECT value_decimal FROM macro_observation WHERE series_code=:code AND observation_date<=:date ORDER BY observation_date DESC LIMIT 1")
+                        "SELECT value_decimal FROM macro_observation WHERE series_code=:code AND observation_date<=:date AND data_as_of<=:cutoff ORDER BY observation_date DESC,data_as_of DESC LIMIT 1")
                 .param("code", code)
-                .param("date", date)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(BigDecimal.class)
                 .optional()
                 .orElse(null);
+    }
+
+    private BigDecimal latest(String code, LocalDate marketDate) {
+        return latest(code, DecisionAsOfContext.marketClose(marketDate, "CURRENT"));
     }
 
     private List<BigDecimal> history(String code, LocalDate date) {

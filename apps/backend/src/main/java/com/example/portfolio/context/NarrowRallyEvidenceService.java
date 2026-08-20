@@ -1,5 +1,6 @@
 package com.example.portfolio.context;
 
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -17,9 +18,15 @@ public class NarrowRallyEvidenceService {
     }
 
     public Evidence evaluate(LocalDate marketDate, boolean spyAbove200, boolean qqqAbove200) {
-        var priorDate = benchmarkSession(marketDate, 20);
-        var currentBreadth = breadth.latest(marketDate);
-        var priorBreadth = priorDate == null ? null : breadth.latest(priorDate);
+        return evaluate(DecisionAsOfContext.marketClose(marketDate, "CURRENT"), spyAbove200, qqqAbove200);
+    }
+
+    public Evidence evaluate(DecisionAsOfContext context, boolean spyAbove200, boolean qqqAbove200) {
+        var priorDate = benchmarkSession(context, 20);
+        var currentBreadth = breadth.latest(context);
+        var priorBreadth = priorDate == null
+                ? null
+                : breadth.latest(new DecisionAsOfContext(priorDate, context.dataCutoff(), context.strategyVersion()));
         var input = new NarrowRallyEngine.Input(
                 spyAbove200,
                 qqqAbove200,
@@ -27,27 +34,28 @@ public class NarrowRallyEvidenceService {
                 currentBreadth.pctAboveSma200(),
                 priorBreadth == null ? null : priorBreadth.pctAboveSma50(),
                 priorBreadth == null ? null : priorBreadth.pctAboveSma200(),
-                newHighParticipation(marketDate),
-                priorDate == null ? null : newHighParticipation(priorDate),
-                relativeReturn("RSP", "SPY", marketDate, 63));
+                newHighParticipation(context.marketDate(), context),
+                priorDate == null ? null : newHighParticipation(priorDate, context),
+                relativeReturn("RSP", "SPY", context, 63));
         return new Evidence(input, engine.evaluate(input), priorDate);
     }
 
-    private LocalDate benchmarkSession(LocalDate marketDate, int sessionsAgo) {
+    private LocalDate benchmarkSession(DecisionAsOfContext context, int sessionsAgo) {
         return jdbc.sql(
                         """
                         SELECT p.market_date FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
-                        WHERE i.symbol='SPY' AND p.adjusted=TRUE AND p.market_date<=:date
+                        WHERE i.symbol='SPY' AND p.adjusted=TRUE AND p.market_date<=:date AND p.data_as_of<=:cutoff
                         ORDER BY p.market_date DESC LIMIT 1 OFFSET :offset
                         """)
-                .param("date", marketDate)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .param("offset", sessionsAgo)
                 .query(LocalDate.class)
                 .optional()
                 .orElse(null);
     }
 
-    private BigDecimal newHighParticipation(LocalDate marketDate) {
+    private BigDecimal newHighParticipation(LocalDate marketDate, DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         WITH members AS (
@@ -57,7 +65,7 @@ public class NarrowRallyEvidenceService {
                           SELECT p.instrument_id,p.close_price,
                                  ROW_NUMBER() OVER (PARTITION BY p.instrument_id ORDER BY p.market_date DESC,p.data_as_of DESC) rn
                           FROM price_bar p JOIN members m ON m.instrument_id=p.instrument_id
-                          WHERE p.adjusted=TRUE AND p.market_date<=:date
+                          WHERE p.adjusted=TRUE AND p.market_date<=:date AND p.data_as_of<=:cutoff
                         ), stats AS (
                           SELECT instrument_id,COUNT(*) observations,
                                  MAX(CASE WHEN rn=1 THEN close_price END) latest_close,
@@ -67,19 +75,21 @@ public class NarrowRallyEvidenceService {
                         SELECT AVG(CASE WHEN observations>=253 THEN latest_close>=prior_high END) FROM stats
                         """)
                 .param("date", marketDate)
+                .param("cutoff", context.dataCutoff())
                 .query(BigDecimal.class)
                 .optional()
                 .orElse(null);
     }
 
-    private BigDecimal relativeReturn(String equalWeight, String capWeight, LocalDate marketDate, int sessions) {
+    private BigDecimal relativeReturn(String equalWeight, String capWeight, DecisionAsOfContext context, int sessions) {
         return jdbc.sql(
                         """
                         WITH ranked AS (
                           SELECT i.symbol,p.close_price,
                                  ROW_NUMBER() OVER (PARTITION BY i.symbol ORDER BY p.market_date DESC,p.data_as_of DESC) rn
                           FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
-                          WHERE i.symbol IN (:equalWeight,:capWeight) AND p.adjusted=TRUE AND p.market_date<=:date
+                          WHERE i.symbol IN (:equalWeight,:capWeight) AND p.adjusted=TRUE
+                            AND p.market_date<=:date AND p.data_as_of<=:cutoff
                         ), returns AS (
                           SELECT symbol,
                                  MAX(CASE WHEN rn=1 THEN close_price END) /
@@ -92,7 +102,8 @@ public class NarrowRallyEvidenceService {
                         """)
                 .param("equalWeight", equalWeight)
                 .param("capWeight", capWeight)
-                .param("date", marketDate)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .param("priorRow", sessions + 1)
                 .query(BigDecimal.class)
                 .optional()

@@ -15,15 +15,18 @@ import com.example.portfolio.analysis.domain.RecommendationResolution;
 import com.example.portfolio.analysis.domain.StrategyDefinition;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
 import com.example.portfolio.analysis.narrative.NarrativeInput;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -41,6 +44,7 @@ public final class HoldingAnalysisApplicationService {
     private final BehavioralEvidenceService behavioralEvidence;
     private final BehavioralFirewall behavioralFirewall;
     private final Clock clock;
+    private final JdbcClient jdbc;
 
     public HoldingAnalysisApplicationService(
             HoldingEvidenceAssembler evidenceAssembler,
@@ -53,7 +57,8 @@ public final class HoldingAnalysisApplicationService {
             EtfDipEventService dipEvents,
             BehavioralEvidenceService behavioralEvidence,
             BehavioralFirewall behavioralFirewall,
-            Clock clock) {
+            Clock clock,
+            JdbcClient jdbc) {
         this.evidenceAssembler = evidenceAssembler;
         this.freshness = freshness;
         this.conflictResolver = conflictResolver;
@@ -65,6 +70,7 @@ public final class HoldingAnalysisApplicationService {
         this.behavioralEvidence = behavioralEvidence;
         this.behavioralFirewall = behavioralFirewall;
         this.clock = clock;
+        this.jdbc = jdbc;
     }
 
     public List<AnalyzedHolding> analyzeAll(UUID userId) {
@@ -72,23 +78,46 @@ public final class HoldingAnalysisApplicationService {
     }
 
     public List<AnalyzedHolding> analyzeAll(UUID userId, UUID analysisRunId) {
-        return evidenceAssembler.assembleAll(userId).stream()
-                .map(evidence -> analyzeAndPersist(evidence, analysisRunId))
+        var context = analysisRunId == null ? liveContext() : replayContext(userId, analysisRunId);
+        var assembled = evidenceAssembler.assembleAll(userId, context);
+        return assembled.stream()
+                .map(evidence -> analyzeAndPersist(evidence, analysisRunId, context))
                 .toList();
     }
 
-    public AnalyzedHolding analyze(UUID userId, UUID positionId) {
-        return analyzeAndPersist(evidenceAssembler.assemble(userId, positionId), null);
+    private DecisionAsOfContext liveContext() {
+        var strategy = evidenceAssembler.currentStrategy();
+        return new DecisionAsOfContext(LocalDate.now(clock), clock.instant(), strategy.version());
     }
 
-    private AnalyzedHolding analyzeAndPersist(HoldingEvidence evidence, UUID analysisRunId) {
+    private DecisionAsOfContext replayContext(UUID userId, UUID analysisRunId) {
+        return jdbc.sql(
+                        """
+                        SELECT market_date marketDate,strategy_version strategyVersion
+                        FROM portfolio_analysis_run WHERE id=UUID_TO_BIN(:runId) AND user_id=UUID_TO_BIN(:userId)
+                        """)
+                .param("runId", analysisRunId.toString())
+                .param("userId", userId.toString())
+                .query(RunContext.class)
+                .optional()
+                .map(value -> DecisionAsOfContext.marketClose(value.marketDate(), value.strategyVersion()))
+                .orElseThrow(() -> new IllegalArgumentException("Analysis run is not owned by user"));
+    }
+
+    public AnalyzedHolding analyze(UUID userId, UUID positionId) {
+        return analyzeAndPersist(evidenceAssembler.assemble(userId, positionId), null, liveContext());
+    }
+
+    private AnalyzedHolding analyzeAndPersist(
+            HoldingEvidence evidence, UUID analysisRunId, DecisionAsOfContext decisionContext) {
         var now = clock.instant();
-        var state = HoldingEvidenceReadiness.assess(evidence, now, freshness);
+        var decisionAt = decisionContext.dataCutoff();
+        var state = HoldingEvidenceReadiness.assess(evidence, decisionAt, freshness);
         var policy = policy(evidence.position().classification(), evidence.strategy());
-        var candidates = candidates(evidence, state, policy, now);
+        var candidates = candidates(evidence, state, policy, decisionContext);
         var resolution =
                 conflictResolver.resolve(candidates, evidence.strategy().riskPriorityOverTax());
-        var sizing = size(evidence, state, policy, resolution.winner(), now);
+        var sizing = size(evidence, state, policy, resolution.winner(), decisionContext);
         var confidence = confidence(evidence, state);
         var riskProjection = riskProjection(evidence, resolution.winner().action(), sizing);
         var result = new HoldingAnalysisResult(
@@ -117,7 +146,7 @@ public final class HoldingAnalysisApplicationService {
                 evidence.strategy().version(),
                 evidence.strategy().configHash(),
                 evidence.dataAsOf(),
-                now.plus(VALIDITY),
+                decisionAt.plus(VALIDITY),
                 AnalysisChecksum.sha256(evidence + ":" + state + ":" + resolution));
         var narrativeInput = narrativeInput(evidence, result, resolution);
         var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, riskProjection, sizing, now);
@@ -178,8 +207,9 @@ public final class HoldingAnalysisApplicationService {
     }
 
     private List<RecommendationCandidate> candidates(
-            HoldingEvidence evidence, AnalysisReadiness state, Policy policy, java.time.Instant now) {
-        var behavior = behavioralEvidence.load(evidence, now);
+            HoldingEvidence evidence, AnalysisReadiness state, Policy policy, DecisionAsOfContext decisionContext) {
+        var decisionAt = decisionContext.dataCutoff();
+        var behavior = behavioralEvidence.load(evidence, decisionAt);
         var context = new DecisionContext(
                 evidence,
                 state,
@@ -194,7 +224,8 @@ public final class HoldingAnalysisApplicationService {
                 dipEvents
                         .latest(
                                 evidence.position().userId(),
-                                evidence.instrument().id())
+                                evidence.instrument().id(),
+                                decisionContext)
                         .orElse(null),
                 behavior.lastDecisionAt(),
                 behavior.lastAddAt(),
@@ -204,7 +235,7 @@ public final class HoldingAnalysisApplicationService {
                 behavior.holdingTradingDays(),
                 behavior.thesisProgress(),
                 behavior.ideaCooldownUntil(),
-                now);
+                decisionAt);
         var values = new ArrayList<>(portfolioConstraints.evaluate(context));
         var assetCandidates = assetDecisions.evaluate(context);
         values.addAll(behavioralFirewall.evaluate(context, assetCandidates));
@@ -217,9 +248,10 @@ public final class HoldingAnalysisApplicationService {
             AnalysisReadiness state,
             Policy policy,
             RecommendationCandidate winner,
-            java.time.Instant now) {
+            DecisionAsOfContext decisionContext) {
         var action = winner.action();
-        if (action == RecommendationAction.DEPLOY_DIP_TRANCHE) return dipSize(evidence, state, now);
+        if (action == RecommendationAction.DEPLOY_DIP_TRANCHE) return dipSize(evidence, state, decisionContext);
+        var decisionAt = decisionContext.dataCutoff();
         if ((!com.example.portfolio.analysis.decision.RecommendationSizingService.requiresBuySizing(action)
                         && !com.example.portfolio.analysis.decision.RecommendationSizingService.requiresSellSizing(
                                 action))
@@ -257,11 +289,11 @@ public final class HoldingAnalysisApplicationService {
                         state != AnalysisReadiness.STALE
                                 && !freshness.stalePrice(
                                         evidence.quote().marketDate(),
-                                        now,
+                                        decisionAt,
                                         evidence.strategy().freshness()),
                         !freshness.staleDays(
                                 evidence.riskDataAsOf(),
-                                now,
+                                decisionAt,
                                 evidence.strategy().freshness().macroDailyDays()),
                         evidence.position().classificationConfirmed(),
                         evidence.providerHardError(),
@@ -273,9 +305,10 @@ public final class HoldingAnalysisApplicationService {
                 evidence.strategy().exactQuantityRequiresReadyRisk());
     }
 
-    private PositionSizing.Result dipSize(HoldingEvidence evidence, AnalysisReadiness state, java.time.Instant now) {
+    private PositionSizing.Result dipSize(
+            HoldingEvidence evidence, AnalysisReadiness state, DecisionAsOfContext decisionContext) {
         var event = dipEvents
-                .latest(evidence.position().userId(), evidence.instrument().id())
+                .latest(evidence.position().userId(), evidence.instrument().id(), decisionContext)
                 .orElse(null);
         var sleeve = allocations.forPosition(
                 evidence.position().userId(),
@@ -293,10 +326,12 @@ public final class HoldingAnalysisApplicationService {
                 || evidence.riskQuality() != EvidenceQuality.HEALTHY
                 || state == AnalysisReadiness.STALE
                 || freshness.stalePrice(
-                        evidence.quote().marketDate(), now, evidence.strategy().freshness())
+                        evidence.quote().marketDate(),
+                        decisionContext.dataCutoff(),
+                        evidence.strategy().freshness())
                 || freshness.staleDays(
                         evidence.riskDataAsOf(),
-                        now,
+                        decisionContext.dataCutoff(),
                         evidence.strategy().freshness().macroDailyDays())
                 || !evidence.position().classificationConfirmed()
                 || evidence.providerHardError()) return unavailableSizing();
@@ -480,4 +515,6 @@ public final class HoldingAnalysisApplicationService {
             RiskProjection riskProjection) {}
 
     public record RiskProjection(BigDecimal beforeFraction, BigDecimal afterFraction, String reason) {}
+
+    record RunContext(LocalDate marketDate, String strategyVersion) {}
 }
