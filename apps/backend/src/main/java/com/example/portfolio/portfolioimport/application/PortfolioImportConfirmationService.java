@@ -267,12 +267,11 @@ public class PortfolioImportConfirmationService {
         BELOW_TARGET
     }
 
-    public record CashSetup(CashLocation location, java.math.BigDecimal externalEmergencyAmount) {
+    public record CashSetup(CashLocation location, java.math.BigDecimal amount) {
         public CashSetup {
             if (location == null) throw new IllegalArgumentException("Safety-cash location is required");
-            externalEmergencyAmount =
-                    externalEmergencyAmount == null ? java.math.BigDecimal.ZERO : externalEmergencyAmount;
-            if (externalEmergencyAmount.signum() < 0) {
+            if (amount == null) throw new IllegalArgumentException("Safety-cash amount is required");
+            if (amount.signum() < 0) {
                 throw new IllegalArgumentException("Safety-cash amount cannot be negative");
             }
         }

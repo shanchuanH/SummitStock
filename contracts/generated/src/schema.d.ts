@@ -858,7 +858,7 @@ export interface components {
     };
     CashSetupRequest: {
       location: string;
-      externalEmergencyAmount?: string;
+      amount: string;
     };
     ConfirmationRequest: {
       /** Format: int64 */
@@ -956,6 +956,7 @@ export interface components {
       errorRowCount?: number;
       estimatedInvestedValue: string;
       estimatedCashValue: string;
+      emergencyCashTarget: string;
     };
     ManualHoldingRequest: {
       accountNumber?: string;

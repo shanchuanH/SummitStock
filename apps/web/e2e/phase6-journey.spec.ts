@@ -348,7 +348,7 @@ test("owner brief is actionable, complete, and never submits a trade", async ({
   await expect(page.getByRole("heading", { name: "今日简报" })).toBeVisible();
   await expect(page.getByText("数据完整 · 100%")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "今日优先动作" }),
+    page.getByRole("heading", { name: "今天需要处理的动作" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "我已处理" })).toBeVisible();
   await expect(page.getByRole("button", { name: "暂不处理" })).toBeVisible();
@@ -388,13 +388,30 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
     mimeType: "text/csv",
     buffer: Buffer.from("fidelity export"),
   });
-  await expect(page.getByText("GOOGL")).toBeVisible();
-  await expect(page.getByText("SPY")).toBeVisible();
-  await expect(page.getByText("SPAXX")).toBeVisible();
-  await expect(page.getByText("1500", { exact: true })).toBeVisible();
-  await expect(page.getByText("2500", { exact: true })).toBeVisible();
-  await page.getByRole("checkbox", { name: /确认每个持仓/ }).check();
-  await page.getByRole("radio", { name: /Fidelity 现金/ }).check();
+  await expect(page.getByText(/识别金额：持仓 \$4500/)).toBeVisible();
+  await expect(page.getByText(/Fidelity 现金 \$20000/)).toBeVisible();
+  const recognizedRows = page.locator("details.recognized-import-rows");
+  await recognizedRows.locator("summary").click();
+  await expect(
+    recognizedRows.getByText("GOOGL", { exact: true }),
+  ).toBeVisible();
+  await expect(recognizedRows.getByText("SPY", { exact: true })).toBeVisible();
+  await expect(
+    recognizedRows.getByText("SPAXX", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "继续确认角色" }).click();
+  const roleChecks = page.getByRole("checkbox", {
+    name: "我确认这个角色适合该持仓",
+  });
+  await expect(roleChecks).toHaveCount(2);
+  await roleChecks.nth(0).check();
+  await roleChecks.nth(1).check();
+  await page.getByRole("button", { name: "继续设置备用金" }).click();
+  await page.getByRole("radio", { name: /全部在 Fidelity 现金里/ }).check();
+  await page
+    .getByRole("spinbutton", { name: "确认生活备用金金额" })
+    .fill("1500");
+  await page.getByRole("button", { name: "继续最终确认" }).click();
   const confirmButton = page.getByRole("button", { name: "确认并开始分析" });
   if (testInfo.project.name === "mobile-chromium") {
     await expect(confirmButton).toBeInViewport();
@@ -414,14 +431,16 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   } else {
     await confirmButton.click();
   }
-  await expect(page.getByRole("heading", { name: "分析正在执行" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "分析正在执行" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("list", { name: "Analysis progress" }).getByRole("listitem"),
   ).toHaveCount(8);
   await page.goto("/");
   await expect(page.locator(".action-card")).toHaveCount(1);
   await page.goto("/positions/p1");
-  await expect(page.getByText("15.0%")).toBeVisible();
+  await expect(page.getByText("15.0%", { exact: true })).toBeVisible();
   await expect(page.getByText(/财报风险/)).toBeVisible();
   await expect(page.getByText(/什么情况下建议会改变/)).toBeVisible();
 });

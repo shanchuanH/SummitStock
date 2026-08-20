@@ -117,6 +117,12 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
     }
 
     protected JsonNode confirm(UUID batchId, long version, String rowOverrides) throws Exception {
+        return confirm(batchId, version, rowOverrides, "IN_FIDELITY", "14000");
+    }
+
+    protected JsonNode confirm(
+            UUID batchId, long version, String rowOverrides, String cashLocation, String confirmedAmount)
+            throws Exception {
         var current = mockMvc.perform(
                         get("/api/v1/portfolio-imports/{batchId}", batchId).with(httpBasic(EMAIL, PASSWORD)))
                 .andReturn();
@@ -138,7 +144,8 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         merged.addAll(additions);
         var body = "{\"expectedVersion\":" + version + ",\"accountMappings\":[],\"rowOverrides\":["
                 + String.join(",", merged)
-                + "],\"cashSetup\":{\"location\":\"IN_FIDELITY\",\"externalEmergencyAmount\":\"0\"}}";
+                + "],\"cashSetup\":{\"location\":\"" + cashLocation + "\",\"amount\":\""
+                + confirmedAmount + "\"}}";
         var result = mockMvc.perform(post("/api/v1/portfolio-imports/{batchId}/confirm", batchId)
                         .with(httpBasic(EMAIL, PASSWORD))
                         .with(csrf())

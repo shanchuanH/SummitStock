@@ -326,6 +326,12 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 6px;
 }
+input[type="radio"],
+input[type="checkbox"] {
+  width: auto;
+  min-width: 18px;
+  min-height: 18px;
+}
 button {
   padding: 9px 13px;
   color: var(--text);

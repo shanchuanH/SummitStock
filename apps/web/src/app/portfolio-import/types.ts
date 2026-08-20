@@ -34,6 +34,7 @@ export type ImportPreview = {
     errorRowCount: number;
     estimatedInvestedValue: string;
     estimatedCashValue: string;
+    emergencyCashTarget: string;
   };
   dataAsOf?: string;
 };
@@ -49,7 +50,7 @@ export type RowOverride = {
 
 export type CashSetup = {
   location: "IN_FIDELITY" | "EXTERNAL_BANK" | "SPLIT" | "BELOW_TARGET";
-  externalEmergencyAmount?: string;
+  amount: string;
 };
 
 export type ImportConfirmation = {

@@ -1672,11 +1672,11 @@
           "location": {
             "type": "string"
           },
-          "externalEmergencyAmount": {
+          "amount": {
             "type": "string"
           }
         },
-        "required": ["location"]
+        "required": ["amount", "location"]
       },
       "ConfirmationRequest": {
         "type": "object",
@@ -1952,9 +1952,16 @@
           },
           "estimatedCashValue": {
             "type": "string"
+          },
+          "emergencyCashTarget": {
+            "type": "string"
           }
         },
-        "required": ["estimatedCashValue", "estimatedInvestedValue"]
+        "required": [
+          "emergencyCashTarget",
+          "estimatedCashValue",
+          "estimatedInvestedValue"
+        ]
       },
       "ManualHoldingRequest": {
         "type": "object",

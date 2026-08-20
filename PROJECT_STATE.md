@@ -491,3 +491,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The holdings API exposes canonical average cost alongside current mark, unrealized dollar/P&L percentage, and daily change without recomputing recommendations in React. Missing values remain unavailable.
 - Narrow viewports render holding cards instead of the desktop table. Filters use owner tasks (needs action, do not add, upcoming earnings, missing data, and classification groups) and ticker/company search.
 - Classification remains scoped to the selected position; the change does not alter portfolio classifications, recommendation precedence, or strategy thresholds.
+
+## Full Review Modification Manual V3 — Phase R4 — 2026-08-20
+
+- Fidelity import is a real state machine: upload, preview, role confirmation, Emergency Cash, confirm, and analysis. Only the current step is interactive, preventing the former mobile pointer interception and cognitive overload.
+- Role confirmation explains the deterministic suggested classification, its purpose, and strategy capacity in owner language. The owner can confirm or change it; ticker/price action never invents a quality classification.
+- Emergency Cash location and amount are separate facts. Every location requires an explicit amount; external cash is tagged user-confirmed and is never inferred to equal the strategy target. Fidelity-held amounts cannot exceed imported broker cash.
+- Flyway V41 labels pre-existing inferred external amounts honestly and records new user-confirmed external sources. Import analysis progress continues to use R0's live Worker/stage diagnostics rather than simulated WAITING states.
+- No force-click workaround, automatic trading, or production fixture fallback was added.
