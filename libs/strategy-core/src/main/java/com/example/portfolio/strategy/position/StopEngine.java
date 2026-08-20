@@ -37,7 +37,7 @@ public final class StopEngine {
                 input.previousLiveStop(),
                 chandelier,
                 input.ema20().subtract(input.atr().multiply(policy.trailingEmaBufferAtr())),
-                input.confirmedHigherLow().subtract(input.atr().multiply(policy.structureBufferAtr())),
+                buffered(input.confirmedHigherLow(), input.atr(), policy.structureBufferAtr()),
                 initialStop);
         var softAlert = liveStop.add(input.atr().multiply(policy.softAlertAtr()));
         var catastrophic = liveStop.subtract(input.atr().multiply(policy.catastrophicAtr()));
@@ -100,6 +100,10 @@ public final class StopEngine {
         }
         if (result == null) throw new IllegalArgumentException("At least one stop candidate is required");
         return result;
+    }
+
+    private static BigDecimal buffered(BigDecimal value, BigDecimal atr, BigDecimal bufferAtr) {
+        return value == null ? null : value.subtract(atr.multiply(bufferAtr));
     }
 
     private static void requirePositive(BigDecimal value, String name) {

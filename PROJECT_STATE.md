@@ -555,3 +555,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Signed position contributions, including winners, reconcile with `CASH_AND_OTHER` exactly to canonical NAV drawdown loss. Position and cluster contribution fractions and largest-loss shares now use NAV drawdown loss as their denominator, making values comparable to portfolio loss rather than gross loser-only loss.
 - Flyway V45 adds quantity delta, execution price, and realized P&L evidence to the existing trade journal; it does not create trades or infer executions.
 - Verification: 3/3 deterministic contribution-ledger tests pass, including post-peak buys/sells, closed-loss math, positive contributors, NAV residual reconciliation, and NAV-denominator attribution. Docker-backed historical ledger integration remains locally blocked and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R12 — 2026-08-20
+
+- Stop evidence now extracts two distinct confirmed pivots in chronological order. The current structural swing is always the latest confirmed swing low; `confirmedHigherLow` is populated only when that latest pivot is strictly above the previous confirmed pivot.
+- A single pivot, equal/lower pivot, or missing pivot produces a null higher-low input rather than reusing the structural low. `StopEngine` now treats that higher-low input as genuinely optional while retaining the existing formal-stop, volatility-stop, trailing, and monotonic rules.
+- No Strategy V3 stop buffer or ATR multiplier changed.
+- Verification: 2/2 focused pipeline/stop tests pass for higher, lower, single, and null higher-low evidence; the Maven reactor compiles the updated strategy core and backend.

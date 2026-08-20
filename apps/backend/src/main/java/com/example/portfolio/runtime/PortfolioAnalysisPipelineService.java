@@ -27,6 +27,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -230,18 +231,18 @@ public class PortfolioAnalysisPipelineService {
                 .query(StopInput.class)
                 .list()) {
             var atr = BigDecimal.valueOf(row.atr());
-            var swing = confirmedSwingLow(row.instrumentId(), marketDate);
-            if (swing == null) continue;
+            var swings = confirmedSwingLows(row.instrumentId(), marketDate);
+            if (swings.structureSwingLow() == null) continue;
             var result = StopEngine.calculate(
                     new StopEngine.Input(
                             HoldingClassification.valueOf(row.classification()),
                             row.entryPrice(),
-                            swing,
+                            swings.structureSwingLow(),
                             atr,
                             row.previousLiveStop(),
                             null,
                             BigDecimal.valueOf(row.ema20()),
-                            swing,
+                            swings.confirmedHigherLow(),
                             row.closePrice(),
                             BigDecimal.valueOf(row.rollingHigh()),
                             null),
@@ -475,7 +476,7 @@ public class PortfolioAnalysisPipelineService {
         return value ? 1 : 0;
     }
 
-    private BigDecimal confirmedSwingLow(UUID instrumentId, LocalDate marketDate) {
+    private SwingStructure confirmedSwingLows(UUID instrumentId, LocalDate marketDate) {
         var bars = jdbc
                 .sql(
                         """
@@ -492,15 +493,21 @@ public class PortfolioAnalysisPipelineService {
                 .map(row ->
                         new QuantBar(row.date(), row.open(), row.high(), row.low(), row.close(), row.volume(), true))
                 .toList();
-        var confirmed = Indicators.confirmedSwingLow(bars, 2, 2)
-                .value()
-                .map(value -> BigDecimal.valueOf(value.price()))
-                .orElse(null);
-        if (confirmed != null || bars.size() < 5) return confirmed;
-        return bars.subList(Math.max(0, bars.size() - 22), bars.size() - 2).stream()
-                .map(QuantBar::low)
-                .min(BigDecimal::compareTo)
-                .orElse(null);
+        return swingStructure(bars);
+    }
+
+    static SwingStructure swingStructure(List<QuantBar> bars) {
+        var latest = Indicators.confirmedSwingLow(bars, 2, 2).value().orElse(null);
+        if (latest == null) return new SwingStructure(null, null, null);
+        var priorBars = bars.stream()
+                .filter(bar -> bar.marketDate().isBefore(latest.marketDate()))
+                .toList();
+        var previous = Indicators.confirmedSwingLow(priorBars, 2, 2).value().orElse(null);
+        var latestPrice = BigDecimal.valueOf(latest.price());
+        if (previous == null) return new SwingStructure(latestPrice, null, latest.marketDate());
+        var previousPrice = BigDecimal.valueOf(previous.price());
+        return new SwingStructure(
+                latestPrice, latestPrice.compareTo(previousPrice) > 0 ? latestPrice : null, latest.marketDate());
     }
 
     private static String json(java.util.List<String> values) {
@@ -534,6 +541,8 @@ public class PortfolioAnalysisPipelineService {
 
     record StopBar(
             LocalDate date, BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal close, BigDecimal volume) {}
+
+    record SwingStructure(BigDecimal structureSwingLow, BigDecimal confirmedHigherLow, LocalDate latestSwingDate) {}
 
     record BenchmarkRow(
             BigDecimal latestClose, BigDecimal average200, Double rsi, Double macd, Double realizedVolatility) {}
