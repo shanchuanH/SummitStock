@@ -614,3 +614,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Valuation evidence is grouped into EARNINGS (TTM/FY1 P/E), SALES (EV/Sales and P/S), and CASH_FLOW (FCF yield). Runtime quality is HEALTHY only when at least two independent families are present.
 - Historical high confidence uses the same family independence rule. EV/Sales plus P/S alone is one SALES confirmation and cannot produce high confidence, even with full weekly history.
 - Verification: 7/7 focused valuation family/basis tests and 5/5 Position Detail component tests pass; frontend typecheck and ESLint pass.
+
+## Full Review Modification Manual V3 — Phase R20 — 2026-08-20
+
+- Position Detail now exposes the complete FY1 analyst-consensus evidence set: current EPS, reconstructed 30-day and 90-day prior consensus, fractional revisions, analyst count, high/low estimates, and dispersion.
+- Prior consensus is deterministically reconstructed from the persisted current consensus and fractional revision. Missing inputs and non-positive denominators remain unavailable rather than producing invented history.
+- High dispersion uses the estimate engine's existing 50% quality boundary. When exceeded, the owner UI states exactly: `分析师对盈利路径分歧较大，因此 forward valuation 置信度下降。`; no Strategy V3 decision threshold changed.
+- Verification: 4/4 focused backend estimate tests and 6/6 Position Detail component tests pass; frontend typecheck and ESLint pass.

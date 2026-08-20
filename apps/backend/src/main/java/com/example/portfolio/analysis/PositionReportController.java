@@ -3,6 +3,8 @@ package com.example.portfolio.analysis;
 import com.example.portfolio.analysis.application.HoldingEvidenceAssembler;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
 import com.example.portfolio.analysis.infrastructure.PositionAnalystDataStore;
+import com.example.portfolio.estimates.EstimateConsensusMath;
+import com.example.portfolio.estimates.EstimateRevisionEngine;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
 import java.security.Principal;
@@ -216,6 +218,8 @@ public final class PositionReportController {
     private static Estimates estimates(PositionAnalystDataStore.EstimateData value) {
         return new Estimates(
                 decimal(value.fy1Eps()),
+                decimal(EstimateConsensusMath.priorConsensus(value.fy1Eps(), value.epsRevision30d())),
+                decimal(EstimateConsensusMath.priorConsensus(value.fy1Eps(), value.epsRevision90d())),
                 decimal(value.fy1Revenue()),
                 decimal(value.epsRevision30d()),
                 decimal(value.epsRevision90d()),
@@ -225,6 +229,7 @@ public final class PositionReportController {
                 decimal(value.epsHigh()),
                 decimal(value.epsLow()),
                 decimal(value.dispersion()),
+                EstimateRevisionEngine.isHighDispersion(value.dispersion()),
                 value.state(),
                 value.quality(),
                 instant(value.dataAsOf()));
@@ -550,6 +555,8 @@ public final class PositionReportController {
 
     public record Estimates(
             String fy1Eps,
+            String eps30dAgo,
+            String eps90dAgo,
             String fy1Revenue,
             String epsRevision30d,
             String epsRevision90d,
@@ -559,6 +566,7 @@ public final class PositionReportController {
             String epsHigh,
             String epsLow,
             String dispersion,
+            boolean dispersionHigh,
             String state,
             String quality,
             Instant dataAsOf) {}

@@ -230,6 +230,11 @@ export function PositionDetailPage() {
   const fundamentals = layers.fundamentals;
   const valuationMetrics = layers.valuation;
   const valuationObservationCount = valuationMetrics.observationCount ?? 0;
+  const estimateDetails = layers.estimates as typeof layers.estimates & {
+    eps30dAgo?: string | null;
+    eps90dAgo?: string | null;
+    dispersionHigh?: boolean;
+  };
   const classification = data.position?.classification;
   const isEtf = Boolean(data.assetEvidence?.etf?.etfModelApplied);
   const isSpeculative = classification === "SPECULATIVE";
@@ -663,7 +668,43 @@ export function PositionDetailPage() {
                 layers.estimates.epsRevision90d,
               )}
             />
+            <Metric
+              label="FY1 EPS consensus"
+              value={formatMoney(estimateDetails.fy1Eps, 2)}
+            />
+            <Metric
+              label="30d ago consensus"
+              value={formatMoney(estimateDetails.eps30dAgo, 2)}
+            />
+            <Metric
+              label="90d ago consensus"
+              value={formatMoney(estimateDetails.eps90dAgo, 2)}
+            />
+            <Metric
+              label="Analyst count"
+              value={formatDecimal(estimateDetails.analystCount?.toString())}
+            />
+            <Metric
+              label="EPS high"
+              value={formatMoney(estimateDetails.epsHigh, 2)}
+            />
+            <Metric
+              label="EPS low"
+              value={formatMoney(estimateDetails.epsLow, 2)}
+            />
+            <Metric
+              label="Estimate dispersion"
+              value={formatPercent(estimateDetails.dispersion)}
+            />
           </dl>
+          {estimateDetails.dispersionHigh ? (
+            <aside className="quality-warning" role="status">
+              <AlertTriangle aria-hidden="true" />
+              <span>
+                分析师对盈利路径分歧较大，因此 forward valuation 置信度下降。
+              </span>
+            </aside>
+          ) : null}
         </details>
 
         <details className="context-card analyst-layer">

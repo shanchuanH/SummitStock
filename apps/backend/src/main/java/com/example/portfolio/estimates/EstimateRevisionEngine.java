@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class EstimateRevisionEngine {
+    private static final BigDecimal HIGH_DISPERSION = new BigDecimal("0.50");
     private static final MathContext MATH = MathContext.DECIMAL128;
 
     public RevisionResult evaluate(List<Observation> observations, Instant now) {
@@ -101,10 +102,14 @@ public final class EstimateRevisionEngine {
                 || analysts == null
                 || analysts < 3
                 || dispersion == null
-                || dispersion.compareTo(new BigDecimal("0.50")) > 0) {
+                || isHighDispersion(dispersion)) {
             return ProviderModels.QualityStatus.PARTIAL;
         }
         return ProviderModels.QualityStatus.HEALTHY;
+    }
+
+    public static boolean isHighDispersion(BigDecimal dispersion) {
+        return dispersion != null && dispersion.compareTo(HIGH_DISPERSION) > 0;
     }
 
     public enum RevisionState {

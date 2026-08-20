@@ -100,9 +100,15 @@ const report = {
     },
     estimates: {
       fy1Eps: "8.42",
+      eps30dAgo: "8.25",
+      eps90dAgo: "8.11",
       epsRevision30d: "0.018",
       epsRevision90d: "0",
       analystCount: 39,
+      epsHigh: "9.10",
+      epsLow: "7.65",
+      dispersion: "0.17",
+      dispersionHigh: false,
       state: "POSITIVE",
       quality: "HEALTHY",
     },
@@ -244,6 +250,9 @@ describe("PositionDetailPage", () => {
       "3500",
     );
     expect(screen.getAllByText("24.8×")).toHaveLength(2);
+    expect(screen.getByText("US$8.25")).toBeInTheDocument();
+    expect(screen.getByText("US$8.11")).toBeInTheDocument();
+    expect(screen.getByText("17.0%")).toBeInTheDocument();
     expect(screen.getByText("暂不可用")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
       "当前只积累了 12 个 point-in-time observations",
@@ -271,6 +280,34 @@ describe("PositionDetailPage", () => {
       expect.stringContaining("/chart?range=3M"),
       expect.anything(),
     );
+  });
+  it("explains when estimate dispersion lowers forward valuation confidence", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const path = url(input);
+        if (path.endsWith("/analyst-report"))
+          return response({
+            ...report,
+            layers: {
+              ...report.layers,
+              estimates: {
+                ...report.layers.estimates,
+                dispersion: "0.55",
+                dispersionHigh: true,
+              },
+            },
+          });
+        if (path.includes("/chart")) return response(chart);
+        throw new Error(path);
+      }),
+    );
+    renderPage();
+    expect(
+      await screen.findByText(
+        "分析师对盈利路径分歧较大，因此 forward valuation 置信度下降。",
+      ),
+    ).toBeInTheDocument();
   });
   it("shows unavailable instead of zero when canonical metrics are absent", async () => {
     vi.stubGlobal(
