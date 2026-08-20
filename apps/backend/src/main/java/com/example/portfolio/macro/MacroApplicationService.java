@@ -1,5 +1,7 @@
 package com.example.portfolio.macro;
 
+import com.example.portfolio.analysis.application.StrategyDefinitionLoader;
+import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.market.provider.ProviderCallException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -17,16 +19,26 @@ import org.springframework.stereotype.Service;
 @Service
 public class MacroApplicationService {
     public static final List<String> CORE_SERIES =
-            List.of("VIXCLS", "VIX3M", "BAMLH0A0HYM2", "DGS10", "DGS2", "FEDFUNDS");
+            List.of("VIXCLS", "VIX3M", "VXNCLS", "BAMLH0A0HYM2", "DGS10", "DGS2", "FEDFUNDS");
     private final MacroDataProvider provider;
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final StrategyDefinitionLoader strategies;
+    private final PortfolioProperties properties;
     private final MacroFactorEngine engine = new MacroFactorEngine();
+    private final VolatilityContextEngine volatilityEngine = new VolatilityContextEngine();
 
-    public MacroApplicationService(MacroDataProvider provider, JdbcClient jdbc, Clock clock) {
+    public MacroApplicationService(
+            MacroDataProvider provider,
+            JdbcClient jdbc,
+            Clock clock,
+            StrategyDefinitionLoader strategies,
+            PortfolioProperties properties) {
         this.provider = provider;
         this.jdbc = jdbc;
         this.clock = clock;
+        this.strategies = strategies;
+        this.properties = properties;
     }
 
     public CollectionResult collect(LocalDate marketDate) {
@@ -77,13 +89,43 @@ public class MacroApplicationService {
                 latest("DGS2", marketDate),
                 latest("FEDFUNDS", marketDate),
                 realizedVolatilityStress));
-        var checksum = sha256(marketDate + "|" + result);
+        var volatilityPolicy = strategies.loadVolatilityResearchPolicy(properties.strategyConfigPath());
+        var volatility = volatilityEngine.evaluate(new VolatilityContextEngine.Input(
+                latest("VIXCLS", marketDate),
+                history("VIXCLS", marketDate),
+                latest("VIX3M", marketDate),
+                latest("VXNCLS", marketDate),
+                history("VXNCLS", marketDate),
+                volatilityPolicy.vixTermFlatLower(),
+                volatilityPolicy.vixTermBackwardation(),
+                volatilityPolicy.techPremiumElevatedRatio()));
+        var checksum = sha256(marketDate + "|" + result + "|" + volatility);
         return jdbc.sql(
                         """
-                        INSERT IGNORE INTO macro_factor_snapshot (
+                        INSERT INTO macro_factor_snapshot (
                           id,market_date,volatility_stress,credit_stress,rate_stress,curve_state,stress_resilience,
-                          quality,evidence_checksum,data_as_of,created_at
-                        ) VALUES (UUID_TO_BIN(:id),:date,:volatility,:credit,:rate,:curve,:resilience,:quality,:checksum,:now,:now)
+                          quality,evidence_checksum,data_as_of,created_at,vix_level,vix_percentile_5y,vix_delta_1d,
+                          vix_delta_2d,vix_delta_5d,vix3m_level,vix_term_ratio,vix_term_state,vxn_level,
+                          vxn_percentile_5y,vxn_delta_1d,vxn_delta_2d,vxn_delta_5d,vxn_vix_ratio,vxn_vix_spread,
+                          tech_stress_state
+                        ) VALUES (
+                          UUID_TO_BIN(:id),:date,:volatility,:credit,:rate,:curve,:resilience,:quality,:checksum,:now,:now,
+                          :vix,:vixPercentile,:vixDelta1d,:vixDelta2d,:vixDelta5d,:vix3m,:vixTermRatio,
+                          :vixTermState,:vxn,:vxnPercentile,:vxnDelta1d,:vxnDelta2d,:vxnDelta5d,:vxnVixRatio,
+                          :vxnVixSpread,:techStressState
+                        ) ON DUPLICATE KEY UPDATE
+                          volatility_stress=VALUES(volatility_stress),credit_stress=VALUES(credit_stress),
+                          rate_stress=VALUES(rate_stress),curve_state=VALUES(curve_state),
+                          stress_resilience=VALUES(stress_resilience),quality=VALUES(quality),
+                          evidence_checksum=VALUES(evidence_checksum),data_as_of=VALUES(data_as_of),
+                          vix_level=VALUES(vix_level),vix_percentile_5y=VALUES(vix_percentile_5y),
+                          vix_delta_1d=VALUES(vix_delta_1d),vix_delta_2d=VALUES(vix_delta_2d),
+                          vix_delta_5d=VALUES(vix_delta_5d),vix3m_level=VALUES(vix3m_level),
+                          vix_term_ratio=VALUES(vix_term_ratio),vix_term_state=VALUES(vix_term_state),
+                          vxn_level=VALUES(vxn_level),vxn_percentile_5y=VALUES(vxn_percentile_5y),
+                          vxn_delta_1d=VALUES(vxn_delta_1d),vxn_delta_2d=VALUES(vxn_delta_2d),
+                          vxn_delta_5d=VALUES(vxn_delta_5d),vxn_vix_ratio=VALUES(vxn_vix_ratio),
+                          vxn_vix_spread=VALUES(vxn_vix_spread),tech_stress_state=VALUES(tech_stress_state)
                         """)
                 .param("id", UUID.randomUUID().toString())
                 .param("date", marketDate)
@@ -95,6 +137,22 @@ public class MacroApplicationService {
                 .param("quality", result.quality().name())
                 .param("checksum", checksum)
                 .param("now", clock.instant())
+                .param("vix", volatility.vix())
+                .param("vixPercentile", volatility.vixPercentile())
+                .param("vixDelta1d", volatility.vixDelta1d())
+                .param("vixDelta2d", volatility.vixDelta2d())
+                .param("vixDelta5d", volatility.vixDelta5d())
+                .param("vix3m", volatility.vix3m())
+                .param("vixTermRatio", volatility.vixTermRatio())
+                .param("vixTermState", volatility.vixTermState().name())
+                .param("vxn", volatility.vxn())
+                .param("vxnPercentile", volatility.vxnPercentile())
+                .param("vxnDelta1d", volatility.vxnDelta1d())
+                .param("vxnDelta2d", volatility.vxnDelta2d())
+                .param("vxnDelta5d", volatility.vxnDelta5d())
+                .param("vxnVixRatio", volatility.vxnVixRatio())
+                .param("vxnVixSpread", volatility.vxnVixSpread())
+                .param("techStressState", volatility.techStressState().name())
                 .update();
     }
 
@@ -109,6 +167,23 @@ public class MacroApplicationService {
                 .query(MacroSnapshot.class)
                 .optional()
                 .orElse(new MacroSnapshot(null, null, null, "MISSING"));
+    }
+
+    public VolatilitySnapshot latestVolatility(LocalDate marketDate) {
+        return jdbc.sql(
+                        """
+                        SELECT vix_level vix,vix_percentile_5y vixPercentile,vix_delta_1d vixDelta1d,
+                               vix_delta_2d vixDelta2d,vix_delta_5d vixDelta5d,vix3m_level vix3m,
+                               vix_term_ratio vixTermRatio,vix_term_state vixTermState,vxn_level vxn,
+                               vxn_percentile_5y vxnPercentile,vxn_delta_1d vxnDelta1d,
+                               vxn_delta_2d vxnDelta2d,vxn_delta_5d vxnDelta5d,vxn_vix_ratio vxnVixRatio,
+                               vxn_vix_spread vxnVixSpread,tech_stress_state techStressState,quality
+                        FROM macro_factor_snapshot WHERE market_date<=:date ORDER BY market_date DESC LIMIT 1
+                        """)
+                .param("date", marketDate)
+                .query(VolatilitySnapshot.class)
+                .optional()
+                .orElse(VolatilitySnapshot.missing());
     }
 
     public BigDecimal latestValue(String code, LocalDate marketDate) {
@@ -158,4 +233,29 @@ public class MacroApplicationService {
 
     public record MacroSnapshot(
             BigDecimal stressResilience, BigDecimal volatilityStress, BigDecimal creditStress, String quality) {}
+
+    public record VolatilitySnapshot(
+            BigDecimal vix,
+            BigDecimal vixPercentile,
+            BigDecimal vixDelta1d,
+            BigDecimal vixDelta2d,
+            BigDecimal vixDelta5d,
+            BigDecimal vix3m,
+            BigDecimal vixTermRatio,
+            String vixTermState,
+            BigDecimal vxn,
+            BigDecimal vxnPercentile,
+            BigDecimal vxnDelta1d,
+            BigDecimal vxnDelta2d,
+            BigDecimal vxnDelta5d,
+            BigDecimal vxnVixRatio,
+            BigDecimal vxnVixSpread,
+            String techStressState,
+            String quality) {
+        static VolatilitySnapshot missing() {
+            return new VolatilitySnapshot(
+                    null, null, null, null, null, null, null, "MISSING", null, null, null, null, null, null, null,
+                    "MISSING", "MISSING");
+        }
+    }
 }

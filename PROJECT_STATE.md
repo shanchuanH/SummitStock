@@ -562,3 +562,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - A single pivot, equal/lower pivot, or missing pivot produces a null higher-low input rather than reusing the structural low. `StopEngine` now treats that higher-low input as genuinely optional while retaining the existing formal-stop, volatility-stop, trailing, and monotonic rules.
 - No Strategy V3 stop buffer or ATR multiplier changed.
 - Verification: 2/2 focused pipeline/stop tests pass for higher, lower, single, and null higher-low evidence; the Maven reactor compiles the updated strategy core and backend.
+
+## Full Review Modification Manual V3 — Phase R13 — 2026-08-20
+
+- The macro runtime now persists VIX level, five-year percentile, 1/2/5-session changes, VIX3M, and the VIX/VIX3M term ratio. CONTANGO, FLAT, and BACKWARDATION boundaries come from explicit empirical-research parameters in Strategy V3 rather than controller code.
+- VXN is collected through the existing macro-provider abstraction. The local fixture deliberately returns MISSING instead of simulating VXN; absent VXN leaves broad VIX and term-structure analysis operational while the technology overlay remains visibly MISSING.
+- VXN level/history percentile/deltas, VXN/VIX ratio and spread, and a deterministic technology-stress state are stored in the canonical macro factor snapshot. Reanalysis upserts the same market date so an earlier incomplete snapshot can be repaired when reliable evidence arrives.
+- The Market Context page now presents VIX, term structure, VXN, and the technology volatility premium before regime, breadth/stress, drawdown, and quality evidence. Missing VXN is described as unavailable and never converted into fake precision.
+- Verification: 7/7 focused backend strategy/volatility tests and 3/3 Market Context component tests pass; backend compilation, frontend ESLint, and frontend typecheck pass. Docker-backed Flyway integration remains unavailable locally and is not claimed as passing.

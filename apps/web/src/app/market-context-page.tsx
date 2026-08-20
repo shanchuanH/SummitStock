@@ -1,6 +1,39 @@
 import { api } from "@portfolio/api-client";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, Gauge, ShieldAlert } from "lucide-react";
+import { getJson } from "./http";
+
+type VolatilityEnvelope = {
+  status: "READY" | "EMPTY";
+  snapshot: {
+    vix?: string;
+    vixPercentile?: string;
+    vixDelta1d?: string;
+    vixDelta2d?: string;
+    vixDelta5d?: string;
+    vix3m?: string;
+    vixTermRatio?: string;
+    vixTermState: string;
+    vxn?: string;
+    vxnPercentile?: string;
+    vxnDelta1d?: string;
+    vxnDelta2d?: string;
+    vxnDelta5d?: string;
+    vxnVixRatio?: string;
+    vxnVixSpread?: string;
+    techStressState: string;
+    quality: string;
+  };
+  dataAsOf: string;
+};
+
+function number(value?: string, digits = 2) {
+  return value === undefined ? "—" : Number(value).toFixed(digits);
+}
+
+function percentile(value?: string) {
+  return value === undefined ? "—" : `${(Number(value) * 100).toFixed(0)}%`;
+}
 
 async function requireData<T>(
   request: Promise<{ data?: T; error?: unknown; response: Response }>,
@@ -40,8 +73,13 @@ export function MarketContextPage() {
     queryKey: ["market-health"],
     queryFn: () => requireData(api.GET("/api/v1/market/data-health")),
   });
+  const volatility = useQuery({
+    queryKey: ["market-volatility"],
+    queryFn: () => getJson<VolatilityEnvelope>("/api/v1/market/volatility"),
+  });
   const snapshot = regime.data?.snapshot;
   const drawdownSnapshot = drawdown.data?.snapshot;
+  const volatilitySnapshot = volatility.data?.snapshot;
   const stale =
     snapshot?.qualityStatus === "STALE" ||
     (health.data?.staleObservations ?? 0) > 0;
@@ -79,6 +117,58 @@ export function MarketContextPage() {
           <span>No classification was inferred from missing evidence.</span>
         </aside>
       ) : null}
+
+      <section className="context-grid" aria-label="Volatility context">
+        <article className="context-card">
+          <p className="eyebrow">BROAD STRESS / VIX</p>
+          <div className="drawdown-number">
+            <strong>{number(volatilitySnapshot?.vix)}</strong>
+            <span>5Y percentile {percentile(volatilitySnapshot?.vixPercentile)}</span>
+          </div>
+          <p>
+            1D {number(volatilitySnapshot?.vixDelta1d)} · 2D{" "}
+            {number(volatilitySnapshot?.vixDelta2d)} · 5D{" "}
+            {number(volatilitySnapshot?.vixDelta5d)}
+          </p>
+        </article>
+
+        <article className="context-card">
+          <p className="eyebrow">VIX TERM STRUCTURE</p>
+          <div className="drawdown-number">
+            <strong>{volatilitySnapshot?.vixTermState ?? "MISSING"}</strong>
+            <span>VIX / VIX3M {number(volatilitySnapshot?.vixTermRatio)}</span>
+          </div>
+          <p>VIX3M {number(volatilitySnapshot?.vix3m)}</p>
+        </article>
+
+        <article className="context-card">
+          <p className="eyebrow">TECH OVERLAY / VXN</p>
+          {volatilitySnapshot?.vxn === undefined ? (
+            <p className="empty">暂无可靠 VXN 数据；广义市场判断仍可继续。</p>
+          ) : (
+            <>
+              <div className="drawdown-number">
+                <strong>{number(volatilitySnapshot.vxn)}</strong>
+                <span>5Y percentile {percentile(volatilitySnapshot.vxnPercentile)}</span>
+              </div>
+              <p>
+                1D {number(volatilitySnapshot.vxnDelta1d)} · 2D{" "}
+                {number(volatilitySnapshot.vxnDelta2d)} · 5D{" "}
+                {number(volatilitySnapshot.vxnDelta5d)}
+              </p>
+            </>
+          )}
+        </article>
+
+        <article className="context-card">
+          <p className="eyebrow">TECH PREMIUM</p>
+          <div className="drawdown-number">
+            <strong>{number(volatilitySnapshot?.vxnVixRatio)}</strong>
+            <span>{volatilitySnapshot?.techStressState ?? "MISSING"}</span>
+          </div>
+          <p>VXN − VIX {number(volatilitySnapshot?.vxnVixSpread)}</p>
+        </article>
+      </section>
 
       <section className="context-grid">
         <article className="context-card context-card--regime">

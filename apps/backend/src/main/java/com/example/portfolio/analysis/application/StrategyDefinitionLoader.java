@@ -33,6 +33,9 @@ public final class StrategyDefinitionLoader {
             "drawdown.etfDipSetupAt",
             "drawdown.marketDrivenEtfDeploymentAt",
             "drawdown.painLineAt",
+            "market.volatility.vixTermFlatLower",
+            "market.volatility.vixTermBackwardation",
+            "market.volatility.techPremiumElevatedRatio",
             "decision.maxDailyMustAct",
             "decision.exactQuantityRequiresHealthyPrice",
             "decision.exactQuantityRequiresReadyRisk",
@@ -231,6 +234,28 @@ public final class StrategyDefinitionLoader {
             return Set.copyOf(flatten(new String(bytes, StandardCharsets.UTF_8)).keySet());
         } catch (IOException exception) {
             throw new IllegalStateException("Strategy configuration is unavailable", exception);
+        }
+    }
+
+    public VolatilityResearchPolicy loadVolatilityResearchPolicy(String configuredPath) {
+        try {
+            var values = flatten(
+                    new String(resource(configuredPath).getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+            return new VolatilityResearchPolicy(
+                    decimal(values, "market.volatility.vixTermFlatLower"),
+                    decimal(values, "market.volatility.vixTermBackwardation"),
+                    decimal(values, "market.volatility.techPremiumElevatedRatio"));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Volatility research configuration is unavailable", exception);
+        }
+    }
+
+    public record VolatilityResearchPolicy(
+            BigDecimal vixTermFlatLower, BigDecimal vixTermBackwardation, BigDecimal techPremiumElevatedRatio) {
+        public VolatilityResearchPolicy {
+            if (vixTermFlatLower.compareTo(vixTermBackwardation) >= 0) {
+                throw new IllegalArgumentException("VIX term thresholds must be ordered");
+            }
         }
     }
 

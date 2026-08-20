@@ -24,6 +24,14 @@ final class FakeMacroDataProvider implements MacroDataProvider {
 
     @Override
     public MacroSeriesResult fetch(String seriesCode, LocalDate from, LocalDate to) {
+        if ("VXNCLS".equals(seriesCode)) {
+            return new MacroSeriesResult(
+                    seriesCode,
+                    java.util.List.of(),
+                    "fixture-macro",
+                    clock.instant(),
+                    ProviderModels.QualityStatus.MISSING);
+        }
         var values = new ArrayList<Observation>();
         var base =
                 switch (seriesCode) {
