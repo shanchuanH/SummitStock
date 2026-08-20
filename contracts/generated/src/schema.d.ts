@@ -4,192 +4,32 @@
  */
 
 export interface paths {
-  "/api/v1/trade-plans/preview": {
+  "/api/v1/accounts": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    get: operations["accounts"];
     put?: never;
-    post: operations["preview"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/v1/recommendations/{id}/acknowledge": {
+  "/api/v1/actions/today": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    get: operations["actions"];
     put?: never;
-    post: operations["acknowledge"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{positionId}/thesis/confirm": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["confirmThesis"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{positionId}/stops/preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["previewStop"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{positionId}/earnings/review": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["reviewEarnings"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{id}/classify": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["classify"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio-imports/{batchId}/confirm": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["confirm"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio-imports/pasted/preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["previewPasted"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio-imports/manual/preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["previewManual"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio-imports/fidelity/preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["preview_1"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/etf-dip/preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["preview_2"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/cashflow/plan": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post: operations["cashflow"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -206,454 +46,6 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["accountability"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/worker/health": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["health"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/version": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["version"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/recommendations/history": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["history"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["positions"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{positionId}/journal": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["journal"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{positionId}/intelligence": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["intelligence"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{positionId}/chart": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["chart"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["position"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{id}/classification-suggestion": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["classificationSuggestion"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio/summary": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["summary"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio/holdings": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["holdings"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio/drawdown": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["drawdown"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/portfolio-imports/{batchId}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["find"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/market/regime": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["regime"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/market/data-health": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["dataHealth"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/instruments": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["instruments"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/instruments/{symbol}/indicators": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["indicators"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/instruments/{symbol}/fundamentals": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["fundamentals"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/instruments/{symbol}/bars": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["bars"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/holdings/{positionId}/analyst-report": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["report"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/positions/{positionId}/report": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["report_1"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/holdings/analysis": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["analyses"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/etf-dip/status": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["status"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/brief/today": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["today"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/backtests/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["find_1"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/backtests/latest": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["latest"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/session": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["session"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/csrf": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations["csrf"];
-    put?: never;
-    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -708,14 +100,14 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/actions/today": {
+  "/api/v1/auth/csrf": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get: operations["actions"];
+    get: operations["csrf"];
     put?: never;
     post?: never;
     delete?: never;
@@ -724,14 +116,638 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/accounts": {
+  "/api/v1/auth/session": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get: operations["accounts"];
+    get: operations["session"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/backtests/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["find_1"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/backtests/latest": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["latest"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/brief/today": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["today"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/cashflow/plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["cashflow"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/etf-dip/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["preview_2"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/etf-dip/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["status"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/holdings/{positionId}/analyst-report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/holdings/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["analyses"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/instruments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["instruments"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/instruments/{symbol}/bars": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["bars"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/instruments/{symbol}/fundamentals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["fundamentals"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/instruments/{symbol}/indicators": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["indicators"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/market/data-health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["dataHealth"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/market/regime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["regime"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/{batchId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["find"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/{batchId}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["confirm"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/fidelity/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["preview_1"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/manual/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewManual"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/pasted/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewPasted"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio/drawdown": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["drawdown"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio/holdings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["holdings"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["summary"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["positions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["position"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{id}/classification-suggestion": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["classificationSuggestion"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{id}/classify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["classify"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/chart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["chart"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/earnings/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["reviewEarnings"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/intelligence": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["intelligence"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/journal": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["journal"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["report_1"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/stops/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewStop"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/positions/{positionId}/thesis/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["confirmThesis"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/recommendations/{id}/acknowledge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["acknowledge"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/recommendations/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["history"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/review/performance": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["performance"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/trade-plans/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/version": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["version"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/worker/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["health"];
     put?: never;
     post?: never;
     delete?: never;
@@ -744,1027 +760,503 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
-    TradePlanPreviewRequest: {
-      classification: string;
-      classificationConfirmed?: boolean;
-      currentWeight: number;
-      projectedWeight: number;
-      proposedTradeRisk: number;
-      currentOpenStockRisk: number;
-      currentClusterRisk: number;
-      averagingDown?: boolean;
-      thesisImproving?: boolean;
-      anchoredToCostBasis?: boolean;
-      /** Format: date-time */
-      lastDecisionAt?: string;
-      quality: string;
+    AccountabilityRequest: {
+      drawdownImproved?: boolean;
+      /** Format: int32 */
+      months?: number;
+      underperformance: number;
     };
-    TradePlanPreviewResponse: {
-      debug?: boolean;
-      allowed?: boolean;
-      preciseQuantityAllowed?: boolean;
-      weightCap?: string;
-      tradeRiskCap?: string;
-      projectedOpenStockRisk?: string;
-      projectedClusterRisk?: string;
-      confidence?: string;
+    AccountabilityResponse: {
+      budgetMultiplier?: string;
       ruleIds?: string[];
-      reasons?: string[];
-      risks?: string[];
+    };
+    AccountMappingRequest: {
+      accountNumberMasked?: string;
+      displayName?: string;
+      /** Format: uuid */
+      existingAccountId?: string;
+    };
+    AccountView: {
+      accountType?: string;
+      active?: boolean;
+      currency?: string;
+      displayName?: string;
+      /** Format: uuid */
+      id?: string;
+      institution?: string;
+      /** Format: int64 */
+      version?: number;
     };
     AcknowledgementRequest: {
-      idempotencyKey: string;
       decisionType?: string;
+      idempotencyKey: string;
       rationale?: string;
     };
     AcknowledgementResponse: {
-      /** Format: uuid */
-      recommendationId?: string;
-      decisionType?: string;
-      newlyAcknowledged?: boolean;
-      executionSubmitted?: boolean;
       /** Format: date-time */
       acknowledgedAt?: string;
-    };
-    ConfirmThesisRequest: {
-      /** Format: int64 */
-      expectedVersion?: number;
-    };
-    ThesisResponse: {
+      decisionType?: string;
+      executionSubmitted?: boolean;
+      newlyAcknowledged?: boolean;
       /** Format: uuid */
-      id?: string;
-      summary?: string;
-      confirmationSignalsJson?: string;
-      invalidationSignalsJson?: string;
-      status?: string;
-      /** Format: date-time */
-      expiresAt?: string;
-      userConfirmed?: boolean;
-      /** Format: date-time */
-      confirmedAt?: string;
-      /** Format: int64 */
-      version?: number;
-      sourcesJson?: string;
+      recommendationId?: string;
     };
-    StopPreviewRequest: {
-      classification: string;
-      entry: number;
-      confirmedSwingLow: number;
-      atr: number;
-      previousLiveStop: number;
-      chandelier: number;
-      ema20: number;
-      confirmedHigherLow: number;
-      dailyClose: number;
-    };
-    StopPreviewResponse: {
-      debug?: boolean;
-      ordinaryStopApplicable?: boolean;
-      initialStop?: string;
-      liveStop?: string;
-      softAlert?: string;
-      catastrophicStop?: string;
-      closeConfirmed?: boolean;
-      catastrophicBreach?: boolean;
-      ruleIds?: string[];
-    };
-    EarningsReviewRequest: {
-      classification: string;
+    ActiveSleeveAccountabilityResponse: {
+      activeMaxDrawdown?: string;
+      activeReturn?: string;
+      benchmarkReturn?: string;
+      budgetMultiplier?: string;
+      contribution?: string;
+      coreMaxDrawdown?: string;
+      relativeReturn?: string;
       /** Format: int32 */
-      eventCount?: number;
-      profitCushionR: number;
-      overRiskLimit?: boolean;
-    };
-    EarningsReviewResponse: {
-      action?: string;
+      reviewMonths?: number;
       ruleIds?: string[];
+      turnover?: string;
+      underperformance?: string;
+    };
+    AnalysisStatusResponse: {
+      estimatedCategory?: string;
+      failure?: components["schemas"]["FailureStatus"];
+      /** Format: int64 */
+      pendingAgeSeconds?: number;
+      progress?: components["schemas"]["ProgressStatus"];
+      /** Format: uuid */
+      runId?: string;
+      stages?: components["schemas"]["ProgressStage"][];
+      /** Format: date-time */
+      startedAt?: string;
+      state?: string;
+      worker?: components["schemas"]["WorkerStatus"];
+    };
+    AnalystLayers: {
+      earnings?: components["schemas"]["Earnings"];
+      estimates?: components["schemas"]["Estimates"];
+      fundamentals?: components["schemas"]["Fundamentals"];
+      market?: components["schemas"]["PositionMarket"];
+      portfolioRole?: components["schemas"]["PortfolioRole"];
+      priceRiskEarnings?: components["schemas"]["PriceRiskEarnings"];
+      rationaleAndEvidence?: components["schemas"]["RationaleAndEvidence"];
+      risk?: components["schemas"]["PositionRisk"];
+      systemRecommendation?: components["schemas"]["SystemRecommendation"];
+      technical?: components["schemas"]["Technical"];
+      valuation?: components["schemas"]["Valuation"];
+    };
+    AssetEvidence: {
+      company?: components["schemas"]["CompanyEvidence"];
+      etf?: components["schemas"]["EtfEvidence"];
+      portfolioContext?: components["schemas"]["PortfolioContext"];
+      speculative?: components["schemas"]["SpeculativeEvidence"];
+    };
+    AuditEvidence: {
+      analysisStatus?: string;
+      configHash?: string;
+      evidenceRefs?: string[];
+      exactQuantityAllowed?: boolean;
+      ruleIds?: string[];
+      strategyVersion?: string;
+    };
+    BriefAction: {
+      action: string;
+      changeConditionsJson: string;
+      classification?: string;
+      companyName?: string;
+      confidence: string;
+      currentWeight?: string;
+      /** Format: date-time */
+      dataAsOf: string;
+      estimatedAmount?: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      positionId?: string;
+      priority: string;
+      quantityMax?: string;
+      quantityMin?: string;
+      reasonsJson: string;
+      riskAfterFraction?: string;
+      riskBeforeFraction?: string;
+      riskCalculationReason: string;
+      risksJson: string;
+      symbol?: string;
+      targetWeightMax?: string;
+      targetWeightMin?: string;
+      taxLotStatus: string;
+      /** Format: date-time */
+      validUntil: string;
+    };
+    Capital: {
+      deployableCash: string;
+      emergencyReserve: string;
+      investableAssets: string;
+      tacticalReserve: string;
+      totalLiquidAssets: string;
+    };
+    CashflowPlanRequest: {
+      emergencyCash: number;
+      monthlyExpenses: number;
+      monthlyTakeHome: number;
+      qualitySignal?: boolean;
+    };
+    CashflowPlanResponse: {
+      broadCore?: string;
+      emergency?: string;
+      internationalCore?: string;
+      qualityOpportunity?: string;
+      ruleIds?: string[];
+      surplus?: string;
+      tacticalReserve?: string;
+      techCore?: string;
+    };
+    CashResponse: {
+      accountName?: string;
+      accountNumberMasked?: string;
+      currentValue?: string;
+      description?: string;
+      /** Format: int32 */
+      rowNumber?: number;
+      status?: string;
+      symbol?: string;
+      warnings?: string[];
+    };
+    CashSetupRequest: {
+      amount: string;
+      location: string;
+    };
+    ChartBarResponse: {
+      close?: string;
+      high?: string;
+      low?: string;
+      /** Format: date */
+      marketDate?: string;
+      open?: string;
+      quality?: string;
+    };
+    ChartMarkerResponse: {
+      markerType?: string;
+      /** Format: date */
+      marketDate?: string;
+      price?: string;
+    };
+    ChartResponse: {
+      bars?: components["schemas"]["ChartBarResponse"][];
+      /** Format: date-time */
+      dataAsOf?: string;
+      earningsMarkers?: components["schemas"]["EventMarkerResponse"][];
+      entryMarkers?: components["schemas"]["ChartMarkerResponse"][];
+      quality?: string;
+      stopSeries?: components["schemas"]["StopSeriesResponse"][];
+      tradeMarkers?: components["schemas"]["EventMarkerResponse"][];
     };
     ClassificationRequest: {
       classification: string;
       /** Format: int64 */
       expectedVersion?: number;
     };
-    PositionResponse: {
-      /** Format: uuid */
-      id?: string;
-      /** Format: uuid */
-      accountId?: string;
-      symbol?: string;
-      bucket?: string;
-      classification?: string;
-      classificationConfirmed?: boolean;
-      quantity?: string;
-      averageCost?: string;
-      marketValue?: string;
-      status?: string;
-      /** Format: int64 */
-      version?: number;
-    };
-    AccountMappingRequest: {
-      accountNumberMasked?: string;
-      /** Format: uuid */
-      existingAccountId?: string;
-      displayName?: string;
-    };
-    CashSetupRequest: {
-      location: string;
-      amount: string;
-    };
-    ConfirmationRequest: {
-      /** Format: int64 */
-      expectedVersion?: number;
-      accountMappings?: components["schemas"]["AccountMappingRequest"][];
-      rowOverrides?: components["schemas"]["RowOverrideRequest"][];
-      cashSetup: components["schemas"]["CashSetupRequest"];
-    };
-    RowOverrideRequest: {
-      /** Format: int32 */
-      rowNumber?: number;
-      symbol?: string;
-      assetType?: string;
-      rowType?: string;
-      classification?: string;
-      ignored?: boolean;
-    };
-    ConfirmationResponse: {
-      /** Format: uuid */
-      batchId?: string;
-      status?: string;
-      /** Format: int64 */
-      version?: number;
-      /** Format: uuid */
-      analysisRunId?: string;
-      analysisState?: string;
-      /** Format: int32 */
-      openPositionCount?: number;
-      /** Format: int32 */
-      closedPositionCount?: number;
-      /** Format: int32 */
-      cashRowCount?: number;
-      /** Format: int32 */
-      compensationRowCount?: number;
-      idempotentReplay?: boolean;
-    };
-    PastedTableRequest: {
-      table: string;
-    };
-    CashResponse: {
-      /** Format: int32 */
-      rowNumber?: number;
-      accountName?: string;
-      accountNumberMasked?: string;
-      symbol?: string;
-      description?: string;
-      currentValue?: string;
-      status?: string;
-      warnings?: string[];
-    };
-    HoldingResponse: {
-      /** Format: int32 */
-      rowNumber?: number;
-      accountName?: string;
-      accountNumberMasked?: string;
-      symbol?: string;
-      description?: string;
-      assetType?: string;
-      quantity?: string;
-      lastPrice?: string;
-      currentValue?: string;
-      averageCost?: string;
-      costBasis?: string;
-      rowType?: string;
-      status?: string;
-      warnings?: string[];
-      suggestedClassification?: string;
-      classificationReason?: string;
-    };
-    ImportAccount: {
-      accountName?: string;
-      accountNumberMasked?: string;
-    };
-    PreviewResponse: {
-      /** Format: uuid */
-      batchId?: string;
-      status?: string;
-      /** Format: int64 */
-      version?: number;
-      accounts?: components["schemas"]["ImportAccount"][];
-      holdings?: components["schemas"]["HoldingResponse"][];
-      cash?: components["schemas"]["CashResponse"][];
-      warnings?: string[];
-      errors?: string[];
-      summary?: components["schemas"]["SummaryResponse"];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    SummaryResponse: {
-      /** Format: int32 */
-      rowCount?: number;
-      /** Format: int32 */
-      validRowCount?: number;
-      /** Format: int32 */
-      errorRowCount?: number;
-      estimatedInvestedValue: string;
-      estimatedCashValue: string;
-      emergencyCashTarget: string;
-    };
-    ManualHoldingRequest: {
-      accountNumber?: string;
-      accountName: string;
-      symbol: string;
-      description?: string;
-      quantity: string;
-      lastPrice?: string;
-      currentValue: string;
-      averageCost?: string;
-      costBasis?: string;
-      assetType: string;
-    };
-    DipPreviewRequest: {
-      portfolioDrawdown: number;
-      marketDriven?: boolean;
-      completeData?: boolean;
-      emergencyCashProtected?: boolean;
-      /** Format: double */
-      drawdownScore?: number;
-      /** Format: double */
-      vixPercentileScore?: number;
-      /** Format: double */
-      breadthOversoldScore?: number;
-      /** Format: double */
-      creditStressScore?: number;
-      /** Format: double */
-      volTermScore?: number;
-      /** Format: double */
-      trendContextScore?: number;
-      rsiCross40?: boolean;
-      breakout5Day?: boolean;
-      aboveEma20?: boolean;
-      breadthImproving?: boolean;
-      vixFalling?: boolean;
-      creditStable?: boolean;
-      /** Format: int32 */
-      completedTranches?: number;
-      /** Format: int32 */
-      tradingDaysSinceLastTranche?: number;
-    };
-    DipPreviewResponse: {
-      action?: string;
-      /** Format: double */
-      setupScore?: number;
-      /** Format: int32 */
-      triggerCount?: number;
-      /** Format: int32 */
-      trancheNumber?: number;
-      reserveFraction?: string;
-      ruleIds?: string[];
-      debug?: boolean;
-      executionSubmitted?: boolean;
-    };
-    CashflowPlanRequest: {
-      monthlyTakeHome: number;
-      monthlyExpenses: number;
-      emergencyCash: number;
-      qualitySignal?: boolean;
-    };
-    CashflowPlanResponse: {
-      surplus?: string;
-      emergency?: string;
-      broadCore?: string;
-      techCore?: string;
-      internationalCore?: string;
-      tacticalReserve?: string;
-      qualityOpportunity?: string;
-      ruleIds?: string[];
-    };
-    AccountabilityRequest: {
-      /** Format: int32 */
-      months?: number;
-      underperformance: number;
-      drawdownImproved?: boolean;
-    };
-    AccountabilityResponse: {
-      budgetMultiplier?: string;
-      ruleIds?: string[];
-    };
-    JobHealth: {
-      /** Format: int64 */
-      pendingJobs?: number;
-      /** Format: int64 */
-      deadJobs?: number;
-    };
-    VersionResponse: {
-      version?: string;
-      strategyVersion?: string;
-      strategyConfigHash?: string;
-      strategyPublishState?: string;
-      productionStrategy?: boolean;
-      draftStrategyOverride?: boolean;
-      fixtureData?: boolean;
-      runtimeMode?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-      ruleIds?: string[];
-    };
-    HistoryResponse: {
-      symbol?: string;
-      action?: string;
-      priority?: string;
-      confidence?: string;
-      strategyVersion?: string;
-      ruleIdsJson?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-      /** Format: date-time */
-      validUntil?: string;
-      status?: string;
-    };
-    JournalResponse: {
-      /** Format: uuid */
-      id?: string;
-      entryType?: string;
-      taxStatus?: string;
-      plannedRiskAmount?: string;
-      plannedR?: string;
-      realizedR?: string;
-      mfeR?: string;
-      maeR?: string;
-      exitReason?: string;
-      notes?: string;
-      /** Format: date-time */
-      occurredAt?: string;
-    };
-    EarningsResponse: {
-      /** Format: int32 */
-      eventCount?: number;
-      /** Format: date-time */
-      nextEventAt?: string;
-      downsideTailFraction?: string;
-      gapP75Fraction?: string;
-      gapP90Fraction?: string;
-      profitCushionR?: string;
-      action?: string;
-      ruleIdsJson?: string;
-      strategyVersion?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-      /** Format: date-time */
-      validUntil?: string;
-    };
-    IntelligenceResponse: {
-      stop?: components["schemas"]["StopSnapshotResponse"];
-      thesis?: components["schemas"]["ThesisResponse"];
-      valuation?: components["schemas"]["ValuationResponse"];
-      earnings?: components["schemas"]["EarningsResponse"];
-      journal?: components["schemas"]["JournalResponse"][];
-    };
-    StopSnapshotResponse: {
-      /** Format: uuid */
-      id?: string;
-      strategyVersion?: string;
-      entryPrice?: string;
-      atr?: string;
-      initialStop?: string;
-      liveStop?: string;
-      softAlert?: string;
-      catastrophicStop?: string;
-      closeConfirmed?: boolean;
-      ruleIdsJson?: string;
-      qualityStatus?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    ValuationResponse: {
-      fundamentalHealth?: string;
-      valuationDiscount?: boolean;
-      earningsRevisions?: string;
-      priceStabilization?: string;
-      portfolioCapacity?: boolean;
-      discountTacticalWeight?: string;
-      action?: string;
-      ruleIdsJson?: string;
-      strategyVersion?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-      /** Format: date-time */
-      validUntil?: string;
-    };
-    ChartBarResponse: {
-      /** Format: date */
-      marketDate?: string;
-      open?: string;
-      high?: string;
-      low?: string;
-      close?: string;
-      quality?: string;
-    };
-    ChartMarkerResponse: {
-      /** Format: date */
-      marketDate?: string;
-      price?: string;
-      markerType?: string;
-    };
-    ChartResponse: {
-      bars?: components["schemas"]["ChartBarResponse"][];
-      entryMarkers?: components["schemas"]["ChartMarkerResponse"][];
-      stopSeries?: components["schemas"]["StopSeriesResponse"][];
-      earningsMarkers?: components["schemas"]["EventMarkerResponse"][];
-      tradeMarkers?: components["schemas"]["EventMarkerResponse"][];
-      /** Format: date-time */
-      dataAsOf?: string;
-      quality?: string;
-    };
-    EventMarkerResponse: {
-      /** Format: date */
-      marketDate?: string;
-      markerType?: string;
-      label?: string;
-    };
-    StopSeriesResponse: {
-      /** Format: date */
-      marketDate?: string;
-      formalStop?: string;
-      liveStop?: string;
-      softAlert?: string;
-    };
     ClassificationSuggestionResponse: {
+      assetType?: string;
+      blocked?: boolean;
+      classification?: string;
+      confirmationRequired?: boolean;
       /** Format: uuid */
       positionId?: string;
-      symbol?: string;
-      assetType?: string;
-      classification?: string;
-      source?: string;
-      blocked?: boolean;
       reason?: string;
-      confirmationRequired?: boolean;
-    };
-    PortfolioSummaryResponse: {
-      investedValue?: string;
-      trackedCash?: string;
-      /** Format: int64 */
-      openPositions?: number;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    PortfolioHoldingResponse: {
-      /** Format: uuid */
-      id?: string;
-      /** Format: int64 */
-      version?: number;
+      source?: string;
       symbol?: string;
-      name?: string;
-      assetType?: string;
-      bucket?: string;
-      classification?: string;
-      classificationConfirmed?: boolean;
-      marketValue?: string;
-      currentPrice?: string;
-      averageCost?: string;
-      unrealizedPnlDollar?: string;
-      unrealizedPnlPct?: string;
-      dayChangePct?: string;
-      oneMonthReturn?: string;
-      currentWeight?: string;
-      targetWeightMin?: string;
-      targetWeightMax?: string;
-      action?: string;
-      priority?: string;
-      confidence?: string;
-      keyReason?: string;
-      trend?: string;
-      /** Format: date-time */
-      nextEvent?: string;
-      dataStatus?: string;
-    };
-    DrawdownResponse: {
-      strategyVersion?: string;
-      currentEquity?: string;
-      highWaterMark?: string;
-      drawdownFraction?: string;
-      drawdownPercent?: string;
-      state?: string;
-      sourceClassification?: string;
-      marketDriven?: boolean;
-      spyReturnFromPeak?: string;
-      qqqReturnFromPeak?: string;
-      spyDrawdownPercent?: string;
-      qqqDrawdownPercent?: string;
-      breadth50?: string;
-      stressLevel?: string;
-      positionAttributionJson?: string;
-      clusterAttributionJson?: string;
-      confidence?: string;
-      qualityStatus?: string;
-      narrativesJson?: string;
-      ruleIdsJson?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    SnapshotEnvelopeDrawdownResponse: {
-      status?: string;
-      snapshot?: components["schemas"]["DrawdownResponse"];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    RegimeResponse: {
-      strategyVersion?: string;
-      label?: string;
-      /** Format: double */
-      score?: number;
-      /** Format: double */
-      trendScore?: number;
-      /** Format: double */
-      momentumScore?: number;
-      /** Format: double */
-      breadthScore?: number;
-      /** Format: double */
-      stressScore?: number;
-      confidence?: string;
-      tacticalCapFivePercent?: boolean;
-      qualityStatus?: string;
-      narrativesJson?: string;
-      ruleIdsJson?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    SnapshotEnvelopeRegimeResponse: {
-      status?: string;
-      snapshot?: components["schemas"]["RegimeResponse"];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    DataHealthResponse: {
-      status?: string;
-      /** Format: int64 */
-      activeInstruments?: number;
-      /** Format: int64 */
-      priceBars?: number;
-      /** Format: int64 */
-      indicatorSnapshots?: number;
-      /** Format: int64 */
-      openQualityEvents?: number;
-      /** Format: int64 */
-      staleObservations?: number;
-      /** Format: int64 */
-      partialObservations?: number;
-      /** Format: int64 */
-      suspectObservations?: number;
-      /** Format: date-time */
-      latestPriceDataAsOf?: string;
-      /** Format: date-time */
-      latestIndicatorDataAsOf?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    InstrumentPage: {
-      items?: components["schemas"]["InstrumentResponse"][];
-      nextCursor?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    InstrumentResponse: {
-      id?: string;
-      symbol?: string;
-      exchange?: string;
-      assetType?: string;
-      currency?: string;
-      cik?: string;
-      active?: boolean;
-    };
-    IndicatorResponse: {
-      /** Format: date */
-      marketDate?: string;
-      indicatorCode?: string;
-      status?: string;
-      /** Format: double */
-      value?: number;
-      valuesJson?: string;
-      /** Format: int32 */
-      requiredObservations?: number;
-      /** Format: int32 */
-      actualObservations?: number;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    MarketSeriesIndicatorResponse: {
-      items?: components["schemas"]["IndicatorResponse"][];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    FundamentalResponse: {
-      metricCode?: string;
-      periodType?: string;
-      /** Format: date */
-      periodEnd?: string;
-      /** Format: date */
-      filingDate?: string;
-      value?: string;
-      text?: string;
-      unit?: string;
-      currency?: string;
-      provider?: string;
-      qualityStatus?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    MarketSeriesFundamentalResponse: {
-      items?: components["schemas"]["FundamentalResponse"][];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    MarketSeriesPriceBarResponse: {
-      items?: components["schemas"]["PriceBarResponse"][];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    PriceBarResponse: {
-      /** Format: date */
-      marketDate?: string;
-      open?: string;
-      high?: string;
-      low?: string;
-      close?: string;
-      volume?: string;
-      adjusted?: boolean;
-      provider?: string;
-      qualityStatus?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    AnalystLayers: {
-      systemRecommendation?: components["schemas"]["SystemRecommendation"];
-      portfolioRole?: components["schemas"]["PortfolioRole"];
-      market?: components["schemas"]["PositionMarket"];
-      fundamentals?: components["schemas"]["Fundamentals"];
-      valuation?: components["schemas"]["Valuation"];
-      estimates?: components["schemas"]["Estimates"];
-      technical?: components["schemas"]["Technical"];
-      earnings?: components["schemas"]["Earnings"];
-      risk?: components["schemas"]["PositionRisk"];
-      priceRiskEarnings?: components["schemas"]["PriceRiskEarnings"];
-      rationaleAndEvidence?: components["schemas"]["RationaleAndEvidence"];
-    };
-    AssetEvidence: {
-      company?: components["schemas"]["CompanyEvidence"];
-      etf?: components["schemas"]["EtfEvidence"];
-      speculative?: components["schemas"]["SpeculativeEvidence"];
-      portfolioContext?: components["schemas"]["PortfolioContext"];
-    };
-    AuditEvidence: {
-      analysisStatus?: string;
-      exactQuantityAllowed?: boolean;
-      ruleIds?: string[];
-      evidenceRefs?: string[];
-      strategyVersion?: string;
-      configHash?: string;
     };
     CompanyEvidence: {
       companyModelApplied?: boolean;
+      earningsRiskStatus?: string;
       fundamentalsStatus?: string;
       growthProfitabilityCashFlowStatus?: string;
-      valuationStatus?: string;
-      earningsRiskStatus?: string;
       thesisStatus?: string;
+      valuationStatus?: string;
     };
-    DecisionNarrative: {
-      source?: string;
-      headline?: string;
-      oneSentence?: string;
-      why?: string[];
-      risks?: string[];
-      watchNext?: string[];
-      confidenceExplanation?: string;
-    };
-    EtfEvidence: {
-      etfModelApplied?: boolean;
-      thematic?: boolean;
-      topHoldingsConcentration?: string;
-      portfolioOverlapFraction?: string;
-      trendStatus?: string;
-      liquidityStatus?: string;
-      eventStatus?: string;
-      companyEarningsModelApplied?: boolean;
-    };
-    EvidenceDrawer: {
-      ruleIds?: string[];
-      evidenceRefs?: string[];
-      strategyVersion?: string;
-      configHash?: string;
-      dataQuality?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    Fundamentals: {
-      financialHealth?: string;
-      revenueTtm?: string;
-      revenueYoy?: string;
-      revenue3yCagr?: string;
-      epsTtm?: string;
-      epsYoy?: string;
-      operatingMargin?: string;
-      operatingMarginYoyChange?: string;
-      fcfTtm?: string;
-      fcfMargin?: string;
-      fcfConversion?: string;
-      netCash?: string;
-      netDebtToFcf?: string;
-      currentRatio?: string;
-      shareDilutionYoy?: string;
-      quality?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-      available?: boolean;
-    };
-    PortfolioContext: {
-      currentWeight?: string;
-      clusterWeight?: string;
-      clusterOpenRisk?: string;
-    };
-    PortfolioRole: {
-      classification?: string;
-      currentWeight?: string;
-      targetWeightMin?: string;
-      targetWeightMax?: string;
-      normalMaxWeight?: string;
-      hardMaxWeight?: string;
-      atHardMax?: boolean;
-      capacityExplanation?: string;
-    };
-    Position: {
-      /** Format: uuid */
-      id?: string;
-      symbol?: string;
-      classification?: string;
-      classificationSource?: string;
-    };
-    PositionReportResponse: {
-      position?: components["schemas"]["Position"];
-      readiness?: string;
-      recommendation?: components["schemas"]["Recommendation"];
-      evidence?: components["schemas"]["AuditEvidence"];
-      assetEvidence?: components["schemas"]["AssetEvidence"];
-      layers?: components["schemas"]["AnalystLayers"];
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    PositionMarket: {
-      price?: string;
-      dayChangePct?: string;
-      oneMonthReturn?: string;
-      threeMonthReturn?: string;
-      averageCost?: string;
-      unrealizedPnlDollar?: string;
-      unrealizedPnlPct?: string;
-    };
-    Estimates: {
-      fy1Eps?: string;
-      fy1Revenue?: string;
-      epsRevision30d?: string;
-      epsRevision90d?: string;
-      revenueRevision30d?: string;
-      revenueRevision90d?: string;
-      /** Format: int32 */
-      analystCount?: number;
-      epsHigh?: string;
-      epsLow?: string;
-      dispersion?: string;
-      state?: string;
-      quality?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    Technical: {
-      sma20?: string;
-      sma50?: string;
-      sma200?: string;
-      distanceFromSma20?: string;
-      distanceFromSma50?: string;
-      distanceFromSma200?: string;
-      rsi14?: string;
-      macdState?: string;
-      atr14?: string;
-      atrPercent?: string;
-      realizedVolatility?: string;
-      breakout20d?: string;
-      drawdown52Week?: string;
-      relativeStrengthSpy1m?: string;
-      relativeStrengthSpy3m?: string;
-      relativeStrengthSpy6m?: string;
-      relativeStrengthQqq1m?: string;
-      relativeStrengthQqq3m?: string;
-      relativeStrengthQqq6m?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    Earnings: {
-      /** Format: date-time */
-      nextEarningsAt?: string;
+    ConfirmationRequest: {
+      accountMappings?: components["schemas"]["AccountMappingRequest"][];
+      cashSetup: components["schemas"]["CashSetupRequest"];
       /** Format: int64 */
-      daysUntilEarnings?: number;
-      sessionType?: string;
-      eventRisk?: string;
-      historicalMedianAbsMove?: string;
-      historicalP75AbsMove?: string;
-      worstDownsideGap?: string;
-      reaction1d?: string[];
-      reaction3d?: string[];
-      reaction5d?: string[];
-      currentR?: string;
-      policyAction?: string;
-      quality?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
+      expectedVersion?: number;
+      rowOverrides?: components["schemas"]["RowOverrideRequest"][];
     };
-    PositionRisk: {
-      currentWeight?: string;
-      normalMaxWeight?: string;
-      hardMaxWeight?: string;
-      plannedStop?: string;
-      stopDistancePct?: string;
-      positionPlannedRiskDollar?: string;
-      positionPlannedRiskPct?: string;
-      clusterRisk?: string;
-      totalPortfolioPlannedRisk?: string;
-      projectedTotalRiskAfterAction?: string;
-      projectedClusterRiskAfterAction?: string;
-      sizingLimitingConstraint?: string;
-      quality?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-    };
-    PriceRiskEarnings: {
-      priceState?: string;
-      formalStop?: string;
-      liveStop?: string;
-      earningsRisk?: string;
-      earningsPolicyAction?: string;
-      /** Format: date-time */
-      earningsAt?: string;
-    };
-    RationaleAndEvidence: {
-      reasons?: string[];
-      risks?: string[];
-      changeConditions?: string[];
-      evidenceDrawer?: components["schemas"]["EvidenceDrawer"];
-    };
-    Recommendation: {
+    ConfirmationResponse: {
       /** Format: uuid */
-      id?: string;
-      action?: string;
-      priority?: string;
-      quantityMin?: string;
-      quantityMax?: string;
-      currentWeight?: string;
-      targetWeightMin?: string;
-      targetWeightMax?: string;
-      confidence?: string;
-      reasons?: string[];
-      risks?: string[];
-      changeConditions?: string[];
-      winningRule?: string;
-      suppressedCandidates?: components["schemas"]["SuppressedCandidate"][];
-      resolutionReason?: string;
-      narrative?: components["schemas"]["DecisionNarrative"];
-      /** Format: date-time */
-      validUntil?: string;
-    };
-    SpeculativeEvidence: {
-      speculativePolicyApplied?: boolean;
-      hardMaxWeight?: string;
-      confidenceCeiling?: string;
-      stopStatus?: string;
-      eventRiskStatus?: string;
-      tickerOrPriceCanUpgradeQuality?: boolean;
-    };
-    SuppressedCandidate: {
-      action?: string;
-      priority?: string;
+      analysisRunId?: string;
+      analysisState?: string;
+      /** Format: uuid */
+      batchId?: string;
       /** Format: int32 */
-      riskRank?: number;
-      ruleId?: string;
-      reason?: string;
-      risks?: string[];
-    };
-    SystemRecommendation: {
-      action?: string;
-      priority?: string;
-      confidence?: string;
-      quantityMin?: string;
-      quantityMax?: string;
-      exactQuantityAllowed?: boolean;
-    };
-    Valuation: {
-      state?: string;
-      trailingPeTtm?: string;
-      forwardPeFy1?: string;
-      evSalesTtm?: string;
-      priceSalesTtm?: string;
-      fcfYieldTtm?: string;
-      historyPercentile3y?: string;
-      historyPercentile5y?: string;
-      confidence?: string;
+      cashRowCount?: number;
       /** Format: int32 */
-      observationCount?: number;
-      relativeValuation?: string;
-      quality?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-      independentConfirmation?: boolean;
-      attractive?: boolean;
-      attractiveButCannotAdd?: boolean;
-    };
-    HoldingAnalysisResponse: {
-      /** Format: uuid */
-      id?: string;
-      /** Format: uuid */
-      positionId?: string;
-      symbol?: string;
-      analysisStatus?: string;
-      confidence?: string;
-      currentWeight?: string;
-      targetWeightMin?: string;
-      targetWeightMax?: string;
-      exactQuantityAllowed?: boolean;
-      reasonsJson?: string;
-      risksJson?: string;
-      changeConditionsJson?: string;
-      ruleIdsJson?: string;
-      strategyVersion?: string;
-      /** Format: date-time */
-      dataAsOf?: string;
-      /** Format: date-time */
-      validUntil?: string;
-    };
-    DipStatusEnvelope: {
+      closedPositionCount?: number;
+      /** Format: int32 */
+      compensationRowCount?: number;
+      idempotentReplay?: boolean;
+      /** Format: int32 */
+      openPositionCount?: number;
       status?: string;
-      event?: components["schemas"]["DipStatusResponse"];
+      /** Format: int64 */
+      version?: number;
     };
-    DipStatusResponse: {
-      symbol?: string;
-      strategyVersion?: string;
-      status?: string;
-      /** Format: double */
-      setupScore?: number;
-      /** Format: int32 */
-      triggerCount?: number;
-      portfolioDrawdown?: string;
-      marketDriven?: boolean;
-      emergencyCashProtected?: boolean;
-      ruleIdsJson?: string;
+    ConfirmThesisRequest: {
+      /** Format: int64 */
+      expectedVersion?: number;
+    };
+    CsrfResponse: {
+      headerName?: string;
+      parameterName?: string;
+      token?: string;
+    };
+    DataHealthResponse: {
+      /** Format: int64 */
+      activeInstruments?: number;
       /** Format: date-time */
       dataAsOf?: string;
+      /** Format: int64 */
+      indicatorSnapshots?: number;
       /** Format: date-time */
-      validUntil?: string;
-    };
-    BriefAction: {
-      /** Format: uuid */
-      id: string;
-      /** Format: uuid */
-      positionId?: string;
-      symbol?: string;
-      companyName?: string;
-      classification?: string;
-      action: string;
-      priority: string;
-      quantityMin?: string;
-      quantityMax?: string;
-      currentWeight?: string;
-      targetWeightMin?: string;
-      targetWeightMax?: string;
-      estimatedAmount?: string;
-      riskBeforeFraction?: string;
-      riskAfterFraction?: string;
-      riskCalculationReason: string;
-      taxLotStatus: string;
-      confidence: string;
-      reasonsJson: string;
-      risksJson: string;
-      changeConditionsJson: string;
+      latestIndicatorDataAsOf?: string;
       /** Format: date-time */
-      dataAsOf: string;
-      /** Format: date-time */
-      validUntil: string;
-    };
-    Capital: {
-      totalLiquidAssets: string;
-      emergencyReserve: string;
-      deployableCash: string;
-      investableAssets: string;
-      tacticalReserve: string;
+      latestPriceDataAsOf?: string;
+      /** Format: int64 */
+      openQualityEvents?: number;
+      /** Format: int64 */
+      partialObservations?: number;
+      /** Format: int64 */
+      priceBars?: number;
+      /** Format: int64 */
+      staleObservations?: number;
+      status?: string;
+      /** Format: int64 */
+      suspectObservations?: number;
     };
     DataReadiness: {
-      status: string;
-      marketCoverage: string;
-      fundamentalCoverage: string;
       completeness: string;
       /** Format: int64 */
-      stalePositionCount: number;
+      failedJobCount: number;
+      fundamentalCoverage: string;
+      marketCoverage: string;
       /** Format: int64 */
       missingPositionCount: number;
       /** Format: int64 */
-      failedJobCount: number;
+      stalePositionCount: number;
+      status: string;
+    };
+    DecisionNarrative: {
+      confidenceExplanation?: string;
+      headline?: string;
+      oneSentence?: string;
+      risks?: string[];
+      source?: string;
+      watchNext?: string[];
+      why?: string[];
+    };
+    DecisionOutcomeResponse: {
+      action?: string;
+      evaluation?: string;
+      interpretation?: string;
+      /** Format: uuid */
+      recommendationId?: string;
+      ruleObjective?: string;
+      symbol?: string;
+      userDecision?: string;
+    };
+    DipPreviewRequest: {
+      aboveEma20?: boolean;
+      breadthImproving?: boolean;
+      /** Format: double */
+      breadthOversoldScore?: number;
+      breakout5Day?: boolean;
+      completeData?: boolean;
+      /** Format: int32 */
+      completedTranches?: number;
+      creditStable?: boolean;
+      /** Format: double */
+      creditStressScore?: number;
+      /** Format: double */
+      drawdownScore?: number;
+      emergencyCashProtected?: boolean;
+      marketDriven?: boolean;
+      portfolioDrawdown: number;
+      rsiCross40?: boolean;
+      /** Format: int32 */
+      tradingDaysSinceLastTranche?: number;
+      /** Format: double */
+      trendContextScore?: number;
+      vixFalling?: boolean;
+      /** Format: double */
+      vixPercentileScore?: number;
+      /** Format: double */
+      volTermScore?: number;
+    };
+    DipPreviewResponse: {
+      action?: string;
+      debug?: boolean;
+      executionSubmitted?: boolean;
+      reserveFraction?: string;
+      ruleIds?: string[];
+      /** Format: double */
+      setupScore?: number;
+      /** Format: int32 */
+      trancheNumber?: number;
+      /** Format: int32 */
+      triggerCount?: number;
+    };
+    DipStatusEnvelope: {
+      event?: components["schemas"]["DipStatusResponse"];
+      status?: string;
+    };
+    DipStatusResponse: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      emergencyCashProtected?: boolean;
+      marketDriven?: boolean;
+      portfolioDrawdown?: string;
+      ruleIdsJson?: string;
+      /** Format: double */
+      setupScore?: number;
+      status?: string;
+      strategyVersion?: string;
+      symbol?: string;
+      /** Format: int32 */
+      triggerCount?: number;
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    DrawdownResponse: {
+      breadth50?: string;
+      clusterAttributionJson?: string;
+      confidence?: string;
+      currentEquity?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      drawdownFraction?: string;
+      drawdownPercent?: string;
+      highWaterMark?: string;
+      marketDriven?: boolean;
+      narrativesJson?: string;
+      positionAttributionJson?: string;
+      qqqDrawdownPercent?: string;
+      qqqReturnFromPeak?: string;
+      qualityStatus?: string;
+      ruleIdsJson?: string;
+      sourceClassification?: string;
+      spyDrawdownPercent?: string;
+      spyReturnFromPeak?: string;
+      state?: string;
+      strategyVersion?: string;
+      stressLevel?: string;
+    };
+    Earnings: {
+      currentR?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      /** Format: int64 */
+      daysUntilEarnings?: number;
+      eventRisk?: string;
+      historicalMedianAbsMove?: string;
+      historicalP75AbsMove?: string;
+      /** Format: date-time */
+      nextEarningsAt?: string;
+      policyAction?: string;
+      quality?: string;
+      reaction1d?: string[];
+      reaction3d?: string[];
+      reaction5d?: string[];
+      sessionType?: string;
+      worstDownsideGap?: string;
+    };
+    EarningsResponse: {
+      action?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      downsideTailFraction?: string;
+      /** Format: int32 */
+      eventCount?: number;
+      gapP75Fraction?: string;
+      gapP90Fraction?: string;
+      /** Format: date-time */
+      nextEventAt?: string;
+      profitCushionR?: string;
+      ruleIdsJson?: string;
+      strategyVersion?: string;
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    EarningsReviewRequest: {
+      classification: string;
+      /** Format: int32 */
+      eventCount?: number;
+      overRiskLimit?: boolean;
+      profitCushionR: number;
+    };
+    EarningsReviewResponse: {
+      action?: string;
+      ruleIds?: string[];
+    };
+    Estimates: {
+      /** Format: int32 */
+      analystCount?: number;
+      /** Format: date-time */
+      dataAsOf?: string;
+      dispersion?: string;
+      dispersionHigh?: boolean;
+      eps30dAgo?: string;
+      eps90dAgo?: string;
+      epsHigh?: string;
+      epsLow?: string;
+      epsRevision30d?: string;
+      epsRevision90d?: string;
+      fy1Eps?: string;
+      fy1Revenue?: string;
+      quality?: string;
+      revenueRevision30d?: string;
+      revenueRevision90d?: string;
+      state?: string;
+    };
+    EtfEvidence: {
+      companyEarningsModelApplied?: boolean;
+      etfModelApplied?: boolean;
+      eventStatus?: string;
+      liquidityStatus?: string;
+      portfolioOverlapFraction?: string;
+      thematic?: boolean;
+      topHoldingsConcentration?: string;
+      trendStatus?: string;
+    };
+    EventMarkerResponse: {
+      label?: string;
+      markerType?: string;
+      /** Format: date */
+      marketDate?: string;
+    };
+    EvidenceDrawer: {
+      configHash?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      dataQuality?: string;
+      evidenceRefs?: string[];
+      ruleIds?: string[];
+      strategyVersion?: string;
     };
     ExecutiveBrief: {
+      allHoldings: components["schemas"]["HoldingSummary"][];
+      /** Format: uuid */
+      analysisRunId?: string;
+      blocked: components["schemas"]["BriefAction"][];
+      capital: components["schemas"]["Capital"];
+      confirmedNoAction: boolean;
+      /** Format: date-time */
+      dataAsOf?: string;
+      dataReadiness: components["schemas"]["DataReadiness"];
+      doNot: components["schemas"]["BriefAction"][];
+      headline: string;
+      market: components["schemas"]["Market"];
+      mustAct: components["schemas"]["BriefAction"][];
+      nextEvents: components["schemas"]["NextEvent"][];
+      opportunities: components["schemas"]["BriefAction"][];
+      portfolio: components["schemas"]["PortfolioCommand"];
+      portfolioHealth: components["schemas"]["PortfolioHealth"];
       /** @enum {string} */
       state:
         | "NO_PORTFOLIO"
@@ -1779,173 +1271,549 @@ export interface components {
         | "STALE"
         | "BLOCKED"
         | "FAILED";
-      confirmedNoAction: boolean;
-      headline: string;
+      strategyVersion?: string;
       summary: components["schemas"]["PortfolioSummary"];
-      market: components["schemas"]["Market"];
-      capital: components["schemas"]["Capital"];
-      portfolio: components["schemas"]["PortfolioCommand"];
-      mustAct: components["schemas"]["BriefAction"][];
-      doNot: components["schemas"]["BriefAction"][];
-      watch: components["schemas"]["BriefAction"][];
-      opportunities: components["schemas"]["BriefAction"][];
-      blocked: components["schemas"]["BriefAction"][];
       todayPriorities: components["schemas"]["BriefAction"][];
       topRisks: components["schemas"]["TopRisk"][];
-      allHoldings: components["schemas"]["HoldingSummary"][];
-      portfolioHealth: components["schemas"]["PortfolioHealth"];
-      dataReadiness: components["schemas"]["DataReadiness"];
-      nextEvents: components["schemas"]["NextEvent"][];
-      /** Format: uuid */
-      analysisRunId?: string;
-      strategyVersion?: string;
+      watch: components["schemas"]["BriefAction"][];
+    };
+    FailureStatus: {
+      errorCode?: string;
+      errorMessage?: string;
+      failedStage?: string;
+      retryable?: boolean;
+    };
+    FundamentalResponse: {
+      currency?: string;
       /** Format: date-time */
       dataAsOf?: string;
+      /** Format: date */
+      filingDate?: string;
+      metricCode?: string;
+      /** Format: date */
+      periodEnd?: string;
+      periodType?: string;
+      provider?: string;
+      qualityStatus?: string;
+      text?: string;
+      unit?: string;
+      value?: string;
+    };
+    Fundamentals: {
+      available?: boolean;
+      currentRatio?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      epsTtm?: string;
+      epsYoy?: string;
+      fcfConversion?: string;
+      fcfMargin?: string;
+      fcfTtm?: string;
+      financialHealth?: string;
+      netCash?: string;
+      netDebtToFcf?: string;
+      operatingMargin?: string;
+      operatingMarginYoyChange?: string;
+      quality?: string;
+      revenue3yCagr?: string;
+      revenueTtm?: string;
+      revenueYoy?: string;
+      shareDilutionYoy?: string;
+    };
+    HistoryResponse: {
+      action?: string;
+      confidence?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      priority?: string;
+      ruleIdsJson?: string;
+      status?: string;
+      strategyVersion?: string;
+      symbol?: string;
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    HoldingAnalysisResponse: {
+      analysisStatus?: string;
+      changeConditionsJson?: string;
+      confidence?: string;
+      currentWeight?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      exactQuantityAllowed?: boolean;
+      /** Format: uuid */
+      id?: string;
+      /** Format: uuid */
+      positionId?: string;
+      reasonsJson?: string;
+      risksJson?: string;
+      ruleIdsJson?: string;
+      strategyVersion?: string;
+      symbol?: string;
+      targetWeightMax?: string;
+      targetWeightMin?: string;
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    HoldingResponse: {
+      accountName?: string;
+      accountNumberMasked?: string;
+      assetType?: string;
+      averageCost?: string;
+      classificationReason?: string;
+      costBasis?: string;
+      currentValue?: string;
+      description?: string;
+      lastPrice?: string;
+      quantity?: string;
+      /** Format: int32 */
+      rowNumber?: number;
+      rowType?: string;
+      status?: string;
+      suggestedClassification?: string;
+      symbol?: string;
+      warnings?: string[];
     };
     HoldingSummary: {
-      /** Format: uuid */
-      positionId: string;
-      symbol: string;
-      companyName: string;
-      classification?: string;
       action: string;
-      priority: string;
+      classification?: string;
+      companyName: string;
       confidence: string;
       currentWeight?: string;
       dataStatus: string;
+      /** Format: uuid */
+      positionId: string;
+      priority: string;
+      symbol: string;
+    };
+    ImportAccount: {
+      accountName?: string;
+      accountNumberMasked?: string;
+    };
+    IndicatorResponse: {
+      /** Format: int32 */
+      actualObservations?: number;
+      /** Format: date-time */
+      dataAsOf?: string;
+      indicatorCode?: string;
+      /** Format: date */
+      marketDate?: string;
+      /** Format: int32 */
+      requiredObservations?: number;
+      status?: string;
+      /** Format: double */
+      value?: number;
+      valuesJson?: string;
+    };
+    InstrumentPage: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      items?: components["schemas"]["InstrumentResponse"][];
+      nextCursor?: string;
+    };
+    InstrumentResponse: {
+      active?: boolean;
+      assetType?: string;
+      cik?: string;
+      currency?: string;
+      exchange?: string;
+      id?: string;
+      symbol?: string;
+    };
+    IntelligenceResponse: {
+      earnings?: components["schemas"]["EarningsResponse"];
+      journal?: components["schemas"]["JournalResponse"][];
+      stop?: components["schemas"]["StopSnapshotResponse"];
+      thesis?: components["schemas"]["ThesisResponse"];
+      valuation?: components["schemas"]["ValuationResponse"];
+    };
+    JobHealth: {
+      /** Format: int64 */
+      deadJobs?: number;
+      /** Format: int64 */
+      pendingJobs?: number;
+    };
+    JournalResponse: {
+      entryType?: string;
+      exitReason?: string;
+      /** Format: uuid */
+      id?: string;
+      maeR?: string;
+      mfeR?: string;
+      notes?: string;
+      /** Format: date-time */
+      occurredAt?: string;
+      plannedR?: string;
+      plannedRiskAmount?: string;
+      realizedR?: string;
+      taxStatus?: string;
+    };
+    ManualHoldingRequest: {
+      accountName: string;
+      accountNumber?: string;
+      assetType: string;
+      averageCost?: string;
+      costBasis?: string;
+      currentValue: string;
+      description?: string;
+      lastPrice?: string;
+      quantity: string;
+      symbol: string;
     };
     Market: {
+      confidence: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      qualityStatus: string;
       regime: string;
       /** Format: double */
       score?: number;
-      confidence: string;
-      qualityStatus: string;
       summary: string;
+    };
+    MarketSeriesFundamentalResponse: {
       /** Format: date-time */
       dataAsOf?: string;
+      items?: components["schemas"]["FundamentalResponse"][];
     };
-    NextEvent: {
-      symbol: string;
-      eventType: string;
-      title: string;
+    MarketSeriesIndicatorResponse: {
       /** Format: date-time */
-      eventAt: string;
-      qualityStatus: string;
+      dataAsOf?: string;
+      items?: components["schemas"]["IndicatorResponse"][];
     };
-    PortfolioCommand: {
-      drawdown?: string;
-      drawdownSource?: string;
-      technologyExposure?: string;
-      openRisk?: string;
-      clusterRisk?: string;
-    };
-    PortfolioHealth: {
-      status: string;
-      reasons: string[];
-    };
-    PortfolioSummary: {
-      investedValue: string;
-      trackedCash: string;
-      emergencyCash: string;
-      tacticalReserve: string;
-      /** Format: int64 */
-      openPositions: number;
-      totalLiquidAssets: string;
-      coreExposureFraction?: string;
-      tacticalExposureFraction?: string;
-      tacticalSpeculativeExposureFraction?: string;
-      technologyExposureFraction?: string;
-      employerExposureFraction?: string;
-      clusterRiskFraction?: string;
-      openPlannedRiskFraction?: string;
-      unvestedCompensationValue: string;
-      portfolioDrawdownFraction?: string;
-      drawdownSource?: string;
-    };
-    TopRisk: {
-      risk: string;
-      meaning: string;
-      nowAction: string;
-      symbol?: string;
-      priority: string;
+    MarketSeriesPriceBarResponse: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      items?: components["schemas"]["PriceBarResponse"][];
     };
     Metric: {
+      /** Format: int32 */
+      horizonDays?: number;
       name?: string;
-      /** Format: double */
-      value?: number;
       /** Format: int64 */
       sampleCount?: number;
       sleeve?: string;
-      /** Format: int32 */
-      horizonDays?: number;
+      /** Format: double */
+      value?: number;
     };
-    RunView: {
+    NextEvent: {
+      /** Format: date-time */
+      eventAt: string;
+      eventType: string;
+      qualityStatus: string;
+      symbol: string;
+      title: string;
+    };
+    PastedTableRequest: {
+      table: string;
+    };
+    PerformanceContributionResponse: {
+      contribution?: string;
+      symbol?: string;
+    };
+    PerformancePeriodResponse: {
+      activeMaxDrawdown?: string;
+      activeReturn?: string;
+      coreMaxDrawdown?: string;
+      /** Format: date */
+      coverageEnd?: string;
+      /** Format: date */
+      coverageStart?: string;
+      period?: string;
+      portfolioTwr?: string;
+      qqqReturn?: string;
+      spyReturn?: string;
+      turnover?: string;
+    };
+    PerformanceReviewResponse: {
+      activeSleeve?: components["schemas"]["ActiveSleeveAccountabilityResponse"];
+      contributions?: components["schemas"]["PerformanceContributionResponse"][];
+      decisionOutcomes?: components["schemas"]["DecisionOutcomeResponse"][];
+      periods?: components["schemas"]["PerformancePeriodResponse"][];
+      quality?: string;
+    };
+    PortfolioCommand: {
+      clusterRisk?: string;
+      drawdown?: string;
+      drawdownSource?: string;
+      openRisk?: string;
+      technologyExposure?: string;
+    };
+    PortfolioContext: {
+      clusterOpenRisk?: string;
+      clusterWeight?: string;
+      currentWeight?: string;
+    };
+    PortfolioHealth: {
+      reasons: string[];
+      status: string;
+    };
+    PortfolioHoldingResponse: {
+      action?: string;
+      assetType?: string;
+      averageCost?: string;
+      bucket?: string;
+      classification?: string;
+      classificationConfirmed?: boolean;
+      confidence?: string;
+      currentPrice?: string;
+      currentWeight?: string;
+      dataStatus?: string;
+      dayChangePct?: string;
       /** Format: uuid */
       id?: string;
-      strategyVersion?: string;
-      /** Format: date */
-      periodStart?: string;
-      /** Format: date */
-      periodEnd?: string;
-      /** Format: date */
-      trainingThrough?: string;
-      /** Format: date */
-      outOfSampleFrom?: string;
-      status?: string;
-      biasStatus?: string;
-      universeVersion?: string;
-      priceAdjustmentVersion?: string;
-      calendarVersion?: string;
-      costModelVersion?: string;
-      featureCutoffPolicy?: string;
-      biasProof?: string;
-      summaryJson?: string;
+      keyReason?: string;
+      marketValue?: string;
+      name?: string;
       /** Format: date-time */
-      completedAt?: string;
-      metrics?: components["schemas"]["Metric"][];
-    };
-    SessionResponse: {
-      authenticated?: boolean;
-      username?: string;
-    };
-    CsrfResponse: {
-      headerName?: string;
-      parameterName?: string;
-      token?: string;
-    };
-    AnalysisStatusResponse: {
-      /** Format: uuid */
-      runId?: string;
-      state?: string;
-      worker?: components["schemas"]["WorkerStatus"];
-      progress?: components["schemas"]["ProgressStatus"];
-      failure?: components["schemas"]["FailureStatus"];
+      nextEvent?: string;
+      oneMonthReturn?: string;
+      priority?: string;
+      symbol?: string;
+      targetWeightMax?: string;
+      targetWeightMin?: string;
+      trend?: string;
+      unrealizedPnlDollar?: string;
+      unrealizedPnlPct?: string;
       /** Format: int64 */
-      pendingAgeSeconds?: number;
-      /** Format: date-time */
-      startedAt?: string;
-      estimatedCategory?: string;
-      stages?: components["schemas"]["ProgressStage"][];
+      version?: number;
     };
-    WorkerStatus: {
-      alive?: boolean;
+    PortfolioRole: {
+      atHardMax?: boolean;
+      capacityExplanation?: string;
+      classification?: string;
+      currentWeight?: string;
+      hardMaxWeight?: string;
+      normalMaxWeight?: string;
+      targetWeightMax?: string;
+      targetWeightMin?: string;
+    };
+    PortfolioSummary: {
+      clusterRiskFraction?: string;
+      coreExposureFraction?: string;
+      drawdownSource?: string;
+      emergencyCash: string;
+      employerExposureFraction?: string;
+      investedValue: string;
+      openPlannedRiskFraction?: string;
+      /** Format: int64 */
+      openPositions: number;
+      portfolioDrawdownFraction?: string;
+      tacticalExposureFraction?: string;
+      tacticalReserve: string;
+      tacticalSpeculativeExposureFraction?: string;
+      technologyExposureFraction?: string;
+      totalLiquidAssets: string;
+      trackedCash: string;
+      unvestedCompensationValue: string;
+    };
+    PortfolioSummaryResponse: {
       /** Format: date-time */
-      lastSeenAt?: string;
+      dataAsOf?: string;
+      investedValue?: string;
+      /** Format: int64 */
+      openPositions?: number;
+      trackedCash?: string;
+    };
+    Position: {
+      classification?: string;
+      classificationSource?: string;
+      /** Format: uuid */
+      id?: string;
+      symbol?: string;
+    };
+    PositionMarket: {
+      averageCost?: string;
+      dayChangePct?: string;
+      oneMonthReturn?: string;
+      price?: string;
+      threeMonthReturn?: string;
+      unrealizedPnlDollar?: string;
+      unrealizedPnlPct?: string;
+    };
+    PositionReportResponse: {
+      assetEvidence?: components["schemas"]["AssetEvidence"];
+      /** Format: date-time */
+      dataAsOf?: string;
+      evidence?: components["schemas"]["AuditEvidence"];
+      layers?: components["schemas"]["AnalystLayers"];
+      position?: components["schemas"]["Position"];
+      readiness?: string;
+      recommendation?: components["schemas"]["Recommendation"];
+    };
+    PositionResponse: {
+      /** Format: uuid */
+      accountId?: string;
+      averageCost?: string;
+      bucket?: string;
+      classification?: string;
+      classificationConfirmed?: boolean;
+      /** Format: uuid */
+      id?: string;
+      marketValue?: string;
+      quantity?: string;
+      status?: string;
+      symbol?: string;
+      /** Format: int64 */
+      version?: number;
+    };
+    PositionRisk: {
+      clusterRisk?: string;
+      currentWeight?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      hardMaxWeight?: string;
+      normalMaxWeight?: string;
+      plannedStop?: string;
+      positionPlannedRiskDollar?: string;
+      positionPlannedRiskPct?: string;
+      projectedClusterRiskAfterAction?: string;
+      projectedPositionWeight?: string;
+      projectedTotalRiskAfterAction?: string;
+      quality?: string;
+      riskPerShare?: string;
+      sizingLimitingConstraint?: string;
+      stopDistancePct?: string;
+      totalPortfolioPlannedRisk?: string;
+      totalPortfolioRiskCap?: string;
+    };
+    PreviewResponse: {
+      accounts?: components["schemas"]["ImportAccount"][];
+      /** Format: uuid */
+      batchId?: string;
+      cash?: components["schemas"]["CashResponse"][];
+      /** Format: date-time */
+      dataAsOf?: string;
+      errors?: string[];
+      holdings?: components["schemas"]["HoldingResponse"][];
+      status?: string;
+      summary?: components["schemas"]["SummaryResponse"];
+      /** Format: int64 */
+      version?: number;
+      warnings?: string[];
+    };
+    PriceBarResponse: {
+      adjusted?: boolean;
+      close?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      high?: string;
+      low?: string;
+      /** Format: date */
+      marketDate?: string;
+      open?: string;
+      provider?: string;
+      qualityStatus?: string;
+      volume?: string;
+    };
+    PriceRiskEarnings: {
+      /** Format: date-time */
+      earningsAt?: string;
+      earningsPolicyAction?: string;
+      earningsRisk?: string;
+      formalStop?: string;
+      liveStop?: string;
+      priceState?: string;
+    };
+    ProgressStage: {
+      code?: string;
+      label?: string;
+      status?: string;
     };
     ProgressStatus: {
       /** Format: int64 */
       completed?: number;
-      /** Format: int32 */
-      total?: number;
       currentStage?: string;
       /** Format: date-time */
       lastProgressAt?: string;
+      /** Format: int32 */
+      total?: number;
     };
-    FailureStatus: {
-      failedStage?: string;
-      errorCode?: string;
-      errorMessage?: string;
-      retryable?: boolean;
+    RationaleAndEvidence: {
+      changeConditions?: string[];
+      evidenceDrawer?: components["schemas"]["EvidenceDrawer"];
+      reasons?: string[];
+      risks?: string[];
+    };
+    Recommendation: {
+      action?: string;
+      changeConditions?: string[];
+      confidence?: string;
+      currentWeight?: string;
+      /** Format: uuid */
+      id?: string;
+      narrative?: components["schemas"]["DecisionNarrative"];
+      priority?: string;
+      quantityMax?: string;
+      quantityMin?: string;
+      reasons?: string[];
+      resolutionReason?: string;
+      risks?: string[];
+      suppressedCandidates?: components["schemas"]["SuppressedCandidate"][];
+      targetWeightMax?: string;
+      targetWeightMin?: string;
+      /** Format: date-time */
+      validUntil?: string;
+      winningRule?: string;
+    };
+    RecommendationResponse: {
+      action?: string;
+      changeConditionsJson?: string;
+      classification?: string;
+      confidence?: string;
+      currentWeight?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      estimatedAmount?: string;
+      /** Format: uuid */
+      id?: string;
+      /** Format: uuid */
+      positionId?: string;
+      priority?: string;
+      quantityMax?: string;
+      quantityMin?: string;
+      reasonsJson?: string;
+      riskAfterFraction?: string;
+      riskBeforeFraction?: string;
+      riskCalculationReason?: string;
+      risksJson?: string;
+      ruleIdsJson?: string;
+      strategyVersion?: string;
+      symbol?: string;
+      targetWeightMax?: string;
+      targetWeightMin?: string;
+      taxLotStatus?: string;
+      /** Format: date-time */
+      validUntil?: string;
+    };
+    RegimeResponse: {
+      /** Format: double */
+      breadthScore?: number;
+      confidence?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      label?: string;
+      /** Format: double */
+      momentumScore?: number;
+      narrativesJson?: string;
+      qualityStatus?: string;
+      ruleIdsJson?: string;
+      /** Format: double */
+      score?: number;
+      strategyVersion?: string;
+      /** Format: double */
+      stressScore?: number;
+      tacticalCapFivePercent?: boolean;
+      /** Format: double */
+      trendScore?: number;
+    };
+    RowOverrideRequest: {
+      assetType?: string;
+      classification?: string;
+      ignored?: boolean;
+      /** Format: int32 */
+      rowNumber?: number;
+      rowType?: string;
+      symbol?: string;
     };
     RunRequest: {
       reason?: string;
@@ -1956,68 +1824,272 @@ export interface components {
       state?: string;
     };
     RuntimeResponse: {
-      workerAlive?: boolean;
+      /** Format: int64 */
+      deadJobs?: number;
       /** Format: date-time */
       lastHeartbeat?: string;
+      /** Format: int64 */
+      oldestPendingSeconds?: number;
       /** Format: int64 */
       pendingJobs?: number;
       /** Format: int64 */
       runningJobs?: number;
-      /** Format: int64 */
-      deadJobs?: number;
-      /** Format: int64 */
-      oldestPendingSeconds?: number;
+      workerAlive?: boolean;
     };
-    ProgressStage: {
-      code?: string;
-      label?: string;
-      status?: string;
-    };
-    RecommendationResponse: {
+    RunView: {
+      biasProof?: string;
+      biasStatus?: string;
+      calendarVersion?: string;
+      /** Format: date-time */
+      completedAt?: string;
+      costModelVersion?: string;
+      featureCutoffPolicy?: string;
       /** Format: uuid */
       id?: string;
+      metrics?: components["schemas"]["Metric"][];
+      /** Format: date */
+      outOfSampleFrom?: string;
+      /** Format: date */
+      periodEnd?: string;
+      /** Format: date */
+      periodStart?: string;
+      priceAdjustmentVersion?: string;
+      status?: string;
+      strategyVersion?: string;
+      summaryJson?: string;
+      /** Format: date */
+      trainingThrough?: string;
+      universeVersion?: string;
+    };
+    SessionResponse: {
+      authenticated?: boolean;
+      username?: string;
+    };
+    SnapshotEnvelopeDrawdownResponse: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      snapshot?: components["schemas"]["DrawdownResponse"];
+      status?: string;
+    };
+    SnapshotEnvelopeRegimeResponse: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      snapshot?: components["schemas"]["RegimeResponse"];
+      status?: string;
+    };
+    SpeculativeEvidence: {
+      confidenceCeiling?: string;
+      eventRiskStatus?: string;
+      hardMaxWeight?: string;
+      speculativePolicyApplied?: boolean;
+      stopStatus?: string;
+      tickerOrPriceCanUpgradeQuality?: boolean;
+    };
+    StopPreviewRequest: {
+      atr: number;
+      chandelier: number;
+      classification: string;
+      confirmedHigherLow: number;
+      confirmedSwingLow: number;
+      dailyClose: number;
+      ema20: number;
+      entry: number;
+      previousLiveStop: number;
+    };
+    StopPreviewResponse: {
+      catastrophicBreach?: boolean;
+      catastrophicStop?: string;
+      closeConfirmed?: boolean;
+      debug?: boolean;
+      initialStop?: string;
+      liveStop?: string;
+      ordinaryStopApplicable?: boolean;
+      ruleIds?: string[];
+      softAlert?: string;
+    };
+    StopSeriesResponse: {
+      formalStop?: string;
+      liveStop?: string;
+      /** Format: date */
+      marketDate?: string;
+      softAlert?: string;
+    };
+    StopSnapshotResponse: {
+      atr?: string;
+      catastrophicStop?: string;
+      closeConfirmed?: boolean;
+      /** Format: date-time */
+      dataAsOf?: string;
+      entryPrice?: string;
       /** Format: uuid */
-      positionId?: string;
-      symbol?: string;
-      classification?: string;
+      id?: string;
+      initialStop?: string;
+      liveStop?: string;
+      qualityStatus?: string;
+      ruleIdsJson?: string;
+      softAlert?: string;
+      strategyVersion?: string;
+    };
+    SummaryResponse: {
+      emergencyCashTarget: string;
+      /** Format: int32 */
+      errorRowCount?: number;
+      estimatedCashValue: string;
+      estimatedInvestedValue: string;
+      /** Format: int32 */
+      rowCount?: number;
+      /** Format: int32 */
+      validRowCount?: number;
+    };
+    SuppressedCandidate: {
       action?: string;
       priority?: string;
-      quantityMin?: string;
-      quantityMax?: string;
-      targetWeightMin?: string;
-      targetWeightMax?: string;
-      riskBeforeFraction?: string;
-      riskAfterFraction?: string;
-      riskCalculationReason?: string;
-      taxLotStatus?: string;
-      currentWeight?: string;
-      estimatedAmount?: string;
+      reason?: string;
+      /** Format: int32 */
+      riskRank?: number;
+      risks?: string[];
+      ruleId?: string;
+    };
+    SystemRecommendation: {
+      action?: string;
       confidence?: string;
-      reasonsJson?: string;
-      risksJson?: string;
-      changeConditionsJson?: string;
+      exactQuantityAllowed?: boolean;
+      priority?: string;
+      quantityBeforeLimitingConstraint?: string;
+      quantityMax?: string;
+      quantityMin?: string;
+    };
+    Technical: {
+      atr14?: string;
+      atrPercent?: string;
+      breakout20d?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      distanceFromSma20?: string;
+      distanceFromSma200?: string;
+      distanceFromSma50?: string;
+      drawdown52Week?: string;
+      macdState?: string;
+      realizedVolatility?: string;
+      relativeStrengthQqq1m?: string;
+      relativeStrengthQqq3m?: string;
+      relativeStrengthQqq6m?: string;
+      relativeStrengthSpy1m?: string;
+      relativeStrengthSpy3m?: string;
+      relativeStrengthSpy6m?: string;
+      rsi14?: string;
+      sma20?: string;
+      sma200?: string;
+      sma50?: string;
+    };
+    ThesisResponse: {
+      confirmationSignalsJson?: string;
+      /** Format: date-time */
+      confirmedAt?: string;
+      /** Format: date-time */
+      expiresAt?: string;
+      /** Format: uuid */
+      id?: string;
+      invalidationSignalsJson?: string;
+      sourcesJson?: string;
+      status?: string;
+      summary?: string;
+      userConfirmed?: boolean;
+      /** Format: int64 */
+      version?: number;
+    };
+    TodayActionsResponse: {
+      doNot?: components["schemas"]["RecommendationResponse"][];
+      mustAct?: components["schemas"]["RecommendationResponse"][];
+      watch?: components["schemas"]["RecommendationResponse"][];
+    };
+    TopRisk: {
+      meaning: string;
+      nowAction: string;
+      priority: string;
+      risk: string;
+      symbol?: string;
+    };
+    TradePlanPreviewRequest: {
+      anchoredToCostBasis?: boolean;
+      averagingDown?: boolean;
+      classification: string;
+      classificationConfirmed?: boolean;
+      currentClusterRisk: number;
+      currentOpenStockRisk: number;
+      currentWeight: number;
+      /** Format: date-time */
+      lastDecisionAt?: string;
+      projectedWeight: number;
+      proposedTradeRisk: number;
+      quality: string;
+      thesisImproving?: boolean;
+    };
+    TradePlanPreviewResponse: {
+      allowed?: boolean;
+      confidence?: string;
+      debug?: boolean;
+      preciseQuantityAllowed?: boolean;
+      projectedClusterRisk?: string;
+      projectedOpenStockRisk?: string;
+      reasons?: string[];
+      risks?: string[];
+      ruleIds?: string[];
+      tradeRiskCap?: string;
+      weightCap?: string;
+    };
+    Valuation: {
+      attractive?: boolean;
+      attractiveButCannotAdd?: boolean;
+      confidence?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      evSalesTtm?: string;
+      fcfYieldTtm?: string;
+      forwardPeFy1?: string;
+      historyPercentile3y?: string;
+      historyPercentile5y?: string;
+      independentConfirmation?: boolean;
+      /** Format: int32 */
+      observationCount?: number;
+      priceSalesTtm?: string;
+      quality?: string;
+      relativeValuation?: string;
+      state?: string;
+      trailingPeTtm?: string;
+    };
+    ValuationResponse: {
+      action?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      discountTacticalWeight?: string;
+      earningsRevisions?: string;
+      fundamentalHealth?: string;
+      portfolioCapacity?: boolean;
+      priceStabilization?: string;
       ruleIdsJson?: string;
       strategyVersion?: string;
       /** Format: date-time */
-      dataAsOf?: string;
-      /** Format: date-time */
       validUntil?: string;
+      valuationDiscount?: boolean;
     };
-    TodayActionsResponse: {
-      mustAct?: components["schemas"]["RecommendationResponse"][];
-      doNot?: components["schemas"]["RecommendationResponse"][];
-      watch?: components["schemas"]["RecommendationResponse"][];
+    VersionResponse: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      draftStrategyOverride?: boolean;
+      fixtureData?: boolean;
+      productionStrategy?: boolean;
+      ruleIds?: string[];
+      runtimeMode?: string;
+      strategyConfigHash?: string;
+      strategyPublishState?: string;
+      strategyVersion?: string;
+      version?: string;
     };
-    AccountView: {
-      /** Format: uuid */
-      id?: string;
-      institution?: string;
-      accountType?: string;
-      displayName?: string;
-      currency?: string;
-      active?: boolean;
-      /** Format: int64 */
-      version?: number;
+    WorkerStatus: {
+      alive?: boolean;
+      /** Format: date-time */
+      lastSeenAt?: string;
     };
   };
   responses: never;
@@ -2028,18 +2100,14 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  preview: {
+  accounts: {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TradePlanPreviewRequest"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description OK */
       200: {
@@ -2047,179 +2115,19 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "*/*": components["schemas"]["TradePlanPreviewResponse"];
+          "*/*": components["schemas"]["AccountView"][];
         };
       };
     };
   };
-  acknowledge: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AcknowledgementRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["AcknowledgementResponse"];
-        };
-      };
-    };
-  };
-  confirmThesis: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ConfirmThesisRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["ThesisResponse"];
-        };
-      };
-    };
-  };
-  previewStop: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["StopPreviewRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["StopPreviewResponse"];
-        };
-      };
-    };
-  };
-  reviewEarnings: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["EarningsReviewRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["EarningsReviewResponse"];
-        };
-      };
-    };
-  };
-  classify: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ClassificationRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PositionResponse"];
-        };
-      };
-    };
-  };
-  confirm: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        batchId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ConfirmationRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["ConfirmationResponse"];
-        };
-      };
-    };
-  };
-  previewPasted: {
+  actions: {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PastedTableRequest"];
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description OK */
       200: {
@@ -2227,106 +2135,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "*/*": components["schemas"]["PreviewResponse"];
-        };
-      };
-    };
-  };
-  previewManual: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ManualHoldingRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PreviewResponse"];
-        };
-      };
-    };
-  };
-  preview_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "multipart/form-data": {
-          /** Format: binary */
-          file: string;
-        };
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PreviewResponse"];
-        };
-      };
-    };
-  };
-  preview_2: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["DipPreviewRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["DipPreviewResponse"];
-        };
-      };
-    };
-  };
-  cashflow: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CashflowPlanRequest"];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["CashflowPlanResponse"];
+          "*/*": components["schemas"]["TodayActionsResponse"];
         };
       };
     };
@@ -2351,602 +2160,6 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["AccountabilityResponse"];
-        };
-      };
-    };
-  };
-  health: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["JobHealth"];
-        };
-      };
-    };
-  };
-  version: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["VersionResponse"];
-        };
-      };
-    };
-  };
-  history: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["HistoryResponse"][];
-        };
-      };
-    };
-  };
-  positions: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PositionResponse"][];
-        };
-      };
-    };
-  };
-  journal: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["JournalResponse"][];
-        };
-      };
-    };
-  };
-  intelligence: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["IntelligenceResponse"];
-        };
-      };
-    };
-  };
-  chart: {
-    parameters: {
-      query?: {
-        range?: string;
-      };
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["ChartResponse"];
-        };
-      };
-    };
-  };
-  position: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PositionResponse"];
-        };
-      };
-    };
-  };
-  classificationSuggestion: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["ClassificationSuggestionResponse"];
-        };
-      };
-    };
-  };
-  summary: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PortfolioSummaryResponse"];
-        };
-      };
-    };
-  };
-  holdings: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PortfolioHoldingResponse"][];
-        };
-      };
-    };
-  };
-  drawdown: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["SnapshotEnvelopeDrawdownResponse"];
-        };
-      };
-    };
-  };
-  find: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        batchId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PreviewResponse"];
-        };
-      };
-    };
-  };
-  regime: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["SnapshotEnvelopeRegimeResponse"];
-        };
-      };
-    };
-  };
-  dataHealth: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["DataHealthResponse"];
-        };
-      };
-    };
-  };
-  instruments: {
-    parameters: {
-      query?: {
-        cursor?: string;
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["InstrumentPage"];
-        };
-      };
-    };
-  };
-  indicators: {
-    parameters: {
-      query?: {
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        symbol: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["MarketSeriesIndicatorResponse"];
-        };
-      };
-    };
-  };
-  fundamentals: {
-    parameters: {
-      query?: {
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        symbol: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["MarketSeriesFundamentalResponse"];
-        };
-      };
-    };
-  };
-  bars: {
-    parameters: {
-      query?: {
-        adjusted?: boolean;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        symbol: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["MarketSeriesPriceBarResponse"];
-        };
-      };
-    };
-  };
-  report: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PositionReportResponse"];
-        };
-      };
-    };
-  };
-  report_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        positionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["PositionReportResponse"];
-        };
-      };
-    };
-  };
-  analyses: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["HoldingAnalysisResponse"][];
-        };
-      };
-    };
-  };
-  status: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["DipStatusEnvelope"];
-        };
-      };
-    };
-  };
-  today: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["ExecutiveBrief"];
-        };
-      };
-    };
-  };
-  find_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["RunView"];
-        };
-      };
-    };
-  };
-  latest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["RunView"];
-        };
-      };
-    };
-  };
-  session: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["SessionResponse"];
-        };
-      };
-    };
-  };
-  csrf: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "*/*": components["schemas"]["CsrfResponse"];
         };
       };
     };
@@ -3017,7 +2230,7 @@ export interface operations {
       };
     };
   };
-  actions: {
+  csrf: {
     parameters: {
       query?: never;
       header?: never;
@@ -3032,12 +2245,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "*/*": components["schemas"]["TodayActionsResponse"];
+          "*/*": components["schemas"]["CsrfResponse"];
         };
       };
     };
   };
-  accounts: {
+  session: {
     parameters: {
       query?: never;
       header?: never;
@@ -3052,7 +2265,886 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "*/*": components["schemas"]["AccountView"][];
+          "*/*": components["schemas"]["SessionResponse"];
+        };
+      };
+    };
+  };
+  find_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["RunView"];
+        };
+      };
+    };
+  };
+  latest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["RunView"];
+        };
+      };
+    };
+  };
+  today: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ExecutiveBrief"];
+        };
+      };
+    };
+  };
+  cashflow: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CashflowPlanRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["CashflowPlanResponse"];
+        };
+      };
+    };
+  };
+  preview_2: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DipPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["DipPreviewResponse"];
+        };
+      };
+    };
+  };
+  status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["DipStatusEnvelope"];
+        };
+      };
+    };
+  };
+  report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionReportResponse"];
+        };
+      };
+    };
+  };
+  analyses: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["HoldingAnalysisResponse"][];
+        };
+      };
+    };
+  };
+  instruments: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["InstrumentPage"];
+        };
+      };
+    };
+  };
+  bars: {
+    parameters: {
+      query?: {
+        adjusted?: boolean;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        symbol: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["MarketSeriesPriceBarResponse"];
+        };
+      };
+    };
+  };
+  fundamentals: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        symbol: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["MarketSeriesFundamentalResponse"];
+        };
+      };
+    };
+  };
+  indicators: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        symbol: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["MarketSeriesIndicatorResponse"];
+        };
+      };
+    };
+  };
+  dataHealth: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["DataHealthResponse"];
+        };
+      };
+    };
+  };
+  regime: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["SnapshotEnvelopeRegimeResponse"];
+        };
+      };
+    };
+  };
+  find: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        batchId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  confirm: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        batchId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmationRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ConfirmationResponse"];
+        };
+      };
+    };
+  };
+  preview_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  previewManual: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManualHoldingRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  previewPasted: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PastedTableRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  drawdown: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["SnapshotEnvelopeDrawdownResponse"];
+        };
+      };
+    };
+  };
+  holdings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PortfolioHoldingResponse"][];
+        };
+      };
+    };
+  };
+  summary: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PortfolioSummaryResponse"];
+        };
+      };
+    };
+  };
+  positions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionResponse"][];
+        };
+      };
+    };
+  };
+  position: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionResponse"];
+        };
+      };
+    };
+  };
+  classificationSuggestion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ClassificationSuggestionResponse"];
+        };
+      };
+    };
+  };
+  classify: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ClassificationRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionResponse"];
+        };
+      };
+    };
+  };
+  chart: {
+    parameters: {
+      query?: {
+        range?: string;
+      };
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ChartResponse"];
+        };
+      };
+    };
+  };
+  reviewEarnings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EarningsReviewRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["EarningsReviewResponse"];
+        };
+      };
+    };
+  };
+  intelligence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["IntelligenceResponse"];
+        };
+      };
+    };
+  };
+  journal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["JournalResponse"][];
+        };
+      };
+    };
+  };
+  report_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PositionReportResponse"];
+        };
+      };
+    };
+  };
+  previewStop: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StopPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["StopPreviewResponse"];
+        };
+      };
+    };
+  };
+  confirmThesis: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        positionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmThesisRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["ThesisResponse"];
+        };
+      };
+    };
+  };
+  acknowledge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AcknowledgementRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["AcknowledgementResponse"];
+        };
+      };
+    };
+  };
+  history: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["HistoryResponse"][];
+        };
+      };
+    };
+  };
+  performance: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["PerformanceReviewResponse"];
+        };
+      };
+    };
+  };
+  preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TradePlanPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["TradePlanPreviewResponse"];
+        };
+      };
+    };
+  };
+  version: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["VersionResponse"];
+        };
+      };
+    };
+  };
+  health: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["JobHealth"];
         };
       };
     };

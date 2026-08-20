@@ -644,3 +644,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - The same cutoff now protects narrow-rally participation evidence introduced in R14 as well as catalysts, thesis state, stops, drawdown, and analysis profiles. Future rows, later filings, and later revisions fail closed instead of leaking into historical decisions.
 - `PointInTimeEvidenceStore` provides explicit audit queries for the emphasized evidence families, including earnings risk, and the replay integration test proves a newer database row is invisible when its data-as-of exceeds the decision cutoff.
 - Verification: 2/2 pure context-boundary tests pass and the Maven reactor compiles all backend sources/tests. The MySQL point-in-time integration test is committed but cannot be executed while local Docker is unavailable, and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R24 — 2026-08-20
+
+- CI now has independently visible Backend, Frontend, OpenAPI, Desktop E2E, Mobile E2E, Supply Chain, Gitleaks, and Docker jobs. `ci / required` depends on all eight and fails unless every partition succeeds.
+- Frontend and OpenAPI jobs install Temurin JDK 25 before contract work. Gitleaks is a dedicated full-history job with `fetch-depth: 0`, so an empty shallow range cannot be reported as a successful security scan.
+- OpenAPI now includes the complete R20/R21 evidence and sizing fields plus `/api/v1/review/performance`; the TypeScript client is regenerated and owner pages consume generated types. A canonical key-order pass makes contract drift independent of Spring handler discovery order.
+- Verification: the required-workflow contract test passes; OpenAPI JSON parses and canonical generation is idempotent; API-client typecheck/build, web typecheck/ESLint, and 11 focused component tests pass. Local full `api:check` reaches the compiled API export test but remains blocked by unavailable Docker; GitHub CI is the authoritative Docker-backed contract gate.

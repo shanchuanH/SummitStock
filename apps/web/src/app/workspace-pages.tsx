@@ -153,42 +153,7 @@ export function OpportunitiesPage() {
 }
 
 type History = components["schemas"]["HistoryResponse"];
-type PerformanceReview = {
-  periods: Array<{
-    period: string;
-    portfolioTwr?: string | null;
-    spyReturn?: string | null;
-    qqqReturn?: string | null;
-    activeReturn?: string | null;
-    activeMaxDrawdown?: string | null;
-    coreMaxDrawdown?: string | null;
-    turnover?: string | null;
-  }>;
-  contributions: Array<{ symbol: string; contribution: string }>;
-  decisionOutcomes: Array<{
-    recommendationId: string;
-    symbol: string;
-    action: string;
-    userDecision?: string | null;
-    ruleObjective: string;
-    evaluation: string;
-    interpretation: string;
-  }>;
-  activeSleeve?: {
-    reviewMonths: number;
-    activeReturn?: string | null;
-    benchmarkReturn?: string | null;
-    relativeReturn?: string | null;
-    contribution?: string | null;
-    underperformance?: string | null;
-    activeMaxDrawdown?: string | null;
-    coreMaxDrawdown?: string | null;
-    turnover?: string | null;
-    budgetMultiplier: string;
-    ruleIds: string[];
-  } | null;
-  quality: string;
-};
+type PerformanceReview = components["schemas"]["PerformanceReviewResponse"];
 export function ReviewPage() {
   const history = useQuery({
     queryKey: ["recommendation-history"],
@@ -239,12 +204,12 @@ export function ReviewPage() {
         <article className="context-card">
           <p className="eyebrow">MONTHLY</p>
           <h2>组合绩效</h2>
-          {performance.data?.periods.length ? (
+          {performance.data?.periods?.length ? (
             <div className="table-scroll">
               <table>
                 <thead><tr><th>期间</th><th>Portfolio TWR</th><th>SPY</th><th>QQQ</th><th>Active Sleeve</th></tr></thead>
                 <tbody>{performance.data.periods.map((period) => (
-                  <tr key={period.period}><td>{period.period.replace("SINCE_INCEPTION", "成立以来")}</td>
+                  <tr key={period.period}><td>{(period.period ?? "—").replace("SINCE_INCEPTION", "成立以来")}</td>
                     <td>{formatPercent(period.portfolioTwr)}</td><td>{formatPercent(period.spyReturn)}</td>
                     <td>{formatPercent(period.qqqReturn)}</td><td>{formatPercent(period.activeReturn)}</td></tr>
                 ))}</tbody>
@@ -255,7 +220,7 @@ export function ReviewPage() {
         <article className="context-card">
           <p className="eyebrow">MONTHLY</p>
           <h2>收益贡献</h2>
-          {performance.data?.contributions.length ? <ul>{performance.data.contributions.map((item) => (
+          {performance.data?.contributions?.length ? <ul>{performance.data.contributions.map((item) => (
             <li key={item.symbol}>{item.symbol} · {formatPercent(item.contribution, 2)}pp</li>
           ))}</ul> : <p>持仓快照历史不足，无法可靠拆分 contribution to return。</p>}
         </article>

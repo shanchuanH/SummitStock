@@ -242,22 +242,9 @@ export function PositionDetailPage() {
   const fundamentals = layers.fundamentals;
   const valuationMetrics = layers.valuation;
   const valuationObservationCount = valuationMetrics.observationCount ?? 0;
-  const estimateDetails = layers.estimates as typeof layers.estimates & {
-    eps30dAgo?: string | null;
-    eps90dAgo?: string | null;
-    dispersionHigh?: boolean;
-  };
-  const sizingDetails = layers.systemRecommendation as typeof layers.systemRecommendation & {
-    quantityBeforeLimitingConstraint?: string | null;
-  };
-  const riskDetails = layers.risk as typeof layers.risk & {
-    totalPortfolioRiskCap?: string | null;
-    projectedPositionWeight?: string | null;
-    projectedTotalRiskAfterAction?: string | null;
-    projectedClusterRiskAfterAction?: string | null;
-    sizingLimitingConstraint?: string | null;
-    riskPerShare?: string | null;
-  };
+  const estimateDetails = layers.estimates;
+  const sizingDetails = layers.systemRecommendation;
+  const riskDetails = layers.risk;
   const limitingConstraint = presentSizingConstraint(
     riskDetails.sizingLimitingConstraint,
   );

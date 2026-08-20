@@ -64,6 +64,7 @@ class ApiContractTest extends MySqlIntegrationTest {
                         "/api/v1/cashflow/plan",
                         "/api/v1/active-sleeve/review",
                         "/api/v1/recommendations/history",
+                        "/api/v1/review/performance",
                         "/api/v1/recommendations/{id}/acknowledge",
                         "/api/v1/worker/health",
                         "/api/v1/backtests/latest",

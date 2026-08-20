@@ -21,24 +21,28 @@ public class PerformanceReviewController {
     }
 
     @GetMapping("/performance")
-    Response performance(Principal principal) {
+    PerformanceReviewResponse performance(Principal principal) {
         var review = service.review(store.userId(principal.getName()));
-        return new Response(
-                review.periods().stream().map(Period::from).toList(),
-                review.contributions().stream().map(Contribution::from).toList(),
-                review.decisionOutcomes().stream().map(DecisionOutcome::from).toList(),
-                review.activeSleeve() == null ? null : Accountability.from(review.activeSleeve()),
+        return new PerformanceReviewResponse(
+                review.periods().stream().map(PerformancePeriodResponse::from).toList(),
+                review.contributions().stream()
+                        .map(PerformanceContributionResponse::from)
+                        .toList(),
+                review.decisionOutcomes().stream()
+                        .map(DecisionOutcomeResponse::from)
+                        .toList(),
+                review.activeSleeve() == null ? null : ActiveSleeveAccountabilityResponse.from(review.activeSleeve()),
                 review.quality());
     }
 
-    public record Response(
-            List<Period> periods,
-            List<Contribution> contributions,
-            List<DecisionOutcome> decisionOutcomes,
-            Accountability activeSleeve,
+    public record PerformanceReviewResponse(
+            List<PerformancePeriodResponse> periods,
+            List<PerformanceContributionResponse> contributions,
+            List<DecisionOutcomeResponse> decisionOutcomes,
+            ActiveSleeveAccountabilityResponse activeSleeve,
             String quality) {}
 
-    public record Period(
+    public record PerformancePeriodResponse(
             String period,
             String portfolioTwr,
             String spyReturn,
@@ -49,8 +53,8 @@ public class PerformanceReviewController {
             String turnover,
             LocalDate coverageStart,
             LocalDate coverageEnd) {
-        static Period from(PerformanceReviewService.Period v) {
-            return new Period(
+        static PerformancePeriodResponse from(PerformanceReviewService.Period v) {
+            return new PerformancePeriodResponse(
                     v.period(),
                     decimal(v.portfolioTwr()),
                     decimal(v.spyReturn()),
@@ -64,13 +68,13 @@ public class PerformanceReviewController {
         }
     }
 
-    public record Contribution(String symbol, String contribution) {
-        static Contribution from(PerformanceReviewService.Contribution v) {
-            return new Contribution(v.symbol(), decimal(v.contribution()));
+    public record PerformanceContributionResponse(String symbol, String contribution) {
+        static PerformanceContributionResponse from(PerformanceReviewService.Contribution v) {
+            return new PerformanceContributionResponse(v.symbol(), decimal(v.contribution()));
         }
     }
 
-    public record DecisionOutcome(
+    public record DecisionOutcomeResponse(
             UUID recommendationId,
             String symbol,
             String action,
@@ -78,8 +82,8 @@ public class PerformanceReviewController {
             String ruleObjective,
             String evaluation,
             String interpretation) {
-        static DecisionOutcome from(PerformanceReviewService.DecisionOutcome v) {
-            return new DecisionOutcome(
+        static DecisionOutcomeResponse from(PerformanceReviewService.DecisionOutcome v) {
+            return new DecisionOutcomeResponse(
                     v.recommendationId(),
                     v.symbol(),
                     v.action(),
@@ -90,7 +94,7 @@ public class PerformanceReviewController {
         }
     }
 
-    public record Accountability(
+    public record ActiveSleeveAccountabilityResponse(
             int reviewMonths,
             String activeReturn,
             String benchmarkReturn,
@@ -102,8 +106,8 @@ public class PerformanceReviewController {
             String turnover,
             String budgetMultiplier,
             List<String> ruleIds) {
-        static Accountability from(PerformanceReviewService.Accountability v) {
-            return new Accountability(
+        static ActiveSleeveAccountabilityResponse from(PerformanceReviewService.Accountability v) {
+            return new ActiveSleeveAccountabilityResponse(
                     v.reviewMonths(),
                     decimal(v.activeReturn()),
                     decimal(v.benchmarkReturn()),
