@@ -1,0 +1,14 @@
+portfolio:
+  allow-draft-strategy: true
+  fixture-data: true
+  providers:
+    market:
+      type: fake
+    fundamentals:
+      type: fake
+    estimates:
+      type: fake
+    earnings-calendar:
+      type: fake
+    macro:
+      type: fake

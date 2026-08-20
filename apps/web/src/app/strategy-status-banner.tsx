@@ -15,6 +15,15 @@ export function StrategyStatusBanner() {
   });
 
   if (version.isPending || version.isError) return null;
+  const fixtureData = (version.data as { fixtureData?: boolean }).fixtureData;
+  if (fixtureData) {
+    return (
+      <aside className="strategy-status-banner" role="alert">
+        <strong>DEMO / FIXTURE DATA</strong>
+        <span>当前页面使用确定性演示数据，不代表真实市场或正式投资建议。</span>
+      </aside>
+    );
+  }
   if (version.data.productionStrategy) return null;
 
   const draftOverride = version.data.draftStrategyOverride;

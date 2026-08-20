@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.example.portfolio.MySqlIntegrationTest;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,20 +21,27 @@ class AnalysisRunDependencyTest extends MySqlIntegrationTest {
     JdbcClient jdbc;
 
     @Test
-    void completionQueuesOnlyTheDirectDependentStep() {
+    void rootCompletionQueuesEveryIndependentDagBranch() {
         var runId = createRun();
         orchestrator.initialize(runId);
         var job = claimed(runId, "PORTFOLIO_ANALYSIS");
         orchestrator.started(job);
         orchestrator.succeeded(job, JobExecutionResult.succeeded("{}", Instant.now()));
         assertThat(status(runId, "PORTFOLIO_ANALYSIS")).isEqualTo("SUCCEEDED");
-        assertThat(status(runId, "COLLECT_QUOTES")).isEqualTo("QUEUED");
-        assertThat(status(runId, "COLLECT_BARS")).isEqualTo("PENDING");
+        assertThat(List.of(
+                        status(runId, "COLLECT_QUOTES"),
+                        status(runId, "COLLECT_BARS"),
+                        status(runId, "CHECK_FILINGS"),
+                        status(runId, "COLLECT_ESTIMATES"),
+                        status(runId, "COLLECT_EARNINGS_CALENDAR"),
+                        status(runId, "COLLECT_MACRO")))
+                .containsOnly("QUEUED");
+        assertThat(status(runId, "VALIDATE_BARS")).isEqualTo("PENDING");
         assertThat(jdbc.sql("SELECT COUNT(*) FROM job_run WHERE analysis_run_id=UUID_TO_BIN(:id)")
                         .param("id", runId.toString())
                         .query(Long.class)
                         .single())
-                .isEqualTo(1);
+                .isEqualTo(6);
     }
 
     UUID createRun() {

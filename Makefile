@@ -5,13 +5,13 @@ bootstrap:
 	pnpm install --frozen-lockfile
 
 infra-up:
-	docker compose -f infra/compose.yaml up -d mysql
+	docker compose -f infra/compose.local.yaml up -d mysql
 
 infra-down:
-	docker compose -f infra/compose.yaml down
+	docker compose -f infra/compose.local.yaml down
 
 db-migrate:
-	docker compose -f infra/compose.yaml --profile ops run --rm migration
+	docker compose -f infra/compose.local.yaml --profile ops run --rm migration
 
 backend-test:
 	./mvnw verify
@@ -26,7 +26,8 @@ contract-generate:
 	pnpm api:generate
 
 dev:
-	@echo "Run './mvnw -pl apps/backend -am spring-boot:run' and 'pnpm dev' in separate terminals."
+	docker compose -f infra/compose.local.yaml --profile app up --build -d
+	pnpm dev
 
 verify:
 	./mvnw spotless:check
@@ -37,4 +38,4 @@ verify:
 	pnpm build
 	pnpm api:check
 	pnpm --filter @portfolio/web test:e2e
-	docker compose -f infra/compose.yaml config --quiet
+	docker compose -f infra/compose.local.yaml config --quiet

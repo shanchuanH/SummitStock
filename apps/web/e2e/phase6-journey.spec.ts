@@ -308,19 +308,27 @@ async function mockApi(page: Page) {
       return route.fulfill({
         json: {
           runId: "22222222-2222-2222-2222-222222222222",
-          state: "ANALYSIS_RUNNING",
-          completedStages: 2,
-          totalStages: 8,
-          updatedAt: action.dataAsOf,
+          state: "RUNNING",
+          worker: { alive: true, lastSeenAt: action.dataAsOf },
+          progress: {
+            completed: 6,
+            total: 27,
+            currentStage: "COLLECT_FUNDAMENTALS",
+            lastProgressAt: action.dataAsOf,
+          },
           stages: [
             { code: "HOLDINGS", label: "持仓导入", status: "COMPLETE" },
             { code: "PRICES", label: "价格", status: "COMPLETE" },
             { code: "FINANCIALS", label: "财务数据", status: "RUNNING" },
-            { code: "VALUATION", label: "估值", status: "WAITING" },
-            { code: "EVENTS", label: "分析师预测与财报", status: "WAITING" },
-            { code: "PORTFOLIO_RISK", label: "组合风险", status: "WAITING" },
-            { code: "HOLDING_ANALYSIS", label: "逐股分析", status: "WAITING" },
-            { code: "TODAY_BRIEF", label: "今日简报", status: "WAITING" },
+            { code: "VALUATION", label: "估值", status: "STARTING" },
+            {
+              code: "ESTIMATES",
+              label: "分析师预测与财报",
+              status: "STARTING",
+            },
+            { code: "PORTFOLIO_RISK", label: "组合风险", status: "STARTING" },
+            { code: "HOLDING_ANALYSIS", label: "逐股分析", status: "STARTING" },
+            { code: "TODAY_BRIEF", label: "今日简报", status: "STARTING" },
           ],
         },
       });
@@ -406,7 +414,7 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   } else {
     await confirmButton.click();
   }
-  await expect(page.getByRole("heading", { name: "分析已开始" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "分析正在执行" })).toBeVisible();
   await expect(
     page.getByRole("list", { name: "Analysis progress" }).getByRole("listitem"),
   ).toHaveCount(8);

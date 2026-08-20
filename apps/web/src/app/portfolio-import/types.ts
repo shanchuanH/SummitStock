@@ -68,8 +68,21 @@ export type ImportConfirmation = {
 export type AnalysisStatus = {
   runId: string;
   state: string;
+  worker: { alive: boolean; lastSeenAt?: string };
+  progress: {
+    completed: number;
+    total: number;
+    currentStage?: string;
+    lastProgressAt: string;
+  };
+  failure?: {
+    failedStage: string;
+    errorCode?: string;
+    errorMessage: string;
+    retryable: boolean;
+  };
+  pendingAgeSeconds?: number;
+  startedAt?: string;
+  estimatedCategory?: string;
   stages: Array<{ code: string; label: string; status: string }>;
-  completedStages: number;
-  totalStages: number;
-  updatedAt: string;
 };

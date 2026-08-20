@@ -103,10 +103,14 @@ describe("PortfolioImportPageTest", () => {
       if (path.includes("/analysis/status/"))
         return json({
           runId: confirmation.analysisRunId,
-          state: "ANALYSIS_RUNNING",
-          completedStages: 1,
-          totalStages: 8,
-          updatedAt: "2026-08-12T20:00:00Z",
+          state: "RUNNING",
+          worker: { alive: true, lastSeenAt: "2026-08-12T20:00:00Z" },
+          progress: {
+            completed: 1,
+            total: 27,
+            currentStage: "COLLECT_QUOTES",
+            lastProgressAt: "2026-08-12T20:00:00Z",
+          },
           stages: [
             {
               code: "HOLDINGS",
@@ -152,9 +156,9 @@ describe("PortfolioImportPageTest", () => {
     await user.click(confirm);
 
     expect(
-      await screen.findByRole("heading", { name: /分析已开始/i }),
+      await screen.findByRole("heading", { name: /分析正在执行/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("ANALYSIS_QUEUED")).toBeInTheDocument();
+    expect(screen.getByText("在线")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 

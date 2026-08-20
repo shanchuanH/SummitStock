@@ -1165,6 +1165,46 @@
         }
       }
     },
+    "/api/v1/analysis/runs": {
+      "post": {
+        "tags": ["analysis-command-controller"],
+        "operationId": "run",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RunRequest" }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "*/*": {
+                "schema": { "$ref": "#/components/schemas/RunResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analysis/runtime": {
+      "get": {
+        "tags": ["analysis-runtime-controller"],
+        "operationId": "runtime",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": { "$ref": "#/components/schemas/RuntimeResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/analysis/status/{runId}": {
       "get": {
         "tags": ["analysis-status-controller"],
@@ -2182,6 +2222,9 @@
             "type": "boolean"
           },
           "draftStrategyOverride": {
+            "type": "boolean"
+          },
+          "fixtureData": {
             "type": "boolean"
           },
           "runtimeMode": {
@@ -4282,24 +4325,74 @@
           "state": {
             "type": "string"
           },
+          "worker": {
+            "$ref": "#/components/schemas/WorkerStatus"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ProgressStatus"
+          },
+          "failure": {
+            "$ref": "#/components/schemas/FailureStatus"
+          },
+          "pendingAgeSeconds": { "type": "integer", "format": "int64" },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estimatedCategory": { "type": "string" },
           "stages": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ProgressStage"
             }
-          },
-          "completedStages": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "totalStages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
           }
+        }
+      },
+      "WorkerStatus": {
+        "type": "object",
+        "properties": {
+          "alive": { "type": "boolean" },
+          "lastSeenAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProgressStatus": {
+        "type": "object",
+        "properties": {
+          "completed": { "type": "integer", "format": "int64" },
+          "total": { "type": "integer", "format": "int32" },
+          "currentStage": { "type": "string" },
+          "lastProgressAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "FailureStatus": {
+        "type": "object",
+        "properties": {
+          "failedStage": { "type": "string" },
+          "errorCode": { "type": "string" },
+          "errorMessage": { "type": "string" },
+          "retryable": { "type": "boolean" }
+        }
+      },
+      "RunRequest": {
+        "type": "object",
+        "properties": { "reason": { "type": "string" } }
+      },
+      "RunResponse": {
+        "type": "object",
+        "properties": {
+          "runId": { "type": "string", "format": "uuid" },
+          "state": { "type": "string" }
+        }
+      },
+      "RuntimeResponse": {
+        "type": "object",
+        "properties": {
+          "workerAlive": { "type": "boolean" },
+          "lastHeartbeat": { "type": "string", "format": "date-time" },
+          "pendingJobs": { "type": "integer", "format": "int64" },
+          "runningJobs": { "type": "integer", "format": "int64" },
+          "deadJobs": { "type": "integer", "format": "int64" },
+          "oldestPendingSeconds": { "type": "integer", "format": "int64" }
         }
       },
       "ProgressStage": {

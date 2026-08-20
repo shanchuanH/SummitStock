@@ -660,6 +660,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/analysis/runs": {
+    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    get?: never;
+    put?: never;
+    post: operations["run"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/analysis/runtime": {
+    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    get: operations["runtime"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/analysis/status/{runId}": {
     parameters: {
       query?: never;
@@ -1027,6 +1049,7 @@ export interface components {
       strategyPublishState?: string;
       productionStrategy?: boolean;
       draftStrategyOverride?: boolean;
+      fixtureData?: boolean;
       runtimeMode?: string;
       /** Format: date-time */
       dataAsOf?: string;
@@ -1761,13 +1784,54 @@ export interface components {
       /** Format: uuid */
       runId?: string;
       state?: string;
-      stages?: components["schemas"]["ProgressStage"][];
+      worker?: components["schemas"]["WorkerStatus"];
+      progress?: components["schemas"]["ProgressStatus"];
+      failure?: components["schemas"]["FailureStatus"];
       /** Format: int64 */
-      completedStages?: number;
-      /** Format: int32 */
-      totalStages?: number;
+      pendingAgeSeconds?: number;
       /** Format: date-time */
-      updatedAt?: string;
+      startedAt?: string;
+      estimatedCategory?: string;
+      stages?: components["schemas"]["ProgressStage"][];
+    };
+    WorkerStatus: {
+      alive?: boolean;
+      /** Format: date-time */
+      lastSeenAt?: string;
+    };
+    ProgressStatus: {
+      /** Format: int64 */
+      completed?: number;
+      /** Format: int32 */
+      total?: number;
+      currentStage?: string;
+      /** Format: date-time */
+      lastProgressAt?: string;
+    };
+    FailureStatus: {
+      failedStage?: string;
+      errorCode?: string;
+      errorMessage?: string;
+      retryable?: boolean;
+    };
+    RunRequest: { reason?: string };
+    RunResponse: {
+      /** Format: uuid */
+      runId?: string;
+      state?: string;
+    };
+    RuntimeResponse: {
+      workerAlive?: boolean;
+      /** Format: date-time */
+      lastHeartbeat?: string;
+      /** Format: int64 */
+      pendingJobs?: number;
+      /** Format: int64 */
+      runningJobs?: number;
+      /** Format: int64 */
+      deadJobs?: number;
+      /** Format: int64 */
+      oldestPendingSeconds?: number;
     };
     ProgressStage: {
       code?: string;
@@ -2749,6 +2813,28 @@ export interface operations {
         content: {
           "*/*": components["schemas"]["CsrfResponse"];
         };
+      };
+    };
+  };
+  run: {
+    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    requestBody: {
+      content: { "application/json": components["schemas"]["RunRequest"] };
+    };
+    responses: {
+      202: {
+        headers: { [name: string]: unknown };
+        content: { "*/*": components["schemas"]["RunResponse"] };
+      };
+    };
+  };
+  runtime: {
+    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: { [name: string]: unknown };
+        content: { "*/*": components["schemas"]["RuntimeResponse"] };
       };
     };
   };

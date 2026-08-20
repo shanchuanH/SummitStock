@@ -1,10 +1,11 @@
 import { api, type components } from "@portfolio/api-client";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ActionCard, type DashboardAction } from "./ActionCard";
 import { DataReadinessBanner } from "./DataReadinessBanner";
 import { EmptyPortfolioState } from "./EmptyPortfolioState";
 import { PortfolioHealthCard } from "./PortfolioHealthCard";
 import { WorkspaceNav } from "../workspace-nav";
+import { postJson } from "../http";
 
 type ExecutiveBrief = components["schemas"]["ExecutiveBrief"];
 class BriefRequestError extends Error {
@@ -87,10 +88,22 @@ function UnconfirmedActionState({ brief }: { brief: ExecutiveBrief }) {
 }
 
 export function ExecutiveDashboardPage() {
+  const queryClient = useQueryClient();
   const brief = useQuery({
     queryKey: ["executive-brief-today"],
     queryFn: getExecutiveBrief,
     retry: false,
+  });
+  const reanalysis = useMutation({
+    mutationFn: () =>
+      postJson<{ runId: string; state: string }>("/api/v1/analysis/runs", {
+        reason: "USER_REFRESH",
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["executive-brief-today"],
+      });
+    },
   });
   return (
     <main className="shell workspace-shell dashboard-shell">
@@ -100,8 +113,26 @@ export function ExecutiveDashboardPage() {
           <p className="eyebrow">EXECUTIVE BRIEF</p>
           <h1>今日简报</h1>
         </div>
-        <p>数据截至 {asOf(brief.data?.dataAsOf)}</p>
+        <div>
+          <p>上次分析：{asOf(brief.data?.dataAsOf)}</p>
+          {brief.data && brief.data.state !== "NO_PORTFOLIO" ? (
+            <button
+              type="button"
+              disabled={reanalysis.isPending}
+              onClick={() => {
+                reanalysis.mutate();
+              }}
+            >
+              {reanalysis.isPending ? "正在启动…" : "重新分析"}
+            </button>
+          ) : null}
+        </div>
       </section>
+      {reanalysis.isError ? (
+        <section className="context-card" role="alert">
+          无法启动重新分析；现有结论不会被伪装成最新结果。
+        </section>
+      ) : null}
       {brief.isPending ? (
         <section className="context-card">
           <p className="empty-state">正在加载分析…</p>
