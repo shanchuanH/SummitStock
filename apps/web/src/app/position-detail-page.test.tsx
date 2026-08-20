@@ -244,6 +244,7 @@ describe("PositionDetailPage", () => {
       "3500",
     );
     expect(screen.getAllByText("24.8×")).toHaveLength(2);
+    expect(screen.getByText("暂不可用")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
       "当前只积累了 12 个 point-in-time observations",
     );

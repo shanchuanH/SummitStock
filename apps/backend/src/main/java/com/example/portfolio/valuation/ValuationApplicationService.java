@@ -35,7 +35,7 @@ public class ValuationApplicationService {
         for (var input : store.inputs()) {
             if (input.marketDate() == null || input.price() == null || input.shares() == null) continue;
             var metrics = metrics(input);
-            var quality = metricCount(metrics) >= 2
+            var quality = ValuationEngineV2.availableFamilyCount(metrics) >= 2
                     ? ProviderModels.QualityStatus.HEALTHY
                     : ProviderModels.QualityStatus.PARTIAL;
             store.saveMetrics(input.instrumentId(), input.marketDate(), metrics, quality.name());
@@ -62,16 +62,6 @@ public class ValuationApplicationService {
                 ratio(input.freeCashFlow(), marketCap),
                 ratio(marketCap, input.revenue()),
                 marketCap);
-    }
-
-    private static int metricCount(ValuationEngineV2.Metrics value) {
-        int count = 0;
-        if (value.trailingPe() != null) count++;
-        if (value.forwardPe() != null) count++;
-        if (value.evSales() != null) count++;
-        if (value.fcfYield() != null) count++;
-        if (value.priceSales() != null) count++;
-        return count;
     }
 
     private static BigDecimal ratio(BigDecimal numerator, BigDecimal denominator) {

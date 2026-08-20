@@ -146,7 +146,7 @@ public class ValuationEvidenceStore {
                 .param("fcfYield", value.fcfYield())
                 .param("priceSales", value.priceSales())
                 .param("marketCap", value.marketCap())
-                .param("quality", metricCount(value) >= 2 ? "HEALTHY" : "PARTIAL")
+                .param("quality", ValuationEngineV2.availableFamilyCount(value) >= 2 ? "HEALTHY" : "PARTIAL")
                 .param("checksum", checksum)
                 .param("dataAsOf", marketDate.atStartOfDay().toInstant(ZoneOffset.UTC))
                 .param("now", clock.instant())
@@ -243,16 +243,6 @@ public class ValuationEvidenceStore {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
-    }
-
-    private static int metricCount(ValuationEngineV2.Metrics value) {
-        int count = 0;
-        if (value.trailingPe() != null) count++;
-        if (value.forwardPe() != null) count++;
-        if (value.evSales() != null) count++;
-        if (value.fcfYield() != null) count++;
-        if (value.priceSales() != null) count++;
-        return count;
     }
 
     public record ValuationInstrument(UUID id, String symbol) {}

@@ -76,6 +76,41 @@ class HistoricalValuationPercentileTest {
         assertThat(ValuationEngineV2.historySufficient(220)).isTrue();
     }
 
+    @Test
+    void twoSalesMultiplesAreOneFamilyNotIndependentConfirmation() {
+        var salesOnly = new ValuationEngineV2.Metrics(
+                null, null, new BigDecimal("4"), null, new BigDecimal("5"), new BigDecimal("1000"));
+        var history = IntStream.rangeClosed(1, 220)
+                .mapToObj(value -> new ValuationEngineV2.Metrics(
+                        null,
+                        null,
+                        BigDecimal.valueOf(value),
+                        null,
+                        BigDecimal.valueOf(value + 1L),
+                        new BigDecimal("1000")))
+                .toList();
+
+        var assessment = new ValuationEngineV2()
+                .assess(new ValuationEngineV2.Input(
+                        salesOnly,
+                        history,
+                        history,
+                        ValuationEngineV2.CompanyHealth.HEALTHY,
+                        EstimateRevisionEngine.RevisionState.POSITIVE,
+                        ProviderModels.QualityStatus.PARTIAL));
+
+        assertThat(ValuationEngineV2.availableFamilyCount(salesOnly)).isEqualTo(1);
+        assertThat(assessment.confidence()).isEqualTo(ValuationEngineV2.Confidence.LOW);
+    }
+
+    @Test
+    void earningsAndSalesAreIndependentFamilies() {
+        var earningsAndSales = new ValuationEngineV2.Metrics(
+                new BigDecimal("20"), null, new BigDecimal("4"), null, new BigDecimal("5"), new BigDecimal("1000"));
+
+        assertThat(ValuationEngineV2.availableFamilyCount(earningsAndSales)).isEqualTo(2);
+    }
+
     private static ValuationEngineV2.Metrics metrics(String value) {
         var multiple = new BigDecimal(value);
         return new ValuationEngineV2.Metrics(

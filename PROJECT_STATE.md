@@ -607,3 +607,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Five years of weekly history uses 220 observations as the minimum adequate coverage boundary. Observation count is now the five-year count; insufficient history cannot produce high-confidence deep discount evidence or the “5 年罕见低估” premise.
 - Position Detail tells the truth when history is short, including the actual point-in-time observation count. Missing historical common shares or other metrics remain absent rather than being backfilled from future evidence.
 - Verification: 7/7 focused point-in-time/bootstrap/valuation tests and 5/5 Position Detail component tests pass; frontend typecheck and ESLint pass. The regression explicitly proves that 2026 restatements and estimate revisions do not alter a 2023 observation.
+
+## Full Review Modification Manual V3 — Phase R19 — 2026-08-20
+
+- Relative valuation remains unavailable because the repository does not yet have an explicit, stable, point-in-time sector/peer universe. The API continues to return null and Position Detail now says `暂不可用` rather than leaving a misleading blank.
+- Valuation evidence is grouped into EARNINGS (TTM/FY1 P/E), SALES (EV/Sales and P/S), and CASH_FLOW (FCF yield). Runtime quality is HEALTHY only when at least two independent families are present.
+- Historical high confidence uses the same family independence rule. EV/Sales plus P/S alone is one SALES confirmation and cannot produce high confidence, even with full weekly history.
+- Verification: 7/7 focused valuation family/basis tests and 5/5 Position Detail component tests pass; frontend typecheck and ESLint pass.

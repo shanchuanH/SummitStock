@@ -708,6 +708,14 @@ export function PositionDetailPage() {
               label="历史估值 percentile（5 年）"
               value={formatPercent(valuationMetrics.historyPercentile5y)}
             />
+            <Metric
+              label="相对估值（sector / peers / benchmark）"
+              value={
+                valuationMetrics.relativeValuation == null
+                  ? "暂不可用"
+                  : formatPercent(valuationMetrics.relativeValuation)
+              }
+            />
           </dl>
         </details>
 
