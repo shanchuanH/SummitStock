@@ -37,8 +37,9 @@ public class MarketContextService {
 
     public SavedRegime calculateRegime(MarketRegimeEngine.Input input, Instant dataAsOf) {
         var result = MarketRegimeEngine.classify(input);
-        var inputs = regimeInputs(input);
-        var checksum = sha256(properties.strategyVersion() + ":regime:" + dataAsOf + ":" + inputs);
+        var evidence = CanonicalMarketRegimeEvidence.from(input);
+        var inputs = evidence.canonicalJson();
+        var checksum = evidence.checksum(properties.strategyVersion(), dataAsOf);
         int inserted = store.appendRegime(new RegimeWrite(
                 UUID.randomUUID(),
                 properties.strategyVersion(),
@@ -112,12 +113,6 @@ public class MarketContextService {
                 dataAsOf,
                 clock.instant()));
         return new SavedDrawdown(result, inserted == 1, checksum);
-    }
-
-    private static String regimeInputs(MarketRegimeEngine.Input input) {
-        return "{\"trend\":" + input.trend() + ",\"momentum\":" + input.momentum() + ",\"breadth\":"
-                + input.breadth() + ",\"stressResilience\":" + input.stressResilience() + ",\"vix\":"
-                + input.vix() + ",\"breadth50\":" + input.breadth50() + "}";
     }
 
     private static String jsonArray(List<String> values) {

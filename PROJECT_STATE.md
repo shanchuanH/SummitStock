@@ -578,3 +578,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - RSP is now a tracked benchmark instrument so the ordinary market-data runtime can collect real equal-weight evidence through the configured provider. No production price or participation observation is fabricated.
 - A confirmed narrow rally emits the owner explanation “指数上涨集中在少数大型股，表面行情强于真实参与度。” through the existing deterministic regime rule; no regime score or Strategy V3 numerical threshold changed.
 - Verification: 3/3 focused narrow-rally tests and 6/6 market-context golden tests pass; the Maven reactor compiles strategy-core and all backend test sources. Docker-backed provider/Flyway integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R15 — 2026-08-20
+
+- `CanonicalMarketRegimeEvidence` is now the single serialization source for persisted regime inputs and evidence checksums. Its fixed-order JSON includes trend, momentum, breadth, stress resilience, SPY/QQQ 200-day flags, VIX, breadth50, QQQ MACD/RSI, narrow-rally status, and evidence quality.
+- Every numeric input is required to be finite and normalized before hashing. Strategy version and data-as-of remain part of the checksum boundary, preserving versioned and point-in-time evidence semantics.
+- A parameterized regression matrix changes each of the twelve inputs independently and proves every resulting checksum is distinct, including all hard-override inputs and the R14 narrow-rally flag.
+- Verification: 2/2 canonical evidence tests and 6/6 market-context golden tests pass; the Maven reactor compiles all backend and strategy-core test sources.
