@@ -515,3 +515,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The prior debug intelligence endpoint is no longer a UI dependency. Detailed system/role/fundamental/valuation/chart/audit evidence remains in disclosures below the owner summary, with only the first two open by default.
 - Chart range selection supports 3M, 6M, 1Y, and 3Y with ordinary buttons and real daily bars. The page has no trading/order control, and missing numbers stay unavailable rather than becoming zero.
 - Verification: 5 focused Position Detail tests pass, including category-specific speculative evidence and ordinary chart-range clicks; frontend lint and typecheck pass. Full build and desktop/mobile E2E are run as the phase gate.
+
+## Full Review Modification Manual V3 — Phase R7 — 2026-08-20
+
+- Quality Deep Discount starters now require non-deteriorating revisions, portfolio and open-risk capacity, and explicit reversal/stabilization evidence. A falling, weak, neutral, or merely trending price cannot trigger a starter from cheap valuation alone.
+- Normal Quality ADD primarily serves ATTRACTIVE valuation with healthy ownership evidence, flat-or-better revisions, confirmed price, position capacity, and open-risk capacity.
+- FAIR valuation is fail-closed: it requires STRONG health, positive-or-better revisions, strong price confirmation, a meaningful gap below the existing target minimum, and open-risk capacity. FAIR + FLAT + UPTREND remains HOLD.
+- UNDERWEIGHT remains capacity evidence only and never becomes a buy signal by itself. No Strategy V3 numeric threshold, sizing formula, stop, or recommendation precedence was changed.
+- Verification: the focused Quality decision matrix passes 32/32 tests across the production decision engine and its pure valuation rule.

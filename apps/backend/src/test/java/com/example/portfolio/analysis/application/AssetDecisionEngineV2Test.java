@@ -69,11 +69,33 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
-    void deepDiscountWithWeakTrendPermitsOnlyStarter() {
+    void deepDiscountWithWeakTrendDoesNotPermitStarter() {
         var evidence = qualityEvidence("STRONG", "DEEP_DISCOUNT", "FLAT", "DOWNTREND", "0.01");
 
         assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void deepDiscountAfterPriceStabilizationPermitsOnlyStarter() {
+        var evidence = qualityEvidence("STRONG", "DEEP_DISCOUNT", "FLAT", "REVERSAL_SETUP", "0.01");
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
                 .isEqualTo(RecommendationAction.STARTER_BUY);
+    }
+
+    @Test
+    void deepDiscountWithoutReversalEvidenceOrWithDeterioratingRevisionsDoesNotStart() {
+        var uptrendWithoutReversal = qualityEvidence("STRONG", "DEEP_DISCOUNT", "FLAT", "UPTREND", "0.01");
+        var deteriorating = qualityEvidence("STRONG", "DEEP_DISCOUNT", "NEGATIVE", "REVERSAL_SETUP", "0.01");
+
+        assertThat(resolve(
+                        uptrendWithoutReversal,
+                        context(uptrendWithoutReversal),
+                        quality.evaluate(context(uptrendWithoutReversal))))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(resolve(deteriorating, context(deteriorating), quality.evaluate(context(deteriorating))))
+                .isEqualTo(RecommendationAction.HOLD);
     }
 
     @Test
@@ -82,6 +104,36 @@ class AssetDecisionEngineV2Test {
 
         assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
                 .isEqualTo(RecommendationAction.ADD);
+    }
+
+    @Test
+    void fairValuationWithFlatRevisionsAndUptrendDoesNotAdd() {
+        var evidence = qualityEvidence("STRONG", "FAIR", "FLAT", "UPTREND", "0.01");
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
+    void fairValuationRequiresImprovingRevisionsAndStrongPriceConfirmation() {
+        var merelyImproving = qualityEvidence("STRONG", "FAIR", "POSITIVE", "UPTREND", "0.01");
+        var stronglyConfirmed = qualityEvidence("STRONG", "FAIR", "POSITIVE", "STRONG_UPTREND", "0.01");
+
+        assertThat(resolve(merelyImproving, context(merelyImproving), quality.evaluate(context(merelyImproving))))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(resolve(stronglyConfirmed, context(stronglyConfirmed), quality.evaluate(context(stronglyConfirmed))))
+                .isEqualTo(RecommendationAction.ADD);
+    }
+
+    @Test
+    void fairValuationRequiresStrongHealthAndMeaningfulPositionGap() {
+        var merelyHealthy = qualityEvidence("HEALTHY", "FAIR", "POSITIVE", "STRONG_UPTREND", "0.01");
+        var smallGap = qualityEvidence("STRONG", "FAIR", "POSITIVE", "STRONG_UPTREND", "0.05");
+
+        assertThat(resolve(merelyHealthy, context(merelyHealthy), quality.evaluate(context(merelyHealthy))))
+                .isEqualTo(RecommendationAction.HOLD);
+        assertThat(resolve(smallGap, context(smallGap), quality.evaluate(context(smallGap))))
+                .isEqualTo(RecommendationAction.HOLD);
     }
 
     @Test

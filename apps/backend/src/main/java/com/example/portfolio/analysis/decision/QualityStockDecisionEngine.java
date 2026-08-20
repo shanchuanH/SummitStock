@@ -72,23 +72,27 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
         }
         if (healthy(health)
                 && e.strategy().deepDiscountStarterEnabled()
-                && !"STRONGLY_NEGATIVE".equals(e.fundamentals().estimateRevision())
+                && atLeastFlat(e.fundamentals().estimateRevision())
                 && "DEEP_DISCOUNT".equals(e.valuation().state())
-                && belowNormal(context)) {
+                && stabilizedPrice(e.indicators().priceState())
+                && (e.valuation().priorStarterCount() == 0 || e.valuation().independentConfirmation())
+                && belowNormal(context)
+                && hasRiskCapacity(context)) {
             values.add(of(
                     RecommendationAction.STARTER_BUY,
                     "NORMAL",
                     10,
                     "QUALITY.DEEP_DISCOUNT.STARTER",
-                    "Healthy ownership evidence and deep discount permit a limited starter.",
-                    "Weak trend limits sizing and later adds require confirmation."));
+                    "Healthy ownership evidence, deep discount, and price stabilization permit a limited starter.",
+                    "A renewed decline blocks the starter; later starters require independent confirmation."));
         }
-        if (healthy(health)
-                && acceptableValuation(e.valuation().state())
-                && atLeastFlat(e.fundamentals().estimateRevision())
-                && !"DEEP_DISCOUNT".equals(e.valuation().state())
-                && confirmedPrice(e.indicators().priceState())
-                && belowNormal(context)) {
+        if (normalAddHealthGate(health, e.valuation().state())
+                && normalAddValuationGate(
+                        e.valuation().state(),
+                        e.fundamentals().estimateRevision(),
+                        e.indicators().priceState())
+                && normalAddCapacityGate(context, e.valuation().state())
+                && hasRiskCapacity(context)) {
             values.add(of(
                     RecommendationAction.ADD,
                     "NORMAL",
@@ -129,8 +133,18 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
         return "HEALTHY".equals(v) || "STRONG".equals(v);
     }
 
-    private static boolean acceptableValuation(String v) {
-        return "DEEP_DISCOUNT".equals(v) || "ATTRACTIVE".equals(v) || "FAIR".equals(v);
+    private static boolean normalAddHealthGate(String health, String valuation) {
+        return "FAIR".equals(valuation) ? "STRONG".equals(health) : healthy(health);
+    }
+
+    private static boolean normalAddValuationGate(String valuation, String revision, String priceState) {
+        if ("ATTRACTIVE".equals(valuation)) {
+            return atLeastFlat(revision) && confirmedPrice(priceState);
+        }
+        if ("FAIR".equals(valuation)) {
+            return improvingRevision(revision) && strongPriceConfirmation(priceState);
+        }
+        return false;
     }
 
     private static boolean atLeastFlat(String v) {
@@ -139,5 +153,30 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
 
     private static boolean confirmedPrice(String v) {
         return "UPTREND".equals(v) || "STRONG_UPTREND".equals(v) || "REVERSAL_CONFIRMED".equals(v);
+    }
+
+    private static boolean stabilizedPrice(String v) {
+        return "REVERSAL_SETUP".equals(v) || "REVERSAL_CONFIRMED".equals(v);
+    }
+
+    private static boolean improvingRevision(String v) {
+        return "POSITIVE".equals(v) || "STRONGLY_POSITIVE".equals(v);
+    }
+
+    private static boolean strongPriceConfirmation(String v) {
+        return "STRONG_UPTREND".equals(v) || "REVERSAL_CONFIRMED".equals(v);
+    }
+
+    private static boolean normalAddCapacityGate(DecisionContext context, String valuation) {
+        if (!belowNormal(context)) return false;
+        return !"FAIR".equals(valuation)
+                || (context.targetMin() != null
+                        && context.evidence().currentWeight().compareTo(context.targetMin()) < 0);
+    }
+
+    private static boolean hasRiskCapacity(DecisionContext context) {
+        var evidence = context.evidence();
+        return evidence.clusterOpenRisk().compareTo(evidence.strategy().clusterOpenRiskMax()) < 0
+                && evidence.totalOpenRisk().compareTo(evidence.strategy().totalOpenRiskMax()) < 0;
     }
 }
