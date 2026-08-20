@@ -24,22 +24,41 @@ describe("MarketContextPage", () => {
   afterEach(cleanup);
   beforeEach(() => {
     get.mockReset();
-    getJson.mockResolvedValue({
-      status: "READY",
-      snapshot: {
-        vix: "18.2",
-        vixPercentile: "0.42",
-        vixDelta1d: "0.5",
-        vixDelta2d: "-0.2",
-        vixDelta5d: "1.1",
-        vix3m: "20",
-        vixTermRatio: "0.91",
-        vixTermState: "CONTANGO",
-        techStressState: "MISSING",
-        quality: "HEALTHY",
-      },
-      dataAsOf: "2026-08-05T00:00:00Z",
-    });
+    getJson.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.endsWith("/macro-background")
+          ? {
+              status: "READY",
+              snapshot: {
+                tenYearYield: "4.2",
+                twoYearYield: "3.95",
+                fedFundsRate: "4.5",
+                tenYearRealYield: "1.8",
+                rateStress: "0.45",
+                curveState: "NORMAL",
+                quality: "HEALTHY",
+                includedInAggregateStress: false,
+              },
+              dataAsOf: "2026-08-05T00:00:00Z",
+            }
+          : {
+              status: "READY",
+              snapshot: {
+                vix: "18.2",
+                vixPercentile: "0.42",
+                vixDelta1d: "0.5",
+                vixDelta2d: "-0.2",
+                vixDelta5d: "1.1",
+                vix3m: "20",
+                vixTermRatio: "0.91",
+                vixTermState: "CONTANGO",
+                techStressState: "MISSING",
+                quality: "HEALTHY",
+              },
+              dataAsOf: "2026-08-05T00:00:00Z",
+            },
+      ),
+    );
   });
 
   it("shows regime, market-driven drawdown, and stale blocking", async () => {
@@ -101,6 +120,8 @@ describe("MarketContextPage", () => {
     expect(screen.getByText("MARKET_DRIVEN")).toBeInTheDocument();
     expect(screen.getByText("18.20")).toBeInTheDocument();
     expect(screen.getByText("CONTANGO")).toBeInTheDocument();
+    expect(screen.getByText("1.80%")).toBeInTheDocument();
+    expect(screen.getByText(/尚未计入 aggregate market stress score/)).toBeInTheDocument();
     expect(
       screen.getByText("暂无可靠 VXN 数据；广义市场判断仍可继续。"),
     ).toBeInTheDocument();
@@ -125,7 +146,8 @@ describe("MarketContextPage", () => {
         response: new Response(),
       }),
     );
-    getJson.mockResolvedValue({
+    getJson.mockImplementation((path: string) =>
+      Promise.resolve(path.endsWith("/macro-background") ? {} : {
       status: "READY",
       snapshot: {
         vix: "20",
@@ -139,7 +161,7 @@ describe("MarketContextPage", () => {
         techStressState: "ELEVATED",
         quality: "HEALTHY",
       },
-    });
+    }));
     renderPage();
     expect(await screen.findByText("27.00")).toBeInTheDocument();
     expect(screen.getByText("1.35")).toBeInTheDocument();

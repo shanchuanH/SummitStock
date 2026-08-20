@@ -41,6 +41,7 @@ final class FakeMacroDataProvider implements MacroDataProvider {
                     case "DGS10" -> new BigDecimal("4.20");
                     case "DGS2" -> new BigDecimal("3.95");
                     case "FEDFUNDS" -> new BigDecimal("4.50");
+                    case "DFII10" -> new BigDecimal("1.80");
                     default -> BigDecimal.ONE;
                 };
         for (var date = from; !date.isAfter(to); date = date.plusDays(7)) {

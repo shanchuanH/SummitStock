@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class MacroApplicationService {
     public static final List<String> CORE_SERIES =
-            List.of("VIXCLS", "VIX3M", "VXNCLS", "BAMLH0A0HYM2", "DGS10", "DGS2", "FEDFUNDS");
+            List.of("VIXCLS", "VIX3M", "VXNCLS", "BAMLH0A0HYM2", "DGS10", "DGS2", "FEDFUNDS", "DFII10");
     private final MacroDataProvider provider;
     private final JdbcClient jdbc;
     private final Clock clock;
@@ -107,12 +107,12 @@ public class MacroApplicationService {
                           quality,evidence_checksum,data_as_of,created_at,vix_level,vix_percentile_5y,vix_delta_1d,
                           vix_delta_2d,vix_delta_5d,vix3m_level,vix_term_ratio,vix_term_state,vxn_level,
                           vxn_percentile_5y,vxn_delta_1d,vxn_delta_2d,vxn_delta_5d,vxn_vix_ratio,vxn_vix_spread,
-                          tech_stress_state
+                          tech_stress_state,ten_year_yield,two_year_yield,fed_funds_rate,ten_year_real_yield
                         ) VALUES (
                           UUID_TO_BIN(:id),:date,:volatility,:credit,:rate,:curve,:resilience,:quality,:checksum,:now,:now,
                           :vix,:vixPercentile,:vixDelta1d,:vixDelta2d,:vixDelta5d,:vix3m,:vixTermRatio,
                           :vixTermState,:vxn,:vxnPercentile,:vxnDelta1d,:vxnDelta2d,:vxnDelta5d,:vxnVixRatio,
-                          :vxnVixSpread,:techStressState
+                          :vxnVixSpread,:techStressState,:tenYearYield,:twoYearYield,:fedFunds,:tenYearRealYield
                         ) ON DUPLICATE KEY UPDATE
                           volatility_stress=VALUES(volatility_stress),credit_stress=VALUES(credit_stress),
                           rate_stress=VALUES(rate_stress),curve_state=VALUES(curve_state),
@@ -125,7 +125,9 @@ public class MacroApplicationService {
                           vxn_level=VALUES(vxn_level),vxn_percentile_5y=VALUES(vxn_percentile_5y),
                           vxn_delta_1d=VALUES(vxn_delta_1d),vxn_delta_2d=VALUES(vxn_delta_2d),
                           vxn_delta_5d=VALUES(vxn_delta_5d),vxn_vix_ratio=VALUES(vxn_vix_ratio),
-                          vxn_vix_spread=VALUES(vxn_vix_spread),tech_stress_state=VALUES(tech_stress_state)
+                          vxn_vix_spread=VALUES(vxn_vix_spread),tech_stress_state=VALUES(tech_stress_state),
+                          ten_year_yield=VALUES(ten_year_yield),two_year_yield=VALUES(two_year_yield),
+                          fed_funds_rate=VALUES(fed_funds_rate),ten_year_real_yield=VALUES(ten_year_real_yield)
                         """)
                 .param("id", UUID.randomUUID().toString())
                 .param("date", marketDate)
@@ -153,6 +155,10 @@ public class MacroApplicationService {
                 .param("vxnVixRatio", volatility.vxnVixRatio())
                 .param("vxnVixSpread", volatility.vxnVixSpread())
                 .param("techStressState", volatility.techStressState().name())
+                .param("tenYearYield", latest("DGS10", marketDate))
+                .param("twoYearYield", latest("DGS2", marketDate))
+                .param("fedFunds", latest("FEDFUNDS", marketDate))
+                .param("tenYearRealYield", latest("DFII10", marketDate))
                 .update();
     }
 
@@ -184,6 +190,20 @@ public class MacroApplicationService {
                 .query(VolatilitySnapshot.class)
                 .optional()
                 .orElse(VolatilitySnapshot.missing());
+    }
+
+    public MacroBackgroundSnapshot latestMacroBackground(LocalDate marketDate) {
+        return jdbc.sql(
+                        """
+                        SELECT ten_year_yield tenYearYield,two_year_yield twoYearYield,
+                               fed_funds_rate fedFundsRate,ten_year_real_yield tenYearRealYield,
+                               rate_stress rateStress,curve_state curveState,quality
+                        FROM macro_factor_snapshot WHERE market_date<=:date ORDER BY market_date DESC LIMIT 1
+                        """)
+                .param("date", marketDate)
+                .query(MacroBackgroundSnapshot.class)
+                .optional()
+                .orElse(new MacroBackgroundSnapshot(null, null, null, null, null, "MISSING", "MISSING"));
     }
 
     public BigDecimal latestValue(String code, LocalDate marketDate) {
@@ -258,4 +278,13 @@ public class MacroApplicationService {
                     "MISSING", "MISSING");
         }
     }
+
+    public record MacroBackgroundSnapshot(
+            BigDecimal tenYearYield,
+            BigDecimal twoYearYield,
+            BigDecimal fedFundsRate,
+            BigDecimal tenYearRealYield,
+            BigDecimal rateStress,
+            String curveState,
+            String quality) {}
 }

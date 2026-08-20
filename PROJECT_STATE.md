@@ -585,3 +585,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Every numeric input is required to be finite and normalized before hashing. Strategy version and data-as-of remain part of the checksum boundary, preserving versioned and point-in-time evidence semantics.
 - A parameterized regression matrix changes each of the twelve inputs independently and proves every resulting checksum is distinct, including all hard-override inputs and the R14 narrow-rally flag.
 - Verification: 2/2 canonical evidence tests and 6/6 market-context golden tests pass; the Maven reactor compiles all backend and strategy-core test sources.
+
+## Full Review Modification Manual V3 — Phase R16 — 2026-08-20
+
+- Strategy V3 explicitly adopts Option A: rates and the yield curve are macro context only. The API publishes `includedInAggregateStress=false`, and the UI states that this evidence is not part of the aggregate market stress score.
+- The canonical macro snapshot now stores 10Y and 2Y nominal Treasury yields, Fed funds, rate-context stress, curve state, and the reliable FRED `DFII10` 10-year real-yield series. Nominal DGS10 is never labeled as a real rate; absent DFII10 remains unavailable.
+- `DFII10` runs through the same live FRED provider abstraction. The explicit local fixture has a clearly identified deterministic value for development only; no live profile falls back to it.
+- Verification: 6/6 focused macro/volatility tests and 3/3 Market Context component tests pass; frontend typecheck and ESLint pass. The rate-context regression proves that changing rates changes rate stress/curve but not aggregate stress resilience.

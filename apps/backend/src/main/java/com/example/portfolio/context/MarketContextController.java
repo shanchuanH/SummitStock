@@ -32,6 +32,13 @@ public class MarketContextController {
         return new SnapshotEnvelope<>(status, VolatilityResponse.from(snapshot), clock.instant());
     }
 
+    @GetMapping("/market/macro-background")
+    SnapshotEnvelope<MacroBackgroundResponse> macroBackground() {
+        var snapshot = macro.latestMacroBackground(LocalDate.now(clock));
+        var status = snapshot.curveState().equals("MISSING") && snapshot.tenYearYield() == null ? "EMPTY" : "READY";
+        return new SnapshotEnvelope<>(status, MacroBackgroundResponse.from(snapshot), clock.instant());
+    }
+
     @GetMapping("/market/regime")
     SnapshotEnvelope<RegimeResponse> regime() {
         return store.latestRegime()
@@ -165,6 +172,28 @@ public class MarketContextController {
                     nullableDecimal(value.vxnVixSpread()),
                     value.techStressState(),
                     value.quality());
+        }
+    }
+
+    public record MacroBackgroundResponse(
+            String tenYearYield,
+            String twoYearYield,
+            String fedFundsRate,
+            String tenYearRealYield,
+            String rateStress,
+            String curveState,
+            String quality,
+            boolean includedInAggregateStress) {
+        static MacroBackgroundResponse from(MacroApplicationService.MacroBackgroundSnapshot value) {
+            return new MacroBackgroundResponse(
+                    nullableDecimal(value.tenYearYield()),
+                    nullableDecimal(value.twoYearYield()),
+                    nullableDecimal(value.fedFundsRate()),
+                    nullableDecimal(value.tenYearRealYield()),
+                    nullableDecimal(value.rateStress()),
+                    value.curveState(),
+                    value.quality(),
+                    false);
         }
     }
 

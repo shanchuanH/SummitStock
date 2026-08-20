@@ -27,6 +27,21 @@ type VolatilityEnvelope = {
   dataAsOf: string;
 };
 
+type MacroBackgroundEnvelope = {
+  status: "READY" | "EMPTY";
+  snapshot: {
+    tenYearYield?: string;
+    twoYearYield?: string;
+    fedFundsRate?: string;
+    tenYearRealYield?: string;
+    rateStress?: string;
+    curveState: string;
+    quality: string;
+    includedInAggregateStress: false;
+  };
+  dataAsOf: string;
+};
+
 function number(value?: string, digits = 2) {
   return value === undefined ? "—" : Number(value).toFixed(digits);
 }
@@ -77,9 +92,15 @@ export function MarketContextPage() {
     queryKey: ["market-volatility"],
     queryFn: () => getJson<VolatilityEnvelope>("/api/v1/market/volatility"),
   });
+  const macroBackground = useQuery({
+    queryKey: ["macro-background"],
+    queryFn: () =>
+      getJson<MacroBackgroundEnvelope>("/api/v1/market/macro-background"),
+  });
   const snapshot = regime.data?.snapshot;
   const drawdownSnapshot = drawdown.data?.snapshot;
   const volatilitySnapshot = volatility.data?.snapshot;
+  const macroSnapshot = macroBackground.data?.snapshot;
   const stale =
     snapshot?.qualityStatus === "STALE" ||
     (health.data?.staleObservations ?? 0) > 0;
@@ -167,6 +188,45 @@ export function MarketContextPage() {
             <span>{volatilitySnapshot?.techStressState ?? "MISSING"}</span>
           </div>
           <p>VXN − VIX {number(volatilitySnapshot?.vxnVixSpread)}</p>
+        </article>
+      </section>
+
+      <section aria-label="Macro background">
+        <article className="context-card">
+          <p className="eyebrow">宏观背景 / RATES &amp; CURVE</p>
+          <dl className="score-breakdown">
+            <div>
+              <dt>10Y nominal yield</dt>
+              <dd>{number(macroSnapshot?.tenYearYield)}%</dd>
+            </div>
+            <div>
+              <dt>2Y nominal yield</dt>
+              <dd>{number(macroSnapshot?.twoYearYield)}%</dd>
+            </div>
+            <div>
+              <dt>Yield curve</dt>
+              <dd>{macroSnapshot?.curveState ?? "MISSING"}</dd>
+            </div>
+            <div>
+              <dt>Fed funds</dt>
+              <dd>{number(macroSnapshot?.fedFundsRate)}%</dd>
+            </div>
+            <div>
+              <dt>10Y real yield (DFII10)</dt>
+              <dd>
+                {macroSnapshot?.tenYearRealYield === undefined
+                  ? "暂无可靠数据"
+                  : `${number(macroSnapshot.tenYearRealYield)}%`}
+              </dd>
+            </div>
+            <div>
+              <dt>Rate context stress</dt>
+              <dd>{number(macroSnapshot?.rateStress)}</dd>
+            </div>
+          </dl>
+          <p className="quality-policy">
+            利率与曲线仅作为宏观背景展示，尚未计入 aggregate market stress score。
+          </p>
         </article>
       </section>
 
