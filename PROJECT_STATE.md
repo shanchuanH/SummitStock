@@ -476,3 +476,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The presentation contract test reads the deterministic backend `RecommendationAction` enum and fails when a backend action lacks a frontend mapping. Dashboard, portfolio, position detail, opportunities, review, and ETF Dip history consume the shared language.
 - The owner-facing terminology uses plain Chinese while advanced evidence remains available separately. Missing numbers remain unavailable rather than becoming zero or fake precision.
 - This phase preserves the R0 reanalysis control and runtime status UX. No strategy threshold, recommendation precedence, risk calculation, quantity calculation, or drawdown definition changed.
+
+## Full Review Modification Manual V3 — Phase R2 — 2026-08-20
+
+- The owner dashboard now follows one deterministic decision path: today's conclusion, no more than three server-ranked actions, four portfolio-safety numbers, readiness, and the top risks. It continues to use only `GET /api/v1/brief/today`; React does not compute recommendations.
+- `TodayDecisionHero` distinguishes confirmed no-action, urgent action, incomplete data, stale analysis, and blocked/failed analysis. Incomplete or failed analysis never emits calm language or a precise quantity.
+- Compact action cards lead with action, server-supplied sizing when available, one primary reason, and the principal risk. Detailed evidence, confidence, validity, and change conditions remain collapsed.
+- The duplicate full holdings inventory is removed from the first viewport and reduced to a short summary with a link to Portfolio. R0's last-analysis timestamp and manual reanalysis control remain present.
+- No recommendation, sizing, risk, or readiness value is hard-coded in the UI; no automatic execution path was added.
