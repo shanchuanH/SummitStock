@@ -42,7 +42,8 @@ class PortfolioCashflowReconciliationServiceTest {
         var after = new PortfolioCashflowReconciliationService.Snapshot(
                 new BigDecimal("8000"), new BigDecimal("9100"), true, List.of(position));
 
-        assertThat(PortfolioCashflowReconciliationService.tradeExplanation(before, after).quantityChanged())
+        assertThat(PortfolioCashflowReconciliationService.tradeExplanation(before, after)
+                        .quantityChanged())
                 .isFalse();
     }
 }

@@ -547,3 +547,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The post-import screen asks the owner to classify a real detected amount as external cashflow, internal trade proceeds, or other. Only explicit external confirmation calls the existing idempotent `PortfolioNavService.recordExternalCashflow`; internal confirmation creates no NAV cashflow event, and “other” remains unresolved.
 - Baseline imports create no cashflow. Analysis continues independently, but unresolved NAV semantics remain visible rather than being converted into investment return/loss.
 - Verification: 2/2 deterministic reconciliation math tests and 4/4 focused import UI tests pass; backend formatting/no-test package and frontend lint/typecheck pass. The expanded MySQL integration test is committed but remains locally blocked by Docker and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R11 — 2026-08-20
+
+- Drawdown attribution now starts at the canonical NAV peak and reconstructs each owned position from peak quantity/value, post-peak buys and sells at execution prices, current quantity/value, and realized/unrealized P&L. It no longer multiplies today's quantity by a peak-to-current price change.
+- The ledger includes positions closed after the NAV peak, so a realized loser remains in the active drawdown episode. Rows with incomplete execution evidence fail into the cash/other residual instead of receiving fabricated P&L.
+- Signed position contributions, including winners, reconcile with `CASH_AND_OTHER` exactly to canonical NAV drawdown loss. Position and cluster contribution fractions and largest-loss shares now use NAV drawdown loss as their denominator, making values comparable to portfolio loss rather than gross loser-only loss.
+- Flyway V45 adds quantity delta, execution price, and realized P&L evidence to the existing trade journal; it does not create trades or infer executions.
+- Verification: 3/3 deterministic contribution-ledger tests pass, including post-peak buys/sells, closed-loss math, positive contributors, NAV residual reconciliation, and NAV-denominator attribution. Docker-backed historical ledger integration remains locally blocked and is not claimed as passing.
