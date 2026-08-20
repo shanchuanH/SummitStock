@@ -468,6 +468,125 @@
   color: var(--muted);
   font-size: 11px;
 }
+.position-verdict h3 {
+  margin: 18px 0 4px;
+  font-size: 12px;
+}
+.position-weight-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 16px 0;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.position-weight-summary div {
+  padding: 10px;
+  background: var(--surface-2);
+}
+.position-weight-summary dt,
+.position-weight-summary dd {
+  margin: 0;
+}
+.position-weight-summary dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.position-weight-summary dd {
+  margin-top: 5px;
+  font-weight: 700;
+}
+.investment-case {
+  display: flex;
+  gap: 16px;
+  margin: 18px 0;
+  padding: 16px 20px;
+  border-left: 3px solid var(--green);
+  background: var(--surface-1);
+}
+.investment-case span {
+  color: var(--muted);
+}
+.owner-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 24px;
+}
+.owner-evidence-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+.owner-evidence-card h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.owner-evidence-card dl,
+.owner-evidence-card dt,
+.owner-evidence-card dd {
+  margin: 0;
+}
+.owner-evidence-card dl {
+  display: grid;
+  gap: 10px;
+}
+.owner-evidence-card div {
+  min-width: 0;
+}
+.owner-evidence-card dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.owner-evidence-card dd {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+.analyst-layer > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+.analyst-layer > summary::-webkit-details-marker {
+  display: none;
+}
+.analyst-layer > summary h2 {
+  margin: 0;
+}
+.analyst-layer > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 20px;
+}
+.analyst-layer[open] > summary::after {
+  content: "−";
+}
+.analyst-layer[open] > summary {
+  margin-bottom: 18px;
+}
+.chart-range {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+.chart-range button {
+  min-width: 48px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.chart-range button[aria-pressed="true"] {
+  border-color: var(--green);
+  color: var(--green);
+}
 .evidence-tiles {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -574,6 +693,16 @@
     grid-template-columns: 1fr;
   }
   .position-hero {
+    grid-template-columns: 1fr;
+  }
+  .position-weight-summary {
+    grid-template-columns: 1fr;
+  }
+  .investment-case {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .owner-evidence-grid {
     grid-template-columns: 1fr;
   }
   .evidence-tiles {

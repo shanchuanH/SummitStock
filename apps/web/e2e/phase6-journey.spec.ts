@@ -148,18 +148,68 @@ const report = {
       atHardMax: true,
       capacityExplanation: "已触及组合硬上限。",
     },
+    market: {
+      price: "200",
+      dayChangePct: "0.01",
+      oneMonthReturn: "0.05",
+      threeMonthReturn: "0.1",
+      averageCost: "150",
+      unrealizedPnlDollar: "5000",
+      unrealizedPnlPct: "0.333",
+    },
     fundamentals: {
       financialHealth: "HEALTHY",
+      revenueYoy: "0.14",
+      operatingMargin: "0.31",
+      fcfMargin: "0.26",
+      netCash: "98000000000",
       quality: "HEALTHY",
       available: true,
     },
     valuation: {
       state: "ATTRACTIVE",
+      trailingPeTtm: "21.3",
+      forwardPeFy1: "19.4",
+      fcfYieldTtm: "0.043",
+      historyPercentile5y: "0.28",
       confidence: "MEDIUM",
       observationCount: 12,
       independentConfirmation: true,
       attractive: true,
       attractiveButCannotAdd: true,
+    },
+    estimates: {
+      fy1Eps: "8.42",
+      epsRevision30d: "0.021",
+      epsRevision90d: "0.038",
+      analystCount: 39,
+      state: "POSITIVE",
+      quality: "HEALTHY",
+    },
+    technical: {
+      distanceFromSma50: "0.048",
+      distanceFromSma200: "0.112",
+      rsi14: "56",
+      relativeStrengthQqq3m: "0.031",
+    },
+    earnings: {
+      nextEarningsAt: "2026-10-20T20:00:00Z",
+      eventRisk: "ELEVATED",
+      reaction1d: [],
+      reaction3d: [],
+      reaction5d: [],
+    },
+    risk: {
+      currentWeight: "0.156",
+      normalMaxWeight: "0.12",
+      hardMaxWeight: "0.15",
+      plannedStop: "170",
+      stopDistancePct: "0.15",
+      positionPlannedRiskDollar: "300",
+      positionPlannedRiskPct: "0.0034",
+      clusterRisk: "0.01",
+      totalPortfolioPlannedRisk: "0.019",
+      quality: "HEALTHY",
     },
     priceRiskEarnings: {
       priceState: "UPTREND",
@@ -370,10 +420,8 @@ test("holding report leads with the decision and keeps technical evidence in a d
   await page.goto("/positions/p1");
   await expect(page.getByRole("heading", { name: "GOOGL" })).toBeVisible();
   await expect(page.locator(".module-number")).toHaveCount(6);
-  await expect(
-    page.getByText(/估值可能有吸引力，但组合仓位已触及上限/),
-  ).toBeVisible();
-  const drawer = page.getByText("查看证据与审计信息");
+  await expect(page.getByText(/仓位已超过目标/).first()).toBeVisible();
+  const drawer = page.getByRole("heading", { name: "完整证据" });
   await expect(drawer).toBeVisible();
   await drawer.click();
   await expect(page.getByText(/RISK_CAP/)).toBeVisible();
@@ -440,7 +488,11 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await page.goto("/");
   await expect(page.locator(".action-card")).toHaveCount(1);
   await page.goto("/positions/p1");
-  await expect(page.getByText("15.0%", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".position-weight-summary").getByText("15.0%", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("heading", { name: "价格 / 风险 / 财报" }).click();
   await expect(page.getByText(/财报风险/)).toBeVisible();
+  await page.getByRole("heading", { name: "完整证据" }).click();
   await expect(page.getByText(/什么情况下建议会改变/)).toBeVisible();
 });

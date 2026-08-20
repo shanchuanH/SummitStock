@@ -507,3 +507,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Financial, valuation, estimate, earnings, and risk values come from the existing canonical tables. The report does not create a parallel data model. Projected cluster risk remains unavailable when no durable engine output exists; the API does not infer a precise value.
 - OpenAPI and the generated TypeScript client expose the expanded report. Strategy V3 thresholds, recommendation resolution, quantities, stops, and risk decisions were not changed, and no execution path was added.
 - Verification: backend formatting and no-test package pass; the deterministic return/relative-strength unit test passes; generated client and web typecheck pass; all 19 frontend test files / 37 tests pass. The expanded MySQL contract test is committed but remains locally blocked by the stopped Docker service and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R6 — 2026-08-20
+
+- Position Detail now starts with the deterministic recommendation, current/normal/hard weight limits, primary reason, today's owner task, confidence, and timestamp. The hero's hard maximum comes only from `layers.portfolioRole.hardMaxWeight`.
+- Five visible evidence cards consume R5's canonical analyst-report DTO. Quality holdings emphasize fundamentals, valuation, estimates, price, and portfolio risk; ETF, tactical, and speculative classifications receive distinct evidence templates. Unsupported fund/catalyst/time-stop facts remain explicitly unavailable.
+- The prior debug intelligence endpoint is no longer a UI dependency. Detailed system/role/fundamental/valuation/chart/audit evidence remains in disclosures below the owner summary, with only the first two open by default.
+- Chart range selection supports 3M, 6M, 1Y, and 3Y with ordinary buttons and real daily bars. The page has no trading/order control, and missing numbers stay unavailable rather than becoming zero.
+- Verification: 5 focused Position Detail tests pass, including category-specific speculative evidence and ordinary chart-range clicks; frontend lint and typecheck pass. Full build and desktop/mobile E2E are run as the phase gate.
