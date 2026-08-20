@@ -651,3 +651,9 @@ Configure production provider credentials, run the documented deployment smoke c
 - Frontend and OpenAPI jobs install Temurin JDK 25 before contract work. Gitleaks is a dedicated full-history job with `fetch-depth: 0`, so an empty shallow range cannot be reported as a successful security scan.
 - OpenAPI now includes the complete R20/R21 evidence and sizing fields plus `/api/v1/review/performance`; the TypeScript client is regenerated and owner pages consume generated types. A canonical key-order pass makes contract drift independent of Spring handler discovery order.
 - Verification: the required-workflow contract test passes; OpenAPI JSON parses and canonical generation is idempotent; API-client typecheck/build, web typecheck/ESLint, and 11 focused component tests pass. Local full `api:check` reaches the compiled API export test but remains blocked by unavailable Docker; GitHub CI is the authoritative Docker-backed contract gate.
+
+## Full Review Modification Manual V3 — Phase R25 — 2026-08-20
+
+- Production retains Secure session cookies, framework forwarded-header handling, real market/fundamentals providers, `ALLOW_PARTIAL_PRODUCTION=false`, `PORTFOLIO_ALLOW_DRAFT_STRATEGY=false`, and separate API/worker processes. None of the existing production gates were relaxed for local development.
+- The production profile disables both `/v3/api-docs` and Swagger UI. The production startup gate independently rejects any override that re-enables the OpenAPI endpoint, preventing an accidentally public deployment from exposing it.
+- Verification: 10/10 focused production security/provider tests pass, including the production YAML contract and fail-fast API-docs override. The Maven reactor compiled all dependent modules successfully.

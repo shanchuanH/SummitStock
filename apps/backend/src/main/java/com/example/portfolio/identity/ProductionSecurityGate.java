@@ -35,6 +35,9 @@ final class ProductionSecurityGate implements SmartInitializingSingleton {
         }
         rejectFakeProvider("portfolio.providers.market.type");
         rejectFakeProvider("portfolio.providers.fundamentals.type");
+        if (environment.getProperty("springdoc.api-docs.enabled", Boolean.class, false)) {
+            throw new IllegalStateException("PRODUCTION_API_DOCS_MUST_BE_DISABLED");
+        }
     }
 
     private void requireCredential(String property) {

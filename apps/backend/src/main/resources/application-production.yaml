@@ -6,3 +6,9 @@ server:
         secure: true
 
 SESSION_COOKIE_SECURE: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
