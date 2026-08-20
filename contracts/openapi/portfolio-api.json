@@ -3112,11 +3112,26 @@
           "portfolioRole": {
             "$ref": "#/components/schemas/PortfolioRole"
           },
+          "market": {
+            "$ref": "#/components/schemas/PositionMarket"
+          },
           "fundamentals": {
             "$ref": "#/components/schemas/Fundamentals"
           },
           "valuation": {
             "$ref": "#/components/schemas/Valuation"
+          },
+          "estimates": {
+            "$ref": "#/components/schemas/Estimates"
+          },
+          "technical": {
+            "$ref": "#/components/schemas/Technical"
+          },
+          "earnings": {
+            "$ref": "#/components/schemas/Earnings"
+          },
+          "risk": {
+            "$ref": "#/components/schemas/PositionRisk"
           },
           "priceRiskEarnings": {
             "$ref": "#/components/schemas/PriceRiskEarnings"
@@ -3295,6 +3310,20 @@
           "financialHealth": {
             "type": "string"
           },
+          "revenueTtm": { "type": "string" },
+          "revenueYoy": { "type": "string" },
+          "revenue3yCagr": { "type": "string" },
+          "epsTtm": { "type": "string" },
+          "epsYoy": { "type": "string" },
+          "operatingMargin": { "type": "string" },
+          "operatingMarginYoyChange": { "type": "string" },
+          "fcfTtm": { "type": "string" },
+          "fcfMargin": { "type": "string" },
+          "fcfConversion": { "type": "string" },
+          "netCash": { "type": "string" },
+          "netDebtToFcf": { "type": "string" },
+          "currentRatio": { "type": "string" },
+          "shareDilutionYoy": { "type": "string" },
           "quality": {
             "type": "string"
           },
@@ -3393,6 +3422,99 @@
             "type": "string",
             "format": "date-time"
           }
+        }
+      },
+      "PositionMarket": {
+        "type": "object",
+        "properties": {
+          "price": { "type": "string" },
+          "dayChangePct": { "type": "string" },
+          "oneMonthReturn": { "type": "string" },
+          "threeMonthReturn": { "type": "string" },
+          "averageCost": { "type": "string" },
+          "unrealizedPnlDollar": { "type": "string" },
+          "unrealizedPnlPct": { "type": "string" }
+        }
+      },
+      "Estimates": {
+        "type": "object",
+        "properties": {
+          "fy1Eps": { "type": "string" },
+          "fy1Revenue": { "type": "string" },
+          "epsRevision30d": { "type": "string" },
+          "epsRevision90d": { "type": "string" },
+          "revenueRevision30d": { "type": "string" },
+          "revenueRevision90d": { "type": "string" },
+          "analystCount": { "type": "integer", "format": "int32" },
+          "epsHigh": { "type": "string" },
+          "epsLow": { "type": "string" },
+          "dispersion": { "type": "string" },
+          "state": { "type": "string" },
+          "quality": { "type": "string" },
+          "dataAsOf": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Technical": {
+        "type": "object",
+        "properties": {
+          "sma20": { "type": "string" },
+          "sma50": { "type": "string" },
+          "sma200": { "type": "string" },
+          "distanceFromSma20": { "type": "string" },
+          "distanceFromSma50": { "type": "string" },
+          "distanceFromSma200": { "type": "string" },
+          "rsi14": { "type": "string" },
+          "macdState": { "type": "string" },
+          "atr14": { "type": "string" },
+          "atrPercent": { "type": "string" },
+          "realizedVolatility": { "type": "string" },
+          "breakout20d": { "type": "string" },
+          "drawdown52Week": { "type": "string" },
+          "relativeStrengthSpy1m": { "type": "string" },
+          "relativeStrengthSpy3m": { "type": "string" },
+          "relativeStrengthSpy6m": { "type": "string" },
+          "relativeStrengthQqq1m": { "type": "string" },
+          "relativeStrengthQqq3m": { "type": "string" },
+          "relativeStrengthQqq6m": { "type": "string" },
+          "dataAsOf": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Earnings": {
+        "type": "object",
+        "properties": {
+          "nextEarningsAt": { "type": "string", "format": "date-time" },
+          "daysUntilEarnings": { "type": "integer", "format": "int64" },
+          "sessionType": { "type": "string" },
+          "eventRisk": { "type": "string" },
+          "historicalMedianAbsMove": { "type": "string" },
+          "historicalP75AbsMove": { "type": "string" },
+          "worstDownsideGap": { "type": "string" },
+          "reaction1d": { "type": "array", "items": { "type": "string" } },
+          "reaction3d": { "type": "array", "items": { "type": "string" } },
+          "reaction5d": { "type": "array", "items": { "type": "string" } },
+          "currentR": { "type": "string" },
+          "policyAction": { "type": "string" },
+          "quality": { "type": "string" },
+          "dataAsOf": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PositionRisk": {
+        "type": "object",
+        "properties": {
+          "currentWeight": { "type": "string" },
+          "normalMaxWeight": { "type": "string" },
+          "hardMaxWeight": { "type": "string" },
+          "plannedStop": { "type": "string" },
+          "stopDistancePct": { "type": "string" },
+          "positionPlannedRiskDollar": { "type": "string" },
+          "positionPlannedRiskPct": { "type": "string" },
+          "clusterRisk": { "type": "string" },
+          "totalPortfolioPlannedRisk": { "type": "string" },
+          "projectedTotalRiskAfterAction": { "type": "string" },
+          "projectedClusterRiskAfterAction": { "type": "string" },
+          "sizingLimitingConstraint": { "type": "string" },
+          "quality": { "type": "string" },
+          "dataAsOf": { "type": "string", "format": "date-time" }
         }
       },
       "PriceRiskEarnings": {
@@ -3594,6 +3716,13 @@
           "state": {
             "type": "string"
           },
+          "trailingPeTtm": { "type": "string" },
+          "forwardPeFy1": { "type": "string" },
+          "evSalesTtm": { "type": "string" },
+          "priceSalesTtm": { "type": "string" },
+          "fcfYieldTtm": { "type": "string" },
+          "historyPercentile3y": { "type": "string" },
+          "historyPercentile5y": { "type": "string" },
           "confidence": {
             "type": "string"
           },
@@ -3601,6 +3730,9 @@
             "type": "integer",
             "format": "int32"
           },
+          "relativeValuation": { "type": "string" },
+          "quality": { "type": "string" },
+          "dataAsOf": { "type": "string", "format": "date-time" },
           "independentConfirmation": {
             "type": "boolean"
           },

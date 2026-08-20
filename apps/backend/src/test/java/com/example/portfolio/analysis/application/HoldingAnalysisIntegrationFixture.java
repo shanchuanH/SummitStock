@@ -111,8 +111,44 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
                 """);
         update(
                 """
-                INSERT INTO estimate_revision_snapshot (id,instrument_id,period_end,horizon,revision_7d,revision_30d,revision_90d,overall_revision,analyst_count,quality,evidence_checksum,data_as_of,created_at)
-                VALUES (UUID_TO_BIN('99000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),DATE_ADD(CURRENT_DATE,INTERVAL 90 DAY),'NEXT_QUARTER','FLAT','FLAT','FLAT','FLAT',20,'HEALTHY',SHA2('r1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                INSERT INTO financial_period (id,instrument_id,fiscal_year,period_type,end_date,filed_at,accession_number,form_type,source,quality,created_at)
+                VALUES (UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),YEAR(CURRENT_DATE),'ANNUAL',CURRENT_DATE,CURRENT_DATE,'r5-fixture','10-K','TEST','HEALTHY',UTC_TIMESTAMP(6))
+                """);
+        update(
+                """
+                INSERT INTO financial_metric_snapshot (id,instrument_id,period_id,metric_code,value_decimal,unit,calculation_version,quality,evidence_checksum,data_as_of,created_at) VALUES
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'REVENUE',1000000,'USD','test','HEALTHY',SHA2('fm1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'REVENUE_YOY',0.12,'RATIO','test','HEALTHY',SHA2('fm2',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000003'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'REVENUE_3Y_CAGR',0.15,'RATIO','test','HEALTHY',SHA2('fm3',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000004'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'DILUTED_EPS',8.42,'USD_PER_SHARE','test','HEALTHY',SHA2('fm4',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000005'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'EPS_YOY',0.18,'RATIO','test','HEALTHY',SHA2('fm5',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000006'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'OPERATING_MARGIN',0.27,'RATIO','test','HEALTHY',SHA2('fm6',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000007'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'FREE_CASH_FLOW',250000,'USD','test','HEALTHY',SHA2('fm7',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000008'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'FCF_MARGIN',0.25,'RATIO','test','HEALTHY',SHA2('fm8',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000009'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'NET_CASH',500000,'USD','test','HEALTHY',SHA2('fm9',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000010'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'CURRENT_RATIO',1.8,'RATIO','test','HEALTHY',SHA2('fm10',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99020000-0000-0000-0000-000000000011'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('99010000-0000-0000-0000-000000000001'),'SHARE_DILUTION_YOY',0.01,'RATIO','test','HEALTHY',SHA2('fm11',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                """);
+        update(
+                """
+                INSERT INTO valuation_metric_history (id,instrument_id,market_date,trailing_pe,forward_pe,ev_sales,fcf_yield,price_sales,market_cap,source,quality,evidence_checksum,data_as_of,created_at)
+                VALUES (UUID_TO_BIN('99030000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),CURRENT_DATE,21.3,19.4,5.2,0.043,5.0,1000000000,'TEST','HEALTHY',SHA2('vm1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                """);
+        update(
+                """
+                INSERT INTO valuation_assessment_snapshot (id,instrument_id,valuation_state,confidence,own_history_percentile_3y,own_history_percentile_5y,observation_count,quality,strategy_version,config_hash,evidence_checksum,data_as_of,created_at)
+                VALUES (UUID_TO_BIN('99030000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),'FAIR','HIGH',0.31,0.28,254,'HEALTHY','3.0.0-draft',SHA2('config',256),SHA2('va1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
+                """);
+        update(
+                """
+                INSERT INTO estimate_observation (id,instrument_id,estimate_type,period_type,period_end,horizon,mean_value,high_value,low_value,analyst_count,data_as_of,source,quality,checksum,created_at) VALUES
+                (UUID_TO_BIN('99040000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),'EPS','ANNUAL',DATE_ADD(CURRENT_DATE,INTERVAL 1 YEAR),'FY1',8.42,9.10,7.65,39,UTC_TIMESTAMP(6),'TEST','HEALTHY',SHA2('eo1',256),UTC_TIMESTAMP(6)),
+                (UUID_TO_BIN('99040000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),'REVENUE','ANNUAL',DATE_ADD(CURRENT_DATE,INTERVAL 1 YEAR),'FY1',1200000,1300000,1100000,35,UTC_TIMESTAMP(6),'TEST','HEALTHY',SHA2('eo2',256),UTC_TIMESTAMP(6))
+                """);
+        update(
+                """
+                INSERT INTO estimate_revision_snapshot (id,instrument_id,period_end,horizon,revision_7d,revision_30d,revision_90d,overall_revision,eps_change_30d,eps_change_90d,revenue_change_30d,revenue_change_90d,analyst_count,dispersion,quality,evidence_checksum,data_as_of,created_at)
+                VALUES (UUID_TO_BIN('99000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),DATE_ADD(CURRENT_DATE,INTERVAL 90 DAY),'NEXT_QUARTER','FLAT','FLAT','FLAT','FLAT',0.021,0.038,0.015,0.025,39,0.17,'HEALTHY',SHA2('r1',256),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))
                 """);
         update(
                 """
@@ -176,9 +212,18 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
         update(
                 "DELETE FROM company_event WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
         update(
+                "DELETE FROM estimate_observation WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
+        update(
                 "DELETE FROM fundamental_observation WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM estimate_revision_snapshot WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM valuation_assessment_snapshot WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM valuation_metric_history WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
+        update(
+                "DELETE FROM financial_metric_snapshot WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
+        update("DELETE FROM financial_period WHERE instrument_id=UUID_TO_BIN('93000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM indicator_snapshot WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
         update(

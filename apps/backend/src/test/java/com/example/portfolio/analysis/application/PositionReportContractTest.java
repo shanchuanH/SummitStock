@@ -49,8 +49,14 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
                 .andExpect(jsonPath("$.layers.systemRecommendation.action").isNotEmpty())
                 .andExpect(jsonPath("$.layers.portfolioRole.classification").value(classification))
                 .andExpect(jsonPath("$.layers.portfolioRole.hardMaxWeight").value(hardMax))
+                .andExpect(jsonPath("$.layers.market.price").isNotEmpty())
+                .andExpect(jsonPath("$.layers.market.averageCost").isNotEmpty())
+                .andExpect(jsonPath("$.layers.market.unrealizedPnlDollar").isNotEmpty())
                 .andExpect(jsonPath("$.layers.fundamentals.quality").isNotEmpty())
                 .andExpect(jsonPath("$.layers.valuation.state").isNotEmpty())
+                .andExpect(jsonPath("$.layers.technical.sma20").isNotEmpty())
+                .andExpect(jsonPath("$.layers.risk.positionPlannedRiskDollar").isNotEmpty())
+                .andExpect(jsonPath("$.layers.risk.totalPortfolioPlannedRisk").isNotEmpty())
                 .andExpect(jsonPath("$.layers.priceRiskEarnings.priceState").isNotEmpty())
                 .andExpect(jsonPath("$.layers.rationaleAndEvidence.reasons").isArray())
                 .andExpect(jsonPath("$.layers.rationaleAndEvidence.risks").isArray())
@@ -60,5 +66,28 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
                         .isArray())
                 .andExpect(jsonPath("$.layers.rationaleAndEvidence.evidenceDrawer.configHash")
                         .isString());
+    }
+
+    @Test
+    void qualityStockReportExposesCanonicalNumbersAndPreservesMissingValues() throws Exception {
+        recommendations.generateAll(USER_ID);
+
+        mockMvc.perform(get("/api/v1/holdings/{positionId}/analyst-report", GOOGL_POSITION)
+                        .with(httpBasic(USER_EMAIL, "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.layers.market.price").value("200"))
+                .andExpect(jsonPath("$.layers.market.averageCost").value("150"))
+                .andExpect(jsonPath("$.layers.market.unrealizedPnlDollar").value("5000"))
+                .andExpect(jsonPath("$.layers.fundamentals.revenueTtm").value("1000000"))
+                .andExpect(jsonPath("$.layers.fundamentals.operatingMargin").value("0.27"))
+                .andExpect(jsonPath("$.layers.fundamentals.fcfTtm").value("250000"))
+                .andExpect(jsonPath("$.layers.valuation.trailingPeTtm").value("21.3"))
+                .andExpect(jsonPath("$.layers.valuation.forwardPeFy1").value("19.4"))
+                .andExpect(jsonPath("$.layers.valuation.historyPercentile5y").value("0.28"))
+                .andExpect(jsonPath("$.layers.estimates.fy1Eps").value("8.42"))
+                .andExpect(jsonPath("$.layers.estimates.epsRevision30d").value("0.021"))
+                .andExpect(jsonPath("$.layers.estimates.analystCount").value(39))
+                .andExpect(jsonPath("$.layers.risk.projectedClusterRiskAfterAction")
+                        .doesNotExist());
     }
 }

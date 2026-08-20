@@ -499,3 +499,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Emergency Cash location and amount are separate facts. Every location requires an explicit amount; external cash is tagged user-confirmed and is never inferred to equal the strategy target. Fidelity-held amounts cannot exceed imported broker cash.
 - Flyway V41 labels pre-existing inferred external amounts honestly and records new user-confirmed external sources. Import analysis progress continues to use R0's live Worker/stage diagnostics rather than simulated WAITING states.
 - No force-click workaround, automatic trading, or production fixture fallback was added.
+
+## Full Review Modification Manual V3 — Phase R5 — 2026-08-20
+
+- The canonical holding analyst-report API now exposes persisted decision numbers instead of status-only labels: mark/returns/cost/P&L, the existing financial metric family, valuation multiples and history percentiles, FY1 estimates and revisions, technical/trend/volatility evidence, earnings history, and planned-risk context.
+- Price history is canonicalized to one latest adjusted daily bar per market date before returns, breakouts, drawdown, or benchmark-relative strength are calculated. Missing lookback history remains null rather than becoming zero or a fabricated production observation.
+- Financial, valuation, estimate, earnings, and risk values come from the existing canonical tables. The report does not create a parallel data model. Projected cluster risk remains unavailable when no durable engine output exists; the API does not infer a precise value.
+- OpenAPI and the generated TypeScript client expose the expanded report. Strategy V3 thresholds, recommendation resolution, quantities, stops, and risk decisions were not changed, and no execution path was added.
+- Verification: backend formatting and no-test package pass; the deterministic return/relative-strength unit test passes; generated client and web typecheck pass; all 19 frontend test files / 37 tests pass. The expanded MySQL contract test is committed but remains locally blocked by the stopped Docker service and is not claimed as passing.

@@ -661,7 +661,12 @@ export interface paths {
     trace?: never;
   };
   "/api/v1/analysis/runs": {
-    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
     get?: never;
     put?: never;
     post: operations["run"];
@@ -672,7 +677,12 @@ export interface paths {
     trace?: never;
   };
   "/api/v1/analysis/runtime": {
-    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
     get: operations["runtime"];
     put?: never;
     post?: never;
@@ -1384,8 +1394,13 @@ export interface components {
     AnalystLayers: {
       systemRecommendation?: components["schemas"]["SystemRecommendation"];
       portfolioRole?: components["schemas"]["PortfolioRole"];
+      market?: components["schemas"]["PositionMarket"];
       fundamentals?: components["schemas"]["Fundamentals"];
       valuation?: components["schemas"]["Valuation"];
+      estimates?: components["schemas"]["Estimates"];
+      technical?: components["schemas"]["Technical"];
+      earnings?: components["schemas"]["Earnings"];
+      risk?: components["schemas"]["PositionRisk"];
       priceRiskEarnings?: components["schemas"]["PriceRiskEarnings"];
       rationaleAndEvidence?: components["schemas"]["RationaleAndEvidence"];
     };
@@ -1441,6 +1456,20 @@ export interface components {
     };
     Fundamentals: {
       financialHealth?: string;
+      revenueTtm?: string;
+      revenueYoy?: string;
+      revenue3yCagr?: string;
+      epsTtm?: string;
+      epsYoy?: string;
+      operatingMargin?: string;
+      operatingMarginYoyChange?: string;
+      fcfTtm?: string;
+      fcfMargin?: string;
+      fcfConversion?: string;
+      netCash?: string;
+      netDebtToFcf?: string;
+      currentRatio?: string;
+      shareDilutionYoy?: string;
       quality?: string;
       /** Format: date-time */
       dataAsOf?: string;
@@ -1475,6 +1504,91 @@ export interface components {
       evidence?: components["schemas"]["AuditEvidence"];
       assetEvidence?: components["schemas"]["AssetEvidence"];
       layers?: components["schemas"]["AnalystLayers"];
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    PositionMarket: {
+      price?: string;
+      dayChangePct?: string;
+      oneMonthReturn?: string;
+      threeMonthReturn?: string;
+      averageCost?: string;
+      unrealizedPnlDollar?: string;
+      unrealizedPnlPct?: string;
+    };
+    Estimates: {
+      fy1Eps?: string;
+      fy1Revenue?: string;
+      epsRevision30d?: string;
+      epsRevision90d?: string;
+      revenueRevision30d?: string;
+      revenueRevision90d?: string;
+      /** Format: int32 */
+      analystCount?: number;
+      epsHigh?: string;
+      epsLow?: string;
+      dispersion?: string;
+      state?: string;
+      quality?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    Technical: {
+      sma20?: string;
+      sma50?: string;
+      sma200?: string;
+      distanceFromSma20?: string;
+      distanceFromSma50?: string;
+      distanceFromSma200?: string;
+      rsi14?: string;
+      macdState?: string;
+      atr14?: string;
+      atrPercent?: string;
+      realizedVolatility?: string;
+      breakout20d?: string;
+      drawdown52Week?: string;
+      relativeStrengthSpy1m?: string;
+      relativeStrengthSpy3m?: string;
+      relativeStrengthSpy6m?: string;
+      relativeStrengthQqq1m?: string;
+      relativeStrengthQqq3m?: string;
+      relativeStrengthQqq6m?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    Earnings: {
+      /** Format: date-time */
+      nextEarningsAt?: string;
+      /** Format: int64 */
+      daysUntilEarnings?: number;
+      sessionType?: string;
+      eventRisk?: string;
+      historicalMedianAbsMove?: string;
+      historicalP75AbsMove?: string;
+      worstDownsideGap?: string;
+      reaction1d?: string[];
+      reaction3d?: string[];
+      reaction5d?: string[];
+      currentR?: string;
+      policyAction?: string;
+      quality?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+    };
+    PositionRisk: {
+      currentWeight?: string;
+      normalMaxWeight?: string;
+      hardMaxWeight?: string;
+      plannedStop?: string;
+      stopDistancePct?: string;
+      positionPlannedRiskDollar?: string;
+      positionPlannedRiskPct?: string;
+      clusterRisk?: string;
+      totalPortfolioPlannedRisk?: string;
+      projectedTotalRiskAfterAction?: string;
+      projectedClusterRiskAfterAction?: string;
+      sizingLimitingConstraint?: string;
+      quality?: string;
       /** Format: date-time */
       dataAsOf?: string;
     };
@@ -1541,9 +1655,20 @@ export interface components {
     };
     Valuation: {
       state?: string;
+      trailingPeTtm?: string;
+      forwardPeFy1?: string;
+      evSalesTtm?: string;
+      priceSalesTtm?: string;
+      fcfYieldTtm?: string;
+      historyPercentile3y?: string;
+      historyPercentile5y?: string;
       confidence?: string;
       /** Format: int32 */
       observationCount?: number;
+      relativeValuation?: string;
+      quality?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
       independentConfirmation?: boolean;
       attractive?: boolean;
       attractiveButCannotAdd?: boolean;
@@ -1822,7 +1947,9 @@ export interface components {
       errorMessage?: string;
       retryable?: boolean;
     };
-    RunRequest: { reason?: string };
+    RunRequest: {
+      reason?: string;
+    };
     RunResponse: {
       /** Format: uuid */
       runId?: string;
@@ -2825,24 +2952,46 @@ export interface operations {
     };
   };
   run: {
-    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
     requestBody: {
-      content: { "application/json": components["schemas"]["RunRequest"] };
+      content: {
+        "application/json": components["schemas"]["RunRequest"];
+      };
     };
     responses: {
+      /** @description Accepted */
       202: {
-        headers: { [name: string]: unknown };
-        content: { "*/*": components["schemas"]["RunResponse"] };
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["RunResponse"];
+        };
       };
     };
   };
   runtime: {
-    parameters: { query?: never; header?: never; path?: never; cookie?: never };
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
     requestBody?: never;
     responses: {
+      /** @description OK */
       200: {
-        headers: { [name: string]: unknown };
-        content: { "*/*": components["schemas"]["RuntimeResponse"] };
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["RuntimeResponse"];
+        };
       };
     };
   };
