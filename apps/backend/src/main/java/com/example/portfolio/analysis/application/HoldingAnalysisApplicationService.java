@@ -206,8 +206,9 @@ public final class HoldingAnalysisApplicationService {
                 behavior.ideaCooldownUntil(),
                 now);
         var values = new ArrayList<>(portfolioConstraints.evaluate(context));
-        values.addAll(behavioralFirewall.evaluate(context));
-        values.addAll(assetDecisions.evaluate(context));
+        var assetCandidates = assetDecisions.evaluate(context);
+        values.addAll(behavioralFirewall.evaluate(context, assetCandidates));
+        values.addAll(assetCandidates);
         return List.copyOf(values);
     }
 

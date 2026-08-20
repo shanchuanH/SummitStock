@@ -531,3 +531,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Tactical, cyclical tactical, and turnaround tactical holdings now have an explicit readiness path. Fresh price/trend, formal stop, confirmed catalyst, event, risk, thesis, and classification are required; missing catalyst returns `WAIT_FOR_CATALYST`, while a missing stop or invalid thesis returns `BLOCKED`.
 - Unknown canonical open-risk values remain null and block new risk instead of being treated as zero. The existing speculative time-stop behavior was not rewritten.
 - Verification: 33/33 focused tactical decision/readiness tests pass; backend formatting, frontend lint, and frontend typecheck pass. Docker-backed Flyway integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R9 — 2026-08-20
+
+- A quote below average cost is now only a potential entry-price fact. The averaging-down firewall runs only when the deterministic asset engine actually proposes `ADD` or `STARTER_BUY`; HOLD/EXIT/other conclusions are not reclassified merely because a position is below cost.
+- The proposed entry reference uses the most recently acknowledged add price when available, otherwise canonical average cost. Independent thesis evidence can come from the durable thesis record or controlled evidence reason tags.
+- Flyway V43 adds validated structured reason tags to recommendation acknowledgements and journal records, plus the acknowledgement-time market reference price. The API accepts the manual's nine tags; the owner action disclosure can record them, and journal reads expose persisted tags.
+- Cost-basis anchoring now depends on `COST_BASIS_ANCHOR`, not an expanding list of English substrings. Free-form rationale remains explanation only. No acknowledgement submits an execution.
+- Verification: 6/6 focused Behavioral Firewall/tag parser tests pass; backend no-test package, frontend lint/typecheck, and the focused action-card test pass. Docker-backed migration/controller integration remains unavailable locally and is not claimed as passing.

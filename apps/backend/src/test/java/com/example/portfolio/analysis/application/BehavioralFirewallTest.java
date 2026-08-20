@@ -6,6 +6,7 @@ import com.example.portfolio.analysis.decision.BehavioralFirewall;
 import com.example.portfolio.analysis.decision.DecisionContext;
 import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.RecommendationAction;
+import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.strategy.RuleIds;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.time.Instant;
@@ -17,8 +18,17 @@ class BehavioralFirewallTest {
 
     @Test
     void coolingBlocksNewCapitalButProducesNoRiskReductionCandidate() {
-        var values = firewall.evaluate(context(
-                HoldingClassification.QUALITY_STOCK, NOW.minusSeconds(3600), false, false, false, 10, false, null));
+        var values = firewall.evaluate(
+                context(
+                        HoldingClassification.QUALITY_STOCK,
+                        NOW.minusSeconds(3600),
+                        false,
+                        false,
+                        false,
+                        10,
+                        false,
+                        null),
+                addCandidate());
 
         assertThat(values).singleElement().satisfies(value -> {
             assertThat(value.action()).isEqualTo(RecommendationAction.DO_NOT_ADD);
@@ -29,7 +39,7 @@ class BehavioralFirewallTest {
     @Test
     void averagingDownWithoutImprovementAndCostAnchoringAreBlocked() {
         var values = firewall.evaluate(
-                context(HoldingClassification.QUALITY_STOCK, null, true, false, true, 10, false, null));
+                context(HoldingClassification.QUALITY_STOCK, null, true, false, true, 10, false, null), addCandidate());
 
         assertThat(values)
                 .extracting(value -> value.ruleId())
@@ -38,9 +48,19 @@ class BehavioralFirewallTest {
     }
 
     @Test
+    void priceBelowReferenceDoesNotBlockWhenNoAddIsProposed() {
+        var values = firewall.evaluate(
+                context(HoldingClassification.QUALITY_STOCK, null, true, false, false, 10, false, null),
+                holdCandidate());
+
+        assertThat(values).isEmpty();
+    }
+
+    @Test
     void expiredSpeculativeTimeStopForcesExitWithoutThesisProgress() {
         var values = firewall.evaluate(
-                context(HoldingClassification.SPECULATIVE, null, false, false, false, 60, false, null));
+                context(HoldingClassification.SPECULATIVE, null, false, false, false, 60, false, null),
+                holdCandidate());
 
         assertThat(values).singleElement().satisfies(value -> {
             assertThat(value.action()).isEqualTo(RecommendationAction.EXIT);
@@ -50,10 +70,29 @@ class BehavioralFirewallTest {
 
     @Test
     void socialIdeaCooldownBlocksNewCapitalUntilItsExplicitDeadline() {
-        var values = firewall.evaluate(context(
-                HoldingClassification.QUALITY_STOCK, null, false, false, false, 10, false, NOW.plusSeconds(7200)));
+        var values = firewall.evaluate(
+                context(
+                        HoldingClassification.QUALITY_STOCK,
+                        null,
+                        false,
+                        false,
+                        false,
+                        10,
+                        false,
+                        NOW.plusSeconds(7200)),
+                addCandidate());
 
         assertThat(values).singleElement().extracting(value -> value.ruleId()).isEqualTo(RuleIds.RISK_COOLING_PERIOD);
+    }
+
+    private static java.util.List<RecommendationCandidate> addCandidate() {
+        return java.util.List.of(new RecommendationCandidate(
+                RecommendationAction.ADD, "NORMAL", 10, "TEST.ADD", "test", java.util.List.of("test")));
+    }
+
+    private static java.util.List<RecommendationCandidate> holdCandidate() {
+        return java.util.List.of(new RecommendationCandidate(
+                RecommendationAction.HOLD, "NORMAL", 11, "TEST.HOLD", "test", java.util.List.of("test")));
     }
 
     private static DecisionContext context(

@@ -2,11 +2,12 @@ package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.analysis.domain.HoldingEvidence;
 import com.example.portfolio.market.provider.TradingCalendar;
+import com.example.portfolio.portfolio.DecisionReasonTag;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Locale;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -30,10 +31,15 @@ public final class BehavioralEvidenceService {
                           (SELECT MAX(ra.acknowledged_at) FROM recommendation_acknowledgement ra
                            JOIN recommendation r ON r.id=ra.recommendation_id
                            WHERE r.position_id=p.id AND r.action IN ('ADD','STARTER_BUY','DEPLOY_DIP_TRANCHE')) lastAddAt,
-                          (SELECT ra.rationale FROM recommendation_acknowledgement ra
+                          (SELECT ra.reason_tags FROM recommendation_acknowledgement ra
                            JOIN recommendation r ON r.id=ra.recommendation_id
-                           WHERE r.position_id=p.id AND ra.rationale IS NOT NULL
-                           ORDER BY ra.acknowledged_at DESC LIMIT 1) lastRationale,
+                           WHERE r.position_id=p.id AND ra.reason_tags IS NOT NULL
+                           ORDER BY ra.acknowledged_at DESC LIMIT 1) lastReasonTags,
+                          (SELECT ra.reference_price FROM recommendation_acknowledgement ra
+                           JOIN recommendation r ON r.id=ra.recommendation_id
+                           WHERE r.position_id=p.id AND r.action IN ('ADD','STARTER_BUY')
+                             AND ra.reference_price IS NOT NULL
+                           ORDER BY ra.acknowledged_at DESC LIMIT 1) lastAddReferencePrice,
                           COALESCE(t.thesis_progress,FALSE) thesisProgress,
                           t.confirmed_at confirmedAt,t.last_evidence_at lastEvidenceAt,
                           (SELECT MAX(i.cooldown_until) FROM investment_idea i
@@ -46,28 +52,34 @@ public final class BehavioralEvidenceService {
                 .query(BehaviorRow.class)
                 .single();
         var last = evidence.quote().last();
-        var averagingDown = row.averageCost() != null && last != null && last.compareTo(row.averageCost()) < 0;
+        var reference = row.lastAddReferencePrice() != null ? row.lastAddReferencePrice() : row.averageCost();
+        var proposedEntryBelowReference = reference != null && last != null && last.compareTo(reference) < 0;
+        var reasonTags = DecisionReasonTags.parse(row.lastReasonTags());
         var thesisImproving = row.thesisProgress()
                 || (row.lastEvidenceAt() != null
                         && row.confirmedAt() != null
-                        && row.lastEvidenceAt().isAfter(row.confirmedAt()));
+                        && row.lastEvidenceAt().isAfter(row.confirmedAt()))
+                || reasonTags.stream().anyMatch(BehavioralEvidenceService::independentEvidence);
         var completed = calendar.latestCompletedSession(now);
         var holdingDays = calendar.sessionsBetween(row.openedAt().toLocalDate(), completed);
         return new BehavioralEvidence(
                 instant(row.lastDecisionAt()),
                 instant(row.lastAddAt()),
-                averagingDown,
+                proposedEntryBelowReference,
                 thesisImproving,
-                anchored(row.lastRationale()),
+                reasonTags.contains(DecisionReasonTag.COST_BASIS_ANCHOR),
                 holdingDays,
                 row.thesisProgress(),
                 instant(row.ideaCooldownUntil()));
     }
 
-    private static boolean anchored(String rationale) {
-        if (rationale == null) return false;
-        var value = rationale.toLowerCase(Locale.ROOT);
-        return value.contains("cost basis") || value.contains("break even") || value.contains("breakeven");
+    private static boolean independentEvidence(DecisionReasonTag tag) {
+        return Set.of(
+                        DecisionReasonTag.NEW_FUNDAMENTAL_EVIDENCE,
+                        DecisionReasonTag.VALUATION,
+                        DecisionReasonTag.PRICE_CONFIRMATION,
+                        DecisionReasonTag.CATALYST)
+                .contains(tag);
     }
 
     private static Instant instant(LocalDateTime value) {
@@ -79,7 +91,8 @@ public final class BehavioralEvidenceService {
             BigDecimal averageCost,
             LocalDateTime lastDecisionAt,
             LocalDateTime lastAddAt,
-            String lastRationale,
+            String lastReasonTags,
+            BigDecimal lastAddReferencePrice,
             boolean thesisProgress,
             LocalDateTime confirmedAt,
             LocalDateTime lastEvidenceAt,

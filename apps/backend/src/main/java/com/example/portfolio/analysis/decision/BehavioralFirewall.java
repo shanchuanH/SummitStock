@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public final class BehavioralFirewall {
-    public List<RecommendationCandidate> evaluate(DecisionContext context) {
+    public List<RecommendationCandidate> evaluate(
+            DecisionContext context, List<RecommendationCandidate> proposedCandidates) {
         var values = new ArrayList<RecommendationCandidate>();
         var strategy = context.evidence().strategy();
         boolean decisionCooling = context.lastDecisionAt() != null
@@ -28,7 +29,8 @@ public final class BehavioralFirewall {
             values.add(block(
                     RuleIds.RISK_COOLING_PERIOD, "The behavioral cooling period is active; new capital must wait."));
         }
-        if (context.averagingDown()
+        if (proposesNewCapital(proposedCandidates)
+                && context.averagingDown()
                 && (!context.thesisImproving()
                         || (context.evidence().position().classification() == HoldingClassification.SPECULATIVE
                                 && !strategy.speculativeAverageDownAllowed()))) {
@@ -67,6 +69,12 @@ public final class BehavioralFirewall {
                 context.ideaCooldownUntil() != null && context.decisionAt().isBefore(context.ideaCooldownUntil());
         var invalidAverageDown = context.averagingDown() && !context.thesisImproving();
         return !decisionCooling && !ideaCooling && !invalidAverageDown && !context.anchoredToCostBasis();
+    }
+
+    private static boolean proposesNewCapital(List<RecommendationCandidate> candidates) {
+        return candidates.stream()
+                .anyMatch(candidate -> candidate.action() == RecommendationAction.ADD
+                        || candidate.action() == RecommendationAction.STARTER_BUY);
     }
 
     private static RecommendationCandidate block(String ruleId, String reason) {

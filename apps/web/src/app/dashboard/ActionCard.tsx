@@ -1,5 +1,6 @@
 import type { components } from "@portfolio/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { postJson } from "../http";
 import { presentAction } from "../presentation/action-presentation";
 import { presentClassification } from "../presentation/classification-presentation";
@@ -15,6 +16,18 @@ import { presentReason } from "../presentation/reason-presentation";
 
 export type DashboardAction = components["schemas"]["BriefAction"];
 
+const reasonTagOptions = [
+  ["NEW_FUNDAMENTAL_EVIDENCE", "新的基本面证据"],
+  ["VALUATION", "估值"],
+  ["PRICE_CONFIRMATION", "价格确认"],
+  ["CATALYST", "催化剂"],
+  ["RISK_REDUCTION", "降低风险"],
+  ["COST_BASIS_ANCHOR", "成本价锚定"],
+  ["HISTORICAL_HIGH_ANCHOR", "历史高点锚定"],
+  ["LOSS_AVERSION", "不愿确认亏损"],
+  ["SOCIAL_IDEA", "社交来源想法"],
+] as const;
+
 function list(value?: string | null) {
   if (!value) return [];
   try {
@@ -27,12 +40,14 @@ function list(value?: string | null) {
 
 export function ActionCard({ action }: { action: DashboardAction }) {
   const queryClient = useQueryClient();
+  const [reasonTags, setReasonTags] = useState<string[]>([]);
   const acknowledgement = useMutation({
     mutationFn: (decisionType: "HANDLED" | "DEFERRED" | "IGNORED") =>
       postJson(`/api/v1/recommendations/${action.id}/acknowledge`, {
         idempotencyKey: crypto.randomUUID(),
         decisionType,
         rationale: null,
+        reasonTags,
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["executive-brief-today"] }),
@@ -120,6 +135,25 @@ export function ActionCard({ action }: { action: DashboardAction }) {
           {formatDateTime(action.dataAsOf)}；<strong>有效期：</strong>
           {formatDateTime(action.validUntil)}
         </p>
+        <fieldset className="decision-reason-tags">
+          <legend>记录这次决定的依据（可选）</legend>
+          {reasonTagOptions.map(([value, label]) => (
+            <label key={value}>
+              <input
+                type="checkbox"
+                checked={reasonTags.includes(value)}
+                onChange={(event) => {
+                  setReasonTags((current) =>
+                    event.target.checked
+                      ? [...current, value]
+                      : current.filter((tag) => tag !== value),
+                  );
+                }}
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
       </details>
       <div className="action-buttons">
         {action.positionId ? (

@@ -392,6 +392,7 @@ public class PositionIntelligenceController {
             String maeR,
             String exitReason,
             String notes,
+            String reasonTags,
             Instant occurredAt) {
         static JournalResponse from(PositionIntelligenceStore.JournalView value) {
             return new JournalResponse(
@@ -405,6 +406,7 @@ public class PositionIntelligenceController {
                     decimal(value.maeR()),
                     value.exitReason(),
                     value.notes(),
+                    value.reasonTags(),
                     instant(value.occurredAt()));
         }
     }
