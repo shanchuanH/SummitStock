@@ -6,6 +6,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -70,6 +71,86 @@ public class ValuationEvidenceStore {
                         """)
                 .query(InputRow.class)
                 .list();
+    }
+
+    public List<ValuationInstrument> valuationInstruments() {
+        return jdbc.sql("SELECT BIN_TO_UUID(id) id,symbol FROM instrument WHERE active=TRUE AND asset_type='EQUITY'")
+                .query(ValuationInstrument.class)
+                .list();
+    }
+
+    public List<WeeklyPrice> weeklyPrices(UUID instrumentId, LocalDate from, LocalDate to) {
+        return jdbc.sql(
+                        """
+                        WITH ranked AS (
+                          SELECT market_date,close_price,
+                                 ROW_NUMBER() OVER (PARTITION BY YEARWEEK(market_date,3) ORDER BY market_date DESC,data_as_of DESC) rn
+                          FROM price_bar WHERE instrument_id=UUID_TO_BIN(:instrumentId) AND adjusted=TRUE
+                            AND market_date BETWEEN :fromDate AND :toDate
+                        )
+                        SELECT market_date marketDate,close_price price FROM ranked WHERE rn=1 ORDER BY market_date
+                        """)
+                .param("instrumentId", instrumentId.toString())
+                .param("fromDate", from)
+                .param("toDate", to)
+                .query(WeeklyPrice.class)
+                .list();
+    }
+
+    public List<PointInTimeValuationAssembler.MetricPoint> pointInTimeMetrics(UUID instrumentId) {
+        return jdbc.sql(
+                        """
+                        SELECT p.period_type periodType,p.end_date periodEnd,m.metric_code metricCode,
+                               m.value_decimal value,m.data_as_of dataAsOf
+                        FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id
+                        WHERE m.instrument_id=UUID_TO_BIN(:instrumentId) AND m.metric_code IN
+                          ('DILUTED_EPS','REVENUE','FREE_CASH_FLOW','CASH','TOTAL_DEBT','COMMON_SHARES_OUTSTANDING')
+                        ORDER BY p.end_date,m.data_as_of
+                        """)
+                .param("instrumentId", instrumentId.toString())
+                .query(PointInTimeValuationAssembler.MetricPoint.class)
+                .list();
+    }
+
+    public List<PointInTimeValuationAssembler.EstimatePoint> pointInTimeEstimates(UUID instrumentId) {
+        return jdbc.sql(
+                        """
+                        SELECT period_end periodEnd,mean_value meanValue,data_as_of dataAsOf
+                        FROM estimate_observation WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          AND estimate_type='EPS' AND period_type='ANNUAL'
+                        ORDER BY period_end,data_as_of
+                        """)
+                .param("instrumentId", instrumentId.toString())
+                .query(PointInTimeValuationAssembler.EstimatePoint.class)
+                .list();
+    }
+
+    public int saveBootstrapMetrics(UUID instrumentId, LocalDate marketDate, ValuationEngineV2.Metrics value) {
+        var checksum = sha256(instrumentId + "|" + marketDate + "|point-in-time-bootstrap-v1|" + value);
+        return jdbc.sql(
+                        """
+                        INSERT IGNORE INTO valuation_metric_history (
+                          id,instrument_id,market_date,trailing_pe,forward_pe,ev_sales,fcf_yield,price_sales,
+                          market_cap,source,quality,evidence_checksum,data_as_of,created_at
+                        ) VALUES (
+                          UUID_TO_BIN(:id),UUID_TO_BIN(:instrumentId),:marketDate,:trailingPe,:forwardPe,:evSales,
+                          :fcfYield,:priceSales,:marketCap,'point-in-time-bootstrap-v1',:quality,:checksum,:dataAsOf,:now
+                        )
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("instrumentId", instrumentId.toString())
+                .param("marketDate", marketDate)
+                .param("trailingPe", value.trailingPe())
+                .param("forwardPe", value.forwardPe())
+                .param("evSales", value.evSales())
+                .param("fcfYield", value.fcfYield())
+                .param("priceSales", value.priceSales())
+                .param("marketCap", value.marketCap())
+                .param("quality", metricCount(value) >= 2 ? "HEALTHY" : "PARTIAL")
+                .param("checksum", checksum)
+                .param("dataAsOf", marketDate.atStartOfDay().toInstant(ZoneOffset.UTC))
+                .param("now", clock.instant())
+                .update();
     }
 
     public int saveMetrics(UUID instrumentId, LocalDate marketDate, ValuationEngineV2.Metrics value, String quality) {
@@ -163,6 +244,20 @@ public class ValuationEvidenceStore {
             throw new IllegalStateException(exception);
         }
     }
+
+    private static int metricCount(ValuationEngineV2.Metrics value) {
+        int count = 0;
+        if (value.trailingPe() != null) count++;
+        if (value.forwardPe() != null) count++;
+        if (value.evSales() != null) count++;
+        if (value.fcfYield() != null) count++;
+        if (value.priceSales() != null) count++;
+        return count;
+    }
+
+    public record ValuationInstrument(UUID id, String symbol) {}
+
+    public record WeeklyPrice(LocalDate marketDate, BigDecimal price) {}
 
     public record InputRow(
             UUID instrumentId,

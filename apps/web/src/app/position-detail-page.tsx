@@ -1,5 +1,6 @@
 import type { components } from "@portfolio/api-client";
 import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { getJson } from "./http";
@@ -228,6 +229,7 @@ export function PositionDetailPage() {
       : action.title;
   const fundamentals = layers.fundamentals;
   const valuationMetrics = layers.valuation;
+  const valuationObservationCount = valuationMetrics.observationCount ?? 0;
   const classification = data.position?.classification;
   const isEtf = Boolean(data.assetEvidence?.etf?.etfModelApplied);
   const isSpeculative = classification === "SPECULATIVE";
@@ -675,6 +677,16 @@ export function PositionDetailPage() {
               layers.valuation.attractiveButCannotAdd,
             )}
           </p>
+          {valuationObservationCount < 220 ? (
+            <aside className="quality-warning" role="status">
+              <AlertTriangle aria-hidden="true" />
+              <span>
+                <strong>历史估值数据不足</strong>
+                当前只积累了 {valuationObservationCount} 个 point-in-time
+                observations，因此系统不会使用“5 年罕见低估”作为买入依据。
+              </span>
+            </aside>
+          ) : null}
           <dl className="financial-grid">
             <Metric
               label="P/E TTM"

@@ -63,7 +63,7 @@ public class EodMarketPipelineService {
                     .param("completedSession", completedSession)
                     .query(LocalDate.class)
                     .optional()
-                    .orElse(completedSession.minusDays(370));
+                    .orElse(completedSession.minusYears(5));
             var from = latest.isBefore(completedSession) ? latest.plusDays(1) : completedSession;
             var attempt = providerAttempt(
                     () -> provider.fetchDailyBars(instrument.symbol(), from, completedSession),

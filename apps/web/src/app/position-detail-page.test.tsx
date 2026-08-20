@@ -244,6 +244,9 @@ describe("PositionDetailPage", () => {
       "3500",
     );
     expect(screen.getAllByText("24.8×")).toHaveLength(2);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "当前只积累了 12 个 point-in-time observations",
+    );
     expect(screen.getByLabelText("真实持仓图表")).toHaveTextContent(
       "1 根真实日线",
     );

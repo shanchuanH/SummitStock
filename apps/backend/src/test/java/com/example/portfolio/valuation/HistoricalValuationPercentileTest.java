@@ -32,7 +32,7 @@ class HistoricalValuationPercentileTest {
                 new BigDecimal("100"),
                 new BigDecimal("1"),
                 new BigDecimal("1000"));
-        var history = IntStream.rangeClosed(2, 251)
+        var history = IntStream.rangeClosed(2, 220)
                 .mapToObj(value -> new ValuationEngineV2.Metrics(
                         BigDecimal.valueOf(value),
                         BigDecimal.valueOf(value),
@@ -53,5 +53,37 @@ class HistoricalValuationPercentileTest {
 
         assertThat(assessment.confidence()).isEqualTo(ValuationEngineV2.Confidence.LOW);
         assertThat(assessment.state()).isEqualTo(ValuationEngineV2.ValuationState.ATTRACTIVE);
+    }
+
+    @Test
+    void fiveYearsOfWeeklyPointInTimeHistoryCanSupportHighConfidence() {
+        var current = metrics("1");
+        var history = IntStream.rangeClosed(2, 221)
+                .mapToObj(value -> metrics(Integer.toString(value)))
+                .toList();
+
+        var assessment = new ValuationEngineV2()
+                .assess(new ValuationEngineV2.Input(
+                        current,
+                        history,
+                        history,
+                        ValuationEngineV2.CompanyHealth.HEALTHY,
+                        EstimateRevisionEngine.RevisionState.FLAT,
+                        ProviderModels.QualityStatus.HEALTHY));
+
+        assertThat(assessment.observationCount()).isEqualTo(220);
+        assertThat(assessment.confidence()).isEqualTo(ValuationEngineV2.Confidence.HIGH);
+        assertThat(ValuationEngineV2.historySufficient(220)).isTrue();
+    }
+
+    private static ValuationEngineV2.Metrics metrics(String value) {
+        var multiple = new BigDecimal(value);
+        return new ValuationEngineV2.Metrics(
+                multiple,
+                multiple,
+                multiple,
+                BigDecimal.ONE.divide(multiple, java.math.MathContext.DECIMAL128),
+                multiple,
+                new BigDecimal("1000"));
     }
 }

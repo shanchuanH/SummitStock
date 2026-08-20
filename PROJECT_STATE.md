@@ -599,3 +599,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - The live SEC provider supports multiple common-share concepts (`EntityCommonStockSharesOutstanding`, then `CommonStockSharesOutstanding`) while preserving the selected concept, period start/end, filing date/data-as-of, accession, form, and source through the existing canonical financial evidence model.
 - Historical `DILUTED_SHARES` observations are relabeled as weighted-average diluted shares, never silently promoted to common shares. When common shares are absent, market cap and dependent valuation metrics remain unavailable.
 - Verification: 11/11 focused financial-metric, period-resolution, SEC contract, and valuation-basis tests pass; market-cap/EV/FCF-yield math is asserted from common shares independently of diluted weighted-average shares.
+
+## Full Review Modification Manual V3 — Phase R18 — 2026-08-20
+
+- New installations now request five years of real adjusted daily bars and bootstrap valuation history at one deterministic observation per ISO week. Existing price history remains append-only and the bootstrap is idempotent through market-date/evidence checksums.
+- `PointInTimeValuationAssembler` builds every weekly observation only from financial metrics whose filing/data-as-of preceded that market date, estimates that already existed on that date, and that date's real close. Later restatements and estimate revisions are explicitly excluded.
+- Five years of weekly history uses 220 observations as the minimum adequate coverage boundary. Observation count is now the five-year count; insufficient history cannot produce high-confidence deep discount evidence or the “5 年罕见低估” premise.
+- Position Detail tells the truth when history is short, including the actual point-in-time observation count. Missing historical common shares or other metrics remain absent rather than being backfilled from future evidence.
+- Verification: 7/7 focused point-in-time/bootstrap/valuation tests and 5/5 Position Detail component tests pass; frontend typecheck and ESLint pass. The regression explicitly proves that 2026 restatements and estimate revisions do not alter a 2023 observation.

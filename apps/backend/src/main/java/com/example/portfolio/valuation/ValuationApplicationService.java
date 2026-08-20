@@ -5,6 +5,8 @@ import com.example.portfolio.estimates.EstimateRevisionEngine;
 import com.example.portfolio.market.provider.ProviderModels;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.Clock;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,15 +14,23 @@ public class ValuationApplicationService {
     private static final MathContext MATH = MathContext.DECIMAL128;
     private final ValuationEvidenceStore store;
     private final PortfolioProperties properties;
+    private final ValuationBootstrapService bootstrap;
+    private final Clock clock;
     private final ValuationEngineV2 engine = new ValuationEngineV2();
 
-    public ValuationApplicationService(ValuationEvidenceStore store, PortfolioProperties properties) {
+    public ValuationApplicationService(
+            ValuationEvidenceStore store,
+            PortfolioProperties properties,
+            ValuationBootstrapService bootstrap,
+            Clock clock) {
         this.store = store;
         this.properties = properties;
+        this.bootstrap = bootstrap;
+        this.clock = clock;
     }
 
     public int computeAll() {
-        int affected = 0;
+        int affected = bootstrap.bootstrap(LocalDate.now(clock));
         var configHash = store.configHash(properties.strategyVersion());
         for (var input : store.inputs()) {
             if (input.marketDate() == null || input.price() == null || input.shares() == null) continue;

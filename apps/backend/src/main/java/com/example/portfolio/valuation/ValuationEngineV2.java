@@ -8,13 +8,15 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class ValuationEngineV2 {
+    public static final int MINIMUM_WEEKLY_HISTORY_OBSERVATIONS = 220;
+
     public Assessment assess(Input input) {
         var percentile3y = medianPercentile(input.current(), input.history3y());
         var percentile5y = medianPercentile(input.current(), input.history5y());
         if (percentile3y == null && percentile5y == null) return Assessment.missing();
         var percentile = percentile3y != null ? percentile3y : percentile5y;
-        var count = input.history3y().size();
-        var confidence = count >= 252
+        var count = input.history5y().size();
+        var confidence = count >= MINIMUM_WEEKLY_HISTORY_OBSERVATIONS
                         && metricPercentiles(input.current(), input.history3y()).size() >= 2
                 ? Confidence.HIGH
                 : Confidence.LOW;
@@ -26,6 +28,10 @@ public final class ValuationEngineV2 {
             state = ValuationState.ATTRACTIVE;
         }
         return new Assessment(state, confidence, percentile3y, percentile5y, count, input.quality());
+    }
+
+    public static boolean historySufficient(int observations) {
+        return observations >= MINIMUM_WEEKLY_HISTORY_OBSERVATIONS;
     }
 
     private static BigDecimal medianPercentile(Metrics current, List<Metrics> history) {
