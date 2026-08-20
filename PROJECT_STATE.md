@@ -484,3 +484,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Compact action cards lead with action, server-supplied sizing when available, one primary reason, and the principal risk. Detailed evidence, confidence, validity, and change conditions remain collapsed.
 - The duplicate full holdings inventory is removed from the first viewport and reduced to a short summary with a link to Portfolio. R0's last-analysis timestamp and manual reanalysis control remain present.
 - No recommendation, sizing, risk, or readiness value is hard-coded in the UI; no automatic execution path was added.
+
+## Full Review Modification Manual V3 — Phase R3 — 2026-08-20
+
+- Portfolio is now a decision inventory rather than an eleven-column analyst matrix. Desktop prioritizes holding, system recommendation, weight/P&L, primary reason, next event, risk, and data readiness.
+- The holdings API exposes canonical average cost alongside current mark, unrealized dollar/P&L percentage, and daily change without recomputing recommendations in React. Missing values remain unavailable.
+- Narrow viewports render holding cards instead of the desktop table. Filters use owner tasks (needs action, do not add, upcoming earnings, missing data, and classification groups) and ticker/company search.
+- Classification remains scoped to the selected position; the change does not alter portfolio classifications, recommendation precedence, or strategy thresholds.

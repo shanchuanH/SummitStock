@@ -1207,12 +1207,19 @@ export interface components {
       classification?: string;
       classificationConfirmed?: boolean;
       marketValue?: string;
+      currentPrice?: string;
+      averageCost?: string;
+      unrealizedPnlDollar?: string;
+      unrealizedPnlPct?: string;
+      dayChangePct?: string;
+      oneMonthReturn?: string;
       currentWeight?: string;
       targetWeightMin?: string;
       targetWeightMax?: string;
       action?: string;
       priority?: string;
       confidence?: string;
+      keyReason?: string;
       trend?: string;
       /** Format: date-time */
       nextEvent?: string;

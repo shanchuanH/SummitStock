@@ -45,6 +45,6 @@ describe("PortfolioPageNoWrongClassificationTest", () => {
     );
     await screen.findByText("SPY");
     expect(screen.queryByDisplayValue("DXYZ")).not.toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

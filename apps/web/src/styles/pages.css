@@ -192,13 +192,81 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin: 0;
+}
+.portfolio-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 24px 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--border);
+}
+.portfolio-summary-strip article {
+  padding: 16px;
+  background: var(--surface-1);
+}
+.portfolio-summary-strip span,
+.portfolio-summary-strip strong {
+  display: block;
+}
+.portfolio-summary-strip span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.portfolio-summary-strip strong {
+  margin-top: 8px;
+  font-size: 20px;
+}
+.portfolio-tools {
+  display: grid;
+  gap: 14px;
   margin: 22px 0;
+}
+.portfolio-search {
+  position: relative;
+  width: min(440px, 100%);
+}
+.portfolio-search svg {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  width: 18px;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+.portfolio-search input {
+  min-height: var(--touch-target);
+  padding-left: 42px;
 }
 .holdings-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-1);
+}
+.holding-card .holding-identity strong,
+.holding-card .holding-identity span,
+.holding-card .holding-identity small,
+.holding-card .holding-weight strong,
+.holding-card .holding-weight small,
+.holding-analysis-link {
+  display: block;
+}
+.holding-card .holding-identity small,
+.holding-card .holding-weight small {
+  margin-top: 5px;
+  color: var(--muted);
+}
+.holding-card .classification-button {
+  margin-top: 9px;
+}
+.holding-analysis-link {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
 }
 .classification-required {
   margin-top: 8px;
@@ -318,7 +386,8 @@
   }
   .terminal-overview,
   .brief-counts,
-  .portfolio-safety-grid {
+  .portfolio-safety-grid,
+  .portfolio-summary-strip {
     grid-template-columns: repeat(2, 1fr);
   }
   .action-metrics {
@@ -341,6 +410,48 @@
   .evidence-tiles {
     grid-template-columns: repeat(2, 1fr);
   }
+  .holdings-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+  .holdings-table,
+  .holdings-table tbody {
+    display: block;
+  }
+  .holdings-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .holding-card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+  }
+  .holding-card td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+  .holding-card td::before {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-size: 11px;
+    content: attr(data-label);
+  }
+  .holding-card .holding-identity,
+  .holding-card .holding-reason {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 560px) {
   .shell {
@@ -356,6 +467,9 @@
   .action-metrics,
   .portfolio-safety-grid {
     grid-template-columns: 1fr;
+  }
+  .portfolio-summary-strip {
+    grid-template-columns: repeat(2, 1fr);
   }
   .today-decision-hero {
     grid-template-columns: auto minmax(0, 1fr);

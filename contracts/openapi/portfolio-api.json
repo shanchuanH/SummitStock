@@ -2659,6 +2659,12 @@
           "marketValue": {
             "type": "string"
           },
+          "currentPrice": { "type": "string" },
+          "averageCost": { "type": "string" },
+          "unrealizedPnlDollar": { "type": "string" },
+          "unrealizedPnlPct": { "type": "string" },
+          "dayChangePct": { "type": "string" },
+          "oneMonthReturn": { "type": "string" },
           "currentWeight": {
             "type": "string"
           },
@@ -2675,6 +2681,9 @@
             "type": "string"
           },
           "confidence": {
+            "type": "string"
+          },
+          "keyReason": {
             "type": "string"
           },
           "trend": {

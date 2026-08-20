@@ -129,15 +129,36 @@ public class PortfolioStore {
                             JOIN instrument i ON i.id=p.instrument_id
                             LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE u.email=:email AND p.status='OPEN'
+                        ), latest_bars AS (
+                            SELECT instrument_id,market_date,close_price,
+                                   LEAD(close_price) OVER (PARTITION BY instrument_id ORDER BY market_date DESC) previous_close,
+                                   ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY market_date DESC) row_number
+                            FROM price_bar WHERE timeframe='1D' AND adjusted=TRUE AND quality_status='HEALTHY'
                         )
                         SELECT BIN_TO_UUID(o.id) id, o.version, o.symbol, o.instrument_name name, o.asset_type assetType,
                                o.bucket, o.classification, o.classification_confirmed classificationConfirmed,
                                o.canonical_market_value marketValue,
+                               q.last_price currentPrice,o.average_cost averageCost,
+                               CASE WHEN o.average_cost IS NULL OR q.last_price IS NULL THEN NULL
+                                    ELSE (q.last_price-o.average_cost)*o.quantity END unrealizedPnlDollar,
+                               CASE WHEN o.average_cost IS NULL OR o.average_cost=0 OR q.last_price IS NULL THEN NULL
+                                    ELSE q.last_price/o.average_cost-1 END unrealizedPnlPct,
+                               CASE WHEN lb.previous_close IS NULL OR lb.previous_close=0 THEN NULL
+                                    ELSE lb.close_price/lb.previous_close-1 END dayChangePct,
+                               CASE WHEN lb.close_price IS NULL THEN NULL ELSE lb.close_price/(
+                                   SELECT prior.close_price FROM price_bar prior
+                                   WHERE prior.instrument_id=o.instrument_id AND prior.timeframe='1D'
+                                     AND prior.adjusted=TRUE AND prior.quality_status='HEALTHY'
+                                     AND prior.market_date<=DATE_SUB(lb.market_date,INTERVAL 30 DAY)
+                                   ORDER BY prior.market_date DESC LIMIT 1
+                               )-1 END oneMonthReturn,
                                CASE WHEN :investable=0 THEN 0 ELSE o.canonical_market_value/:investable END currentWeight,
                                h.target_weight_min targetWeightMin, h.target_weight_max targetWeightMax,
                                COALESCE(r.action,h.recommended_action,'WAIT_FOR_DATA') action,
                                COALESCE(r.priority,'WATCH') priority,
                                COALESCE(r.confidence,h.confidence,'WAIT_FOR_DATA') confidence,
+                               COALESCE(JSON_UNQUOTE(JSON_EXTRACT(r.reasons,'$[0]')),
+                                        JSON_UNQUOTE(JSON_EXTRACT(h.reasons,'$[0]'))) keyReason,
                                CASE WHEN q.last_price IS NULL OR sma.value_double IS NULL THEN 'WAIT_FOR_DATA'
                                     WHEN q.last_price>=sma.value_double THEN 'ABOVE_TREND' ELSE 'BELOW_TREND' END trend,
                                (SELECT MIN(e.event_at) FROM company_event e
@@ -153,6 +174,7 @@ public class PortfolioStore {
                         LEFT JOIN quote q ON q.id=(
                             SELECT z.id FROM quote z WHERE z.instrument_id=o.instrument_id
                             ORDER BY z.data_as_of DESC,z.created_at DESC LIMIT 1)
+                        LEFT JOIN latest_bars lb ON lb.instrument_id=o.instrument_id AND lb.row_number=1
                         LEFT JOIN indicator_snapshot sma ON sma.id=(
                             SELECT s.id FROM indicator_snapshot s WHERE s.instrument_id=o.instrument_id
                               AND s.indicator_code='SMA_20' AND s.status='READY'
@@ -342,12 +364,19 @@ public class PortfolioStore {
             String classification,
             boolean classificationConfirmed,
             BigDecimal marketValue,
+            BigDecimal currentPrice,
+            BigDecimal averageCost,
+            BigDecimal unrealizedPnlDollar,
+            BigDecimal unrealizedPnlPct,
+            BigDecimal dayChangePct,
+            BigDecimal oneMonthReturn,
             BigDecimal currentWeight,
             BigDecimal targetWeightMin,
             BigDecimal targetWeightMax,
             String action,
             String priority,
             String confidence,
+            String keyReason,
             String trend,
             LocalDateTime nextEvent,
             String dataStatus) {}

@@ -41,4 +41,3 @@ class ManualAnalysisRunIntegrationTest extends PortfolioImportIntegrationSupport
                 .andReturn();
     }
 }
-

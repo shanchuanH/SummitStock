@@ -25,4 +25,3 @@ class WorkerHeartbeatStoreIntegrationTest extends MySqlIntegrationTest {
         assertThat(runtime.deadJobs()).isGreaterThanOrEqualTo(0);
     }
 }
-
