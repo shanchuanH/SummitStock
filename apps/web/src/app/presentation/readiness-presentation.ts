@@ -34,6 +34,11 @@ export const readinessPresentations = {
     detail: "基本面分析尚未完成。",
     tone: "blocked",
   },
+  WAIT_FOR_CATALYST: {
+    label: "等待明确催化剂",
+    detail: "价格信号不能代替催化剂证据；确认前只观察，不加仓。",
+    tone: "blocked",
+  },
   WAIT_FOR_CLASSIFICATION: {
     label: "等待确认组合角色",
     detail: "确认持仓角色后才能应用正确的策略限制。",

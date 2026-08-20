@@ -523,3 +523,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - FAIR valuation is fail-closed: it requires STRONG health, positive-or-better revisions, strong price confirmation, a meaningful gap below the existing target minimum, and open-risk capacity. FAIR + FLAT + UPTREND remains HOLD.
 - UNDERWEIGHT remains capacity evidence only and never becomes a buy signal by itself. No Strategy V3 numeric threshold, sizing formula, stop, or recommendation precedence was changed.
 - Verification: the focused Quality decision matrix passes 32/32 tests across the production decision engine and its pure valuation rule.
+
+## Full Review Modification Manual V3 — Phase R8 — 2026-08-20
+
+- Tactical price reversal and catalyst evidence are now separate domains. Flyway V42 persists catalyst status, the manual's ten catalyst types, summary, source, observation time, expected window, invalidation, and evidence checksum without synthesizing production facts.
+- Tactical ADD requires READY evidence, a confirmed complete catalyst, price reversal confirmation, a formal stop, event evidence, healthy/non-missing risk evidence, capacity below the normal maximum, classification eligibility, and Behavioral Firewall clearance. A reversal without a confirmed catalyst resolves to WATCH, not ADD.
+- Tactical, cyclical tactical, and turnaround tactical holdings now have an explicit readiness path. Fresh price/trend, formal stop, confirmed catalyst, event, risk, thesis, and classification are required; missing catalyst returns `WAIT_FOR_CATALYST`, while a missing stop or invalid thesis returns `BLOCKED`.
+- Unknown canonical open-risk values remain null and block new risk instead of being treated as zero. The existing speculative time-stop behavior was not rewritten.
+- Verification: 33/33 focused tactical decision/readiness tests pass; backend formatting, frontend lint, and frontend typecheck pass. Docker-backed Flyway integration remains unavailable locally and is not claimed as passing.

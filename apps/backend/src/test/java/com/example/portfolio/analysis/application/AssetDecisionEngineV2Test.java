@@ -215,6 +215,36 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void tacticalReversalAddsOnlyWithAConfirmedCompleteCatalyst() {
+        var base = HoldingEvidenceFixtures.evidence("NOK", "EQUITY", HoldingClassification.TACTICAL_STOCK);
+        var confirmed = withTacticalSignal(base, base.catalyst());
+        var missing = withTacticalSignal(base, HoldingEvidence.CatalystEvidence.missing());
+        var policy = base.strategy().tactical();
+        var confirmedContext = new DecisionContext(
+                confirmed,
+                AnalysisReadiness.READY,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+        var missingContext = new DecisionContext(
+                missing,
+                AnalysisReadiness.WAIT_FOR_CATALYST,
+                policy.targetMin(),
+                policy.targetMax(),
+                policy.normalMax(),
+                policy.hardMax());
+
+        assertThat(resolve(confirmed, confirmedContext, new TacticalStockDecisionEngine().evaluate(confirmedContext)))
+                .isEqualTo(RecommendationAction.ADD);
+        assertThat(resolve(missing, missingContext, new TacticalStockDecisionEngine().evaluate(missingContext)))
+                .isEqualTo(RecommendationAction.WATCH);
+        assertThat(new TacticalStockDecisionEngine().evaluate(missingContext))
+                .anyMatch(candidate -> candidate.ruleId().equals("TACTICAL.CATALYST.MISSING")
+                        && candidate.reason().contains("observe without adding"));
+    }
+
+    @Test
     void extremeEventRiskAndReducePolicyProduceSpeculativeReduction() {
         var evidence = withEventRisk(
                 HoldingEvidenceFixtures.evidence("DXYZ", "EQUITY", HoldingClassification.SPECULATIVE),
@@ -544,6 +574,41 @@ class AssetDecisionEngineV2Test {
                 value.fundamentals(),
                 value.valuation(),
                 value.nextEvent(),
+                value.catalyst(),
+                value.thesis(),
+                value.regime(),
+                value.drawdown(),
+                value.stop(),
+                value.profile(),
+                value.capitalQuality(),
+                value.riskQuality(),
+                value.riskDataAsOf(),
+                value.providerHardError(),
+                value.quality(),
+                value.strategy(),
+                value.dataAsOf());
+    }
+
+    private static HoldingEvidence withTacticalSignal(
+            HoldingEvidence value, HoldingEvidence.CatalystEvidence catalyst) {
+        return new HoldingEvidence(
+                value.position(),
+                value.instrument(),
+                value.portfolioEquity(),
+                value.trackedCash(),
+                value.emergencyCash(),
+                value.tacticalReserve(),
+                value.currentWeight(),
+                value.clusterWeight(),
+                value.clusterOpenRisk(),
+                value.totalOpenRisk(),
+                value.quote(),
+                value.completedBars(),
+                new HoldingEvidence.IndicatorSet(true, true, 55.0, 3.0, "REVERSAL_CONFIRMED"),
+                value.fundamentals(),
+                value.valuation(),
+                value.nextEvent(),
+                catalyst,
                 value.thesis(),
                 value.regime(),
                 value.drawdown(),
@@ -584,6 +649,7 @@ class AssetDecisionEngineV2Test {
                 fundamentals,
                 valuation,
                 event,
+                value.catalyst(),
                 value.thesis(),
                 value.regime(),
                 drawdown,

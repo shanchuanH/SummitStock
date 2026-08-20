@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.decision;
 
 import static com.example.portfolio.analysis.decision.DecisionCandidates.of;
 
+import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.RecommendationAction;
 import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
@@ -45,8 +46,18 @@ public final class TacticalStockDecisionEngine implements AssetDecisionEngine {
                     "A gap can bypass the formal stop."));
         }
         if (context.normalMax() != null
+                && context.readiness() == AnalysisReadiness.READY
                 && e.currentWeight().compareTo(context.normalMax()) < 0
-                && "REVERSAL_CONFIRMED".equals(e.indicators().priceState())) {
+                && "REVERSAL_CONFIRMED".equals(e.indicators().priceState())
+                && e.catalyst().confirmedAt(context.decisionAt())
+                && e.clusterOpenRisk() != null
+                && e.totalOpenRisk() != null
+                && e.riskQuality() == com.example.portfolio.strategy.market.EvidenceQuality.HEALTHY
+                && e.riskDataAsOf() != null
+                && e.stop().formalStop() != null
+                && e.nextEvent().available()
+                && e.nextEvent().dataAsOf() != null
+                && BehavioralFirewall.allowsNewRisk(context)) {
             values.add(of(
                     RecommendationAction.ADD,
                     "NORMAL",
@@ -54,6 +65,16 @@ public final class TacticalStockDecisionEngine implements AssetDecisionEngine {
                     "TACTICAL.CATALYST.CONFIRMED",
                     "Price reversal and tactical capacity permit an add.",
                     "Catalyst timing can fail."));
+        }
+        if ("REVERSAL_CONFIRMED".equals(e.indicators().priceState())
+                && !e.catalyst().confirmedAt(context.decisionAt())) {
+            values.add(of(
+                    RecommendationAction.WATCH,
+                    "WATCH",
+                    10,
+                    "TACTICAL.CATALYST.MISSING",
+                    "Price has improved, but there is no confirmed catalyst; observe without adding.",
+                    "A reversal without a catalyst can fail."));
         }
         values.add(of(
                 RecommendationAction.HOLD,

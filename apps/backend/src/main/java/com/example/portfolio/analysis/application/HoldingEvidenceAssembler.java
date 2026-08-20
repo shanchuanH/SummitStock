@@ -62,6 +62,7 @@ public final class HoldingEvidenceAssembler {
         var fundamentals = fundamentals(position.instrumentId());
         var valuation = valuation(position.positionId(), position.instrumentId());
         var event = event(position.positionId(), position.instrumentId());
+        var catalyst = catalyst(position.positionId());
         var thesis = thesis(position.positionId());
         var regime = regime();
         var drawdown = drawdown(position.userId());
@@ -97,7 +98,7 @@ public final class HoldingEvidenceAssembler {
                 money(totals.tactical()),
                 currentWeight,
                 cluster.weight(),
-                clusterRisk.openRiskFraction(),
+                clusterRisk.quality() == EvidenceQuality.HEALTHY ? clusterRisk.openRiskFraction() : null,
                 totals.openRisk(),
                 quote,
                 bars,
@@ -105,6 +106,7 @@ public final class HoldingEvidenceAssembler {
                 fundamentals,
                 valuation,
                 event,
+                catalyst,
                 thesis,
                 regime,
                 new HoldingEvidence.PortfolioDrawdownSnapshot(
@@ -415,6 +417,30 @@ public final class HoldingEvidenceAssembler {
                 .orElse(new HoldingEvidence.EarningsEvent(false, null, null, null));
     }
 
+    private HoldingEvidence.CatalystEvidence catalyst(UUID positionId) {
+        return jdbc.sql(
+                        """
+                        SELECT status,catalyst_type catalystType,summary,source,data_as_of dataAsOf,
+                               expected_window_start expectedWindowStart,expected_window_end expectedWindowEnd,invalidation
+                        FROM tactical_catalyst_evidence WHERE position_id=UUID_TO_BIN(:id)
+                        ORDER BY data_as_of DESC,created_at DESC LIMIT 1
+                        """)
+                .param("id", positionId.toString())
+                .query(CatalystRow.class)
+                .optional()
+                .map(value -> new HoldingEvidence.CatalystEvidence(
+                        true,
+                        HoldingEvidence.CatalystStatus.valueOf(value.status()),
+                        HoldingEvidence.CatalystType.valueOf(value.catalystType()),
+                        value.summary(),
+                        value.source(),
+                        instant(value.dataAsOf()),
+                        value.expectedWindowStart(),
+                        value.expectedWindowEnd(),
+                        value.invalidation()))
+                .orElseGet(HoldingEvidence.CatalystEvidence::missing);
+    }
+
     private HoldingEvidence.Thesis thesis(UUID positionId) {
         return jdbc.sql(
                         """
@@ -577,6 +603,16 @@ public final class HoldingEvidenceAssembler {
     record StarterStatusRow(int priorCount, boolean confirmed) {}
 
     record EventRow(LocalDateTime eventAt, String eventRisk, String policyAction, LocalDateTime dataAsOf) {}
+
+    record CatalystRow(
+            String status,
+            String catalystType,
+            String summary,
+            String source,
+            LocalDateTime dataAsOf,
+            LocalDate expectedWindowStart,
+            LocalDate expectedWindowEnd,
+            String invalidation) {}
 
     record ThesisRow(String status, LocalDateTime expiresAt) {}
 
