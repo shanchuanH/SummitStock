@@ -48,7 +48,7 @@ public final class MarketRegimeEngine {
         }
         if (input.narrowRally()) {
             rules.add(RuleIds.REGIME_NARROW_RALLY);
-            narratives.add("Headline strength is narrow; concentration risk remains elevated.");
+            narratives.add("指数上涨集中在少数大型股，表面行情强于真实参与度。");
         }
         if (input.quality() == EvidenceQuality.STALE && label == Label.STRONG_GREEN) {
             label = Label.GREEN;

@@ -11,6 +11,7 @@ import com.example.portfolio.analysis.risk.PortfolioNavService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.BreadthService;
 import com.example.portfolio.context.MarketContextService;
+import com.example.portfolio.context.NarrowRallyEvidenceService;
 import com.example.portfolio.macro.MacroApplicationService;
 import com.example.portfolio.quant.Indicators;
 import com.example.portfolio.quant.QuantBar;
@@ -47,6 +48,7 @@ public class PortfolioAnalysisPipelineService {
     private final PublishedStrategyService strategies;
     private final MacroApplicationService macro;
     private final BreadthService breadthService;
+    private final NarrowRallyEvidenceService narrowRally;
     private final Clock clock;
 
     public PortfolioAnalysisPipelineService(
@@ -63,6 +65,7 @@ public class PortfolioAnalysisPipelineService {
             PublishedStrategyService strategies,
             MacroApplicationService macro,
             BreadthService breadthService,
+            NarrowRallyEvidenceService narrowRally,
             Clock clock) {
         this.jdbc = jdbc;
         this.contextService = contextService;
@@ -77,6 +80,7 @@ public class PortfolioAnalysisPipelineService {
         this.strategies = strategies;
         this.macro = macro;
         this.breadthService = breadthService;
+        this.narrowRally = narrowRally;
         this.clock = clock;
     }
 
@@ -105,6 +109,7 @@ public class PortfolioAnalysisPipelineService {
                 ? realizedStress == null ? 0 : 1 - realizedStress.doubleValue()
                 : macroFactors.stressResilience().doubleValue();
         var vix = macro.latestValue("VIXCLS", marketDate);
+        var narrowRallyEvidence = narrowRally.evaluate(marketDate, spy.above200(), qqq.above200());
         var input = new MarketRegimeEngine.Input(
                 trend,
                 momentum,
@@ -116,7 +121,7 @@ public class PortfolioAnalysisPipelineService {
                 breadth,
                 qqq.macd() != null && qqq.macd() < 0,
                 qqq.rsi() == null ? 0 : qqq.rsi(),
-                false,
+                narrowRallyEvidence.result().narrowRally(),
                 quality);
         return contextService
                         .calculateRegime(

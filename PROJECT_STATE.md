@@ -570,3 +570,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - VXN level/history percentile/deltas, VXN/VIX ratio and spread, and a deterministic technology-stress state are stored in the canonical macro factor snapshot. Reanalysis upserts the same market date so an earlier incomplete snapshot can be repaired when reliable evidence arrives.
 - The Market Context page now presents VIX, term structure, VXN, and the technology volatility premium before regime, breadth/stress, drawdown, and quality evidence. Missing VXN is described as unavailable and never converted into fake precision.
 - Verification: 7/7 focused backend strategy/volatility tests and 3/3 Market Context component tests pass; backend compilation, frontend ESLint, and frontend typecheck pass. Docker-backed Flyway integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R14 — 2026-08-20
+
+- The analysis pipeline no longer passes a hard-coded `narrowRally=false`. A deterministic evidence service compares current participation with the twentieth prior SPY session and measures equal-weight RSP performance relative to cap-weight SPY over 63 sessions.
+- A narrow rally requires SPY and QQQ above their 200-day averages, complete breadth/new-high/equal-weight evidence, and at least two independent signs of weakening participation: SMA50/SMA200 breadth deterioration, declining 52-week-high participation, or equal-weight lagging cap-weight. Missing evidence fails closed.
+- RSP is now a tracked benchmark instrument so the ordinary market-data runtime can collect real equal-weight evidence through the configured provider. No production price or participation observation is fabricated.
+- A confirmed narrow rally emits the owner explanation “指数上涨集中在少数大型股，表面行情强于真实参与度。” through the existing deterministic regime rule; no regime score or Strategy V3 numerical threshold changed.
+- Verification: 3/3 focused narrow-rally tests and 6/6 market-context golden tests pass; the Maven reactor compiles strategy-core and all backend test sources. Docker-backed provider/Flyway integration remains unavailable locally and is not claimed as passing.
