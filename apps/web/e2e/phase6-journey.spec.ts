@@ -352,6 +352,7 @@ async function mockApi(page: Page) {
           cashRowCount: 1,
           compensationRowCount: 0,
           idempotentReplay: false,
+          cashflowReconciliation: { status: "NONE", cashChange: "0" },
         },
       });
     if (path.includes("/analysis/status/"))

@@ -2,6 +2,7 @@ package com.example.portfolio.portfolioimport.web;
 
 import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.portfolioimport.application.ImportClassificationSuggester;
+import com.example.portfolio.portfolioimport.application.PortfolioCashflowReconciliationService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportConfirmationService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportPreviewService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportQueryService;
@@ -35,18 +36,21 @@ public class PortfolioImportController {
     private final PortfolioImportConfirmationService confirmations;
     private final ImportClassificationSuggester classifications;
     private final PublishedStrategyService strategies;
+    private final PortfolioCashflowReconciliationService cashflows;
 
     public PortfolioImportController(
             PortfolioImportPreviewService previews,
             PortfolioImportQueryService queries,
             PortfolioImportConfirmationService confirmations,
             ImportClassificationSuggester classifications,
-            PublishedStrategyService strategies) {
+            PublishedStrategyService strategies,
+            PortfolioCashflowReconciliationService cashflows) {
         this.previews = previews;
         this.queries = queries;
         this.confirmations = confirmations;
         this.classifications = classifications;
         this.strategies = strategies;
+        this.cashflows = cashflows;
     }
 
     @PostMapping(value = "/fidelity/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -98,6 +102,21 @@ public class PortfolioImportController {
             @PathVariable UUID batchId, @Valid @RequestBody ConfirmationRequest request, Principal principal) {
         return ConfirmationResponse.from(confirmations.confirm(principal.getName(), batchId, request.toCommand()));
     }
+
+    @PostMapping("/{batchId}/cashflow-confirmation")
+    CashflowReconciliationResponse confirmCashflow(
+            @PathVariable UUID batchId, @Valid @RequestBody CashflowConfirmationRequest request, Principal principal) {
+        try {
+            return CashflowReconciliationResponse.from(cashflows.confirm(
+                    principal.getName(),
+                    batchId,
+                    PortfolioCashflowReconciliationService.ConfirmationType.valueOf(request.type())));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported cashflow confirmation", exception);
+        }
+    }
+
+    public record CashflowConfirmationRequest(@NotNull String type) {}
 
     public record ConfirmationRequest(
             long expectedVersion,
@@ -297,7 +316,8 @@ public class PortfolioImportController {
             int closedPositionCount,
             int cashRowCount,
             int compensationRowCount,
-            boolean idempotentReplay) {
+            boolean idempotentReplay,
+            CashflowReconciliationResponse cashflowReconciliation) {
         static ConfirmationResponse from(PortfolioImportConfirmationService.ConfirmationResult value) {
             return new ConfirmationResponse(
                     value.batchId(),
@@ -309,7 +329,15 @@ public class PortfolioImportController {
                     value.closedPositionCount(),
                     value.cashRowCount(),
                     value.compensationRowCount(),
-                    value.idempotentReplay());
+                    value.idempotentReplay(),
+                    CashflowReconciliationResponse.from(value.cashflowReconciliation()));
+        }
+    }
+
+    public record CashflowReconciliationResponse(UUID reconciliationId, String status, String cashChange) {
+        static CashflowReconciliationResponse from(PortfolioCashflowReconciliationService.Result value) {
+            return new CashflowReconciliationResponse(
+                    value.reconciliationId(), value.status(), decimal(value.cashChange()));
         }
     }
 

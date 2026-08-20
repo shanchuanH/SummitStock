@@ -74,6 +74,7 @@ const confirmation = {
   cashRowCount: 1,
   compensationRowCount: 0,
   idempotentReplay: false,
+  cashflowReconciliation: { status: "NONE", cashChange: "0" },
 };
 
 function json(value: unknown) {

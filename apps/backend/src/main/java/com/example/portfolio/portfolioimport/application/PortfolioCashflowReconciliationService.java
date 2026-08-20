@@ -1,0 +1,223 @@
+package com.example.portfolio.portfolioimport.application;
+
+import com.example.portfolio.analysis.risk.PortfolioNavService;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class PortfolioCashflowReconciliationService {
+    private static final BigDecimal MIN_TOLERANCE = new BigDecimal("5.00");
+    private static final BigDecimal VALUE_TOLERANCE = new BigDecimal("0.001");
+
+    private final JdbcClient jdbc;
+    private final PortfolioNavService nav;
+    private final Clock clock;
+
+    public PortfolioCashflowReconciliationService(JdbcClient jdbc, PortfolioNavService nav, Clock clock) {
+        this.jdbc = jdbc;
+        this.nav = nav;
+        this.clock = clock;
+    }
+
+    public Snapshot before(UUID userId) {
+        return snapshot(userId);
+    }
+
+    public Result reconcile(UUID userId, UUID batchId, Snapshot before) {
+        var after = snapshot(userId);
+        var cashChange = after.brokerCash().subtract(before.brokerCash());
+        if (!before.portfolioEstablished()) return new Result(null, "BASELINE_ESTABLISHED", cashChange);
+        if (cashChange.signum() == 0) return new Result(null, "NO_CASH_CHANGE", BigDecimal.ZERO);
+
+        var trade = tradeExplanation(before, after);
+        var tolerance = after.brokerValue().multiply(VALUE_TOLERANCE).max(MIN_TOLERANCE);
+        if (trade.quantityChanged()
+                && cashChange.add(trade.netPurchaseValue()).abs().compareTo(tolerance) <= 0) {
+            return new Result(null, "RECONCILED_INTERNAL_TRADE", cashChange);
+        }
+
+        var id = UUID.randomUUID();
+        jdbc.sql(
+                        """
+                        INSERT INTO portfolio_cashflow_reconciliation (
+                          id,user_id,import_batch_id,prior_cash,current_cash,cash_change,net_position_trade_value,
+                          broker_value,status,created_at,updated_at)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:batchId),:priorCash,:currentCash,
+                          :change,:tradeValue,:brokerValue,'REQUIRED',:now,:now)
+                        ON DUPLICATE KEY UPDATE prior_cash=VALUES(prior_cash),current_cash=VALUES(current_cash),
+                          cash_change=VALUES(cash_change),net_position_trade_value=VALUES(net_position_trade_value),
+                          broker_value=VALUES(broker_value),status='REQUIRED',confirmation_type=NULL,updated_at=VALUES(updated_at)
+                        """)
+                .param("id", id.toString())
+                .param("userId", userId.toString())
+                .param("batchId", batchId.toString())
+                .param("priorCash", before.brokerCash())
+                .param("currentCash", after.brokerCash())
+                .param("change", cashChange)
+                .param("tradeValue", trade.netPurchaseValue())
+                .param("brokerValue", after.brokerValue())
+                .param("now", clock.instant())
+                .update();
+        auditRequired(userId, batchId, cashChange, trade.netPurchaseValue());
+        return pending(batchId);
+    }
+
+    @Transactional
+    public Result confirm(String email, UUID batchId, ConfirmationType type) {
+        var row = jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(c.id) id,BIN_TO_UUID(c.user_id) userId,c.cash_change cashChange,c.status
+                        FROM portfolio_cashflow_reconciliation c JOIN app_user u ON u.id=c.user_id
+                        WHERE c.import_batch_id=UUID_TO_BIN(:batchId) AND u.email=:email
+                        """)
+                .param("batchId", batchId.toString())
+                .param("email", email)
+                .query(PendingRow.class)
+                .optional()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!"REQUIRED".equals(row.status())) return new Result(row.id(), row.status(), row.cashChange());
+        var status =
+                switch (type) {
+                    case EXTERNAL_CASHFLOW -> "RECORDED_EXTERNAL_CASHFLOW";
+                    case INTERNAL_TRADE -> "CONFIRMED_INTERNAL_TRADE";
+                    case OTHER -> "REQUIRED";
+                };
+        if (type == ConfirmationType.EXTERNAL_CASHFLOW) {
+            nav.recordExternalCashflow(
+                    row.userId(),
+                    LocalDate.now(clock),
+                    row.cashChange(),
+                    "USER_CONFIRMED_BROKER_CASHFLOW",
+                    batchId.toString());
+        }
+        jdbc.sql(
+                        """
+                        UPDATE portfolio_cashflow_reconciliation
+                        SET status=:status,confirmation_type=:type,confirmed_at=:confirmedAt,updated_at=:confirmedAt
+                        WHERE id=UUID_TO_BIN(:id)
+                        """)
+                .param("status", status)
+                .param("type", type.name())
+                .param("confirmedAt", clock.instant())
+                .param("id", row.id().toString())
+                .update();
+        return new Result(row.id(), status, row.cashChange());
+    }
+
+    public Result pending(UUID batchId) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(id) reconciliationId,status,cash_change cashChange
+                        FROM portfolio_cashflow_reconciliation WHERE import_batch_id=UUID_TO_BIN(:batchId)
+                        """)
+                .param("batchId", batchId.toString())
+                .query(Result.class)
+                .optional()
+                .orElse(new Result(null, "NONE", BigDecimal.ZERO));
+    }
+
+    static TradeExplanation tradeExplanation(Snapshot before, Snapshot after) {
+        Map<UUID, PositionBalance> old = before.positions().stream()
+                .collect(Collectors.toMap(PositionBalance::instrumentId, Function.identity()));
+        Map<UUID, PositionBalance> current = after.positions().stream()
+                .collect(Collectors.toMap(PositionBalance::instrumentId, Function.identity()));
+        var instruments = new java.util.HashSet<>(old.keySet());
+        instruments.addAll(current.keySet());
+        var net = BigDecimal.ZERO;
+        var changed = false;
+        for (var instrument : instruments) {
+            var prior = old.get(instrument);
+            var next = current.get(instrument);
+            var priorQuantity = prior == null ? BigDecimal.ZERO : prior.quantity();
+            var nextQuantity = next == null ? BigDecimal.ZERO : next.quantity();
+            var delta = nextQuantity.subtract(priorQuantity);
+            if (delta.signum() == 0) continue;
+            changed = true;
+            var price = unitPrice(next != null ? next : prior);
+            if (price == null) return new TradeExplanation(true, BigDecimal.ZERO);
+            net = net.add(delta.multiply(price));
+        }
+        return new TradeExplanation(changed, net);
+    }
+
+    private static BigDecimal unitPrice(PositionBalance position) {
+        if (position == null || position.quantity().signum() == 0 || position.marketValue() == null) return null;
+        return position.marketValue().divide(position.quantity(), 8, RoundingMode.HALF_UP);
+    }
+
+    private Snapshot snapshot(UUID userId) {
+        var cash = jdbc.sql(
+                        """
+                        SELECT COALESCE(SUM(c.current_amount),0) FROM cash_bucket c
+                        JOIN investment_account a ON a.id=c.account_id
+                        WHERE c.user_id=UUID_TO_BIN(:userId) AND c.bucket_type='ALLOCATED_TRADE'
+                          AND a.import_source='FIDELITY_CSV'
+                        """)
+                .param("userId", userId.toString())
+                .query(BigDecimal.class)
+                .single();
+        var positions = jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(p.instrument_id) instrumentId,p.quantity,p.market_value marketValue
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        WHERE a.user_id=UUID_TO_BIN(:userId) AND a.import_source='FIDELITY_CSV' AND p.status='OPEN'
+                        """)
+                .param("userId", userId.toString())
+                .query(PositionBalance.class)
+                .list();
+        var holdings = positions.stream()
+                .map(PositionBalance::marketValue)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new Snapshot(cash, cash.add(holdings), !positions.isEmpty(), positions);
+    }
+
+    private void auditRequired(UUID userId, UUID batchId, BigDecimal cashChange, BigDecimal tradeValue) {
+        jdbc.sql(
+                        """
+                        INSERT INTO audit_log (id,user_id,event_type,entity_type,entity_id,rule_ids,details,occurred_at)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),'NAV_RECONCILIATION_REQUIRED','PORTFOLIO_IMPORT_BATCH',:batchId,
+                                JSON_ARRAY('NAV.CASHFLOW.AMBIGUOUS.001'),
+                                JSON_OBJECT('cashChange',:change,'netPositionTradeValue',:tradeValue),:now)
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("userId", userId.toString())
+                .param("batchId", batchId.toString())
+                .param("change", cashChange)
+                .param("tradeValue", tradeValue)
+                .param("now", clock.instant())
+                .update();
+    }
+
+    public enum ConfirmationType {
+        EXTERNAL_CASHFLOW,
+        INTERNAL_TRADE,
+        OTHER
+    }
+
+    public record Snapshot(
+            BigDecimal brokerCash,
+            BigDecimal brokerValue,
+            boolean portfolioEstablished,
+            List<PositionBalance> positions) {}
+
+    public record PositionBalance(UUID instrumentId, BigDecimal quantity, BigDecimal marketValue) {}
+
+    record TradeExplanation(boolean quantityChanged, BigDecimal netPurchaseValue) {}
+
+    private record PendingRow(UUID id, UUID userId, BigDecimal cashChange, String status) {}
+
+    public record Result(UUID reconciliationId, String status, BigDecimal cashChange) {}
+}

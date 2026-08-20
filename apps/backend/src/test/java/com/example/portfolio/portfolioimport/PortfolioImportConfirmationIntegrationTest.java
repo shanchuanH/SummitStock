@@ -36,6 +36,12 @@ class PortfolioImportConfirmationIntegrationTest extends PortfolioImportIntegrat
                 .isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM audit_log WHERE event_type='PORTFOLIO_IMPORT_CONFIRMED'"))
                 .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE event_type='NAV_RECONCILIATION_REQUIRED'"))
+                .isZero();
+        assertThat(
+                        count(
+                                "SELECT COUNT(*) FROM portfolio_external_cashflow_event WHERE source='BROKER_IMPORT_RECONCILIATION'"))
+                .isZero();
         assertThat(count("SELECT COUNT(*) FROM position WHERE import_source='FIDELITY_CSV' AND average_cost IS NULL"))
                 .isEqualTo(1);
         assertThat(

@@ -64,6 +64,13 @@ export type ImportConfirmation = {
   cashRowCount: number;
   compensationRowCount: number;
   idempotentReplay: boolean;
+  cashflowReconciliation: CashflowReconciliation;
+};
+
+export type CashflowReconciliation = {
+  reconciliationId?: string;
+  status: string;
+  cashChange: string;
 };
 
 export type AnalysisStatus = {

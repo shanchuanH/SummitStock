@@ -539,3 +539,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Flyway V43 adds validated structured reason tags to recommendation acknowledgements and journal records, plus the acknowledgement-time market reference price. The API accepts the manual's nine tags; the owner action disclosure can record them, and journal reads expose persisted tags.
 - Cost-basis anchoring now depends on `COST_BASIS_ANCHOR`, not an expanding list of English substrings. Free-form rationale remains explanation only. No acknowledgement submits an execution.
 - Verification: 6/6 focused Behavioral Firewall/tag parser tests pass; backend no-test package, frontend lint/typecheck, and the focused action-card test pass. Docker-backed migration/controller integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R10 — 2026-08-20
+
+- Consecutive Fidelity snapshots now capture broker cash, broker value, and per-instrument quantity/market-value balances before and after reconciliation. Quantity deltas are valued from the imported snapshot; a matched cash offset is classified as an internal trade and never recorded as external cashflow.
+- An unexplained cash change is persisted as `REQUIRED` by Flyway V44 and emits `NAV_RECONCILIATION_REQUIRED`. It is not automatically called a deposit merely because quantities stayed unchanged, and unresolved reconciliation suppresses the dashboard's high-confidence drawdown figure.
+- The post-import screen asks the owner to classify a real detected amount as external cashflow, internal trade proceeds, or other. Only explicit external confirmation calls the existing idempotent `PortfolioNavService.recordExternalCashflow`; internal confirmation creates no NAV cashflow event, and “other” remains unresolved.
+- Baseline imports create no cashflow. Analysis continues independently, but unresolved NAV semantics remain visible rather than being converted into investment return/loss.
+- Verification: 2/2 deterministic reconciliation math tests and 4/4 focused import UI tests pass; backend formatting/no-test package and frontend lint/typecheck pass. The expanded MySQL integration test is committed but remains locally blocked by Docker and is not claimed as passing.

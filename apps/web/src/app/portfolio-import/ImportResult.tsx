@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AnalysisStatus, ImportConfirmation } from "./types";
+import { postJson } from "../http";
+import type {
+  AnalysisStatus,
+  CashflowReconciliation,
+  ImportConfirmation,
+} from "./types";
 
 const stateMessage: Record<string, { title: string; detail: string }> = {
   STARTING: {
@@ -45,6 +50,25 @@ export function ImportResult({
 }) {
   const [status, setStatus] = useState<AnalysisStatus>();
   const [requestError, setRequestError] = useState<string>();
+  const [cashflow, setCashflow] = useState(result.cashflowReconciliation);
+  const [cashflowType, setCashflowType] = useState<
+    "EXTERNAL_CASHFLOW" | "INTERNAL_TRADE" | "OTHER"
+  >("EXTERNAL_CASHFLOW");
+  const [cashflowBusy, setCashflowBusy] = useState(false);
+
+  async function confirmCashflow() {
+    setCashflowBusy(true);
+    try {
+      setCashflow(
+        await postJson<CashflowReconciliation>(
+          `/api/v1/portfolio-imports/${result.batchId}/cashflow-confirmation`,
+          { type: cashflowType },
+        ),
+      );
+    } finally {
+      setCashflowBusy(false);
+    }
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -81,6 +105,42 @@ export function ImportResult({
       <p>
         {message?.detail ?? "正在读取真实 Worker 状态，不会用模拟进度代替。"}
       </p>
+      {cashflow.status === "REQUIRED" ? (
+        <section className="cashflow-confirmation" aria-label="现金变化确认">
+          <h3>
+            检测到现金{Number(cashflow.cashChange) >= 0 ? "增加" : "减少"} ${" "}
+            {Math.abs(Number(cashflow.cashChange)).toLocaleString("en-US")}
+          </h3>
+          <p>持仓数量变化无法完整解释这笔现金变化，请确认来源。</p>
+          {(
+            [
+              ["EXTERNAL_CASHFLOW", "外部入金或提款"],
+              ["INTERNAL_TRADE", "买卖持仓产生的现金"],
+              ["OTHER", "其他 / 仍需核对"],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={value}>
+              <input
+                checked={cashflowType === value}
+                name="cashflow-type"
+                onChange={() => {
+                  setCashflowType(value);
+                }}
+                type="radio"
+              />
+              {label}
+            </label>
+          ))}
+          <button disabled={cashflowBusy} onClick={() => void confirmCashflow()} type="button">
+            确认现金变化
+          </button>
+          {cashflowType === "OTHER" ? (
+            <small>选择“其他”会继续保留 NAV 待核对状态，不会生成高置信度回撤。</small>
+          ) : null}
+        </section>
+      ) : cashflow.status !== "NONE" && cashflow.status !== "BASELINE_ESTABLISHED" ? (
+        <p role="status">现金变化已核对：{cashflow.status}</p>
+      ) : null}
       {requestError ? (
         <div className="error-panel" role="alert">
           <strong>无法读取分析状态</strong>

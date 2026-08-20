@@ -240,6 +240,14 @@ class ExecutiveBriefStore {
                 .query(DrawdownMetrics.class)
                 .optional()
                 .orElse(new DrawdownMetrics(null, null));
+        var navReconciliationRequired = jdbc.sql(
+                        """
+                        SELECT EXISTS(SELECT 1 FROM portfolio_cashflow_reconciliation c
+                          JOIN app_user u ON u.id=c.user_id WHERE u.email=:email AND c.status='REQUIRED')
+                        """)
+                .param("email", email)
+                .query(Boolean.class)
+                .single();
         return new PortfolioMetrics(
                 exposure.investedValue(),
                 exposure.coreValue(),
@@ -250,8 +258,8 @@ class ExecutiveBriefStore {
                 exposure.clusterRisk(),
                 exposure.openPlannedRisk(),
                 compensation,
-                drawdown.drawdownFraction(),
-                drawdown.drawdownSource());
+                navReconciliationRequired ? null : drawdown.drawdownFraction(),
+                navReconciliationRequired ? "NAV_RECONCILIATION_REQUIRED" : drawdown.drawdownSource());
     }
 
     private BigDecimal technologyExposure(String email) {

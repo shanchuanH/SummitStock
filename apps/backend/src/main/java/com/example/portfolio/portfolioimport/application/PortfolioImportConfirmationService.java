@@ -25,6 +25,7 @@ public class PortfolioImportConfirmationService {
     private final JdbcClient jdbc;
     private final ObjectMapper json;
     private final Clock clock;
+    private final PortfolioCashflowReconciliationService cashflowReconciliation;
 
     public PortfolioImportConfirmationService(
             PortfolioImportStore imports,
@@ -33,7 +34,8 @@ public class PortfolioImportConfirmationService {
             PortfolioProperties properties,
             JdbcClient jdbc,
             ObjectMapper json,
-            Clock clock) {
+            Clock clock,
+            PortfolioCashflowReconciliationService cashflowReconciliation) {
         this.imports = imports;
         this.reconciliation = reconciliation;
         this.jobs = jobs;
@@ -41,6 +43,7 @@ public class PortfolioImportConfirmationService {
         this.jdbc = jdbc;
         this.json = json;
         this.clock = clock;
+        this.cashflowReconciliation = cashflowReconciliation;
     }
 
     @Transactional
@@ -69,7 +72,9 @@ public class PortfolioImportConfirmationService {
                 .update();
         if (claimed != 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Import batch version changed");
 
+        var priorCash = cashflowReconciliation.before(batch.userId());
         var reconciled = reconciliation.reconcile(email, batch.userId(), batchId, imports.rows(batchId), command);
+        var cashflow = cashflowReconciliation.reconcile(batch.userId(), batchId, priorCash);
         refreshCounts(batchId);
         var runId = createAnalysisRun(batch.userId(), batchId);
         boolean enqueued = jobs.enqueue(
@@ -101,7 +106,8 @@ public class PortfolioImportConfirmationService {
                 reconciled.closedPositionCount(),
                 reconciled.cashRowCount(),
                 reconciled.compensationRowCount(),
-                false);
+                false,
+                cashflow);
     }
 
     private UUID createAnalysisRun(UUID userId, UUID batchId) {
@@ -176,7 +182,8 @@ public class PortfolioImportConfirmationService {
                 closedCount,
                 value.cashRowCount(),
                 value.compensationRowCount(),
-                replay);
+                replay,
+                cashflowReconciliation.pending(batchId));
     }
 
     private static String analysisState(String status) {
@@ -287,7 +294,8 @@ public class PortfolioImportConfirmationService {
             int closedPositionCount,
             int cashRowCount,
             int compensationRowCount,
-            boolean idempotentReplay) {}
+            boolean idempotentReplay,
+            PortfolioCashflowReconciliationService.Result cashflowReconciliation) {}
 
     record ReplayResult(
             UUID batchId,
