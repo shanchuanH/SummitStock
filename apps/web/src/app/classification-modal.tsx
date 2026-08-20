@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getJson, postJson } from "./http";
+import { presentClassification } from "./presentation/classification-presentation";
 
 type Suggestion = {
   positionId: string;
@@ -89,7 +90,7 @@ export function ClassificationModal({
             <dl className="classification-evidence">
               <div>
                 <dt>系统建议</dt>
-                <dd>{suggestion.data.classification}</dd>
+                <dd>{presentClassification(suggestion.data.classification)}</dd>
               </div>
               <div>
                 <dt>依据</dt>
@@ -112,10 +113,14 @@ export function ClassificationModal({
               确认或修改为其他分类
               <select
                 value={selected}
-                onChange={(event) => { setSelected(event.target.value); }}
+                onChange={(event) => {
+                  setSelected(event.target.value);
+                }}
               >
                 {classifications.map((item) => (
-                  <option key={item}>{item}</option>
+                  <option key={item} value={item}>
+                    {presentClassification(item)}
+                  </option>
                 ))}
               </select>
             </label>
@@ -123,7 +128,9 @@ export function ClassificationModal({
               <button onClick={onClose}>取消</button>
               <button
                 disabled={!selected || confirm.isPending}
-                onClick={() => { confirm.mutate(); }}
+                onClick={() => {
+                  confirm.mutate();
+                }}
               >
                 {confirm.isPending ? "正在确认…" : "确认分类"}
               </button>

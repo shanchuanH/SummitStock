@@ -1,19 +1,18 @@
 import type { components } from "@portfolio/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { postJson } from "../http";
+import { presentAction } from "../presentation/action-presentation";
+import { presentClassification } from "../presentation/classification-presentation";
+import { presentConfidence } from "../presentation/confidence-presentation";
+import { formatDateTime } from "../presentation/date-format";
+import {
+  formatMoney,
+  formatPercent,
+  formatQuantity,
+} from "../presentation/number-format";
+import { presentPriority } from "../presentation/priority-presentation";
 
 export type DashboardAction = components["schemas"]["BriefAction"];
-
-const actionLabels: Record<string, string> = {
-  BUY: "买入",
-  ADD: "增持",
-  HOLD: "持有",
-  TRIM: "减持",
-  SELL: "卖出",
-  WATCH: "观察",
-  WAIT_FOR_DATA: "等待数据",
-  DO_NOT_CHASE: "不要追高",
-};
 
 function list(value?: string | null) {
   if (!value) return [];
@@ -24,24 +23,11 @@ function list(value?: string | null) {
     return [];
   }
 }
-function percent(value?: string | null) {
-  return value == null ? "—" : `${(Number(value) * 100).toFixed(1)}%`;
-}
-function money(value?: string | null) {
-  return value == null
-    ? "—"
-    : new Intl.NumberFormat("zh-CN", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }).format(Number(value));
-}
 function quantity(action: DashboardAction) {
-  if (!action.quantityMin && !action.quantityMax)
-    return "证据不足，暂不提供精确数量";
-  if (action.quantityMin === action.quantityMax)
-    return `${String(action.quantityMin ?? action.quantityMax)} 股`;
-  return `${action.quantityMin ?? "—"}–${action.quantityMax ?? "—"} 股`;
+  return (
+    formatQuantity(action.quantityMin, action.quantityMax) ??
+    "证据不足，暂不提供精确数量"
+  );
 }
 
 export function ActionCard({ action }: { action: DashboardAction }) {
@@ -59,6 +45,9 @@ export function ActionCard({ action }: { action: DashboardAction }) {
   const reasons = list(action.reasonsJson);
   const risks = list(action.risksJson);
   const changes = list(action.changeConditionsJson);
+  const actionCopy = presentAction(action.action);
+  const priority = presentPriority(action.priority);
+  const confidence = presentConfidence(action.confidence);
   return (
     <li className="action-card" data-priority={action.priority}>
       <header>
@@ -66,12 +55,11 @@ export function ActionCard({ action }: { action: DashboardAction }) {
           <strong>{action.symbol ?? "组合"}</strong>
           <span>
             {action.companyName ?? "公司名称待确认"} ·{" "}
-            {action.classification ?? "分类待确认"}
+            {presentClassification(action.classification)}
           </span>
         </div>
         <div className="action-verdict">
-          <b>{actionLabels[action.action] ?? action.action}</b>
-          {actionLabels[action.action] ? <small>{action.action}</small> : null}
+          <b>{actionCopy.title}</b>
         </div>
       </header>
       <p className="analyst-line">
@@ -81,8 +69,9 @@ export function ActionCard({ action }: { action: DashboardAction }) {
         <div>
           <dt>当前 → 目标</dt>
           <dd>
-            {percent(action.currentWeight)} → {percent(action.targetWeightMin)}–
-            {percent(action.targetWeightMax)}
+            {formatPercent(action.currentWeight)} →{" "}
+            {formatPercent(action.targetWeightMin)}–
+            {formatPercent(action.targetWeightMax)}
           </dd>
         </div>
         <div>
@@ -91,12 +80,12 @@ export function ActionCard({ action }: { action: DashboardAction }) {
         </div>
         <div>
           <dt>建议金额</dt>
-          <dd>{money(action.estimatedAmount)}</dd>
+          <dd>{formatMoney(action.estimatedAmount)}</dd>
         </div>
         <div>
           <dt>优先级 / 置信度</dt>
           <dd>
-            {action.priority} / {action.confidence}
+            {priority.label} / {confidence.label}
           </dd>
         </div>
       </dl>
@@ -128,9 +117,8 @@ export function ActionCard({ action }: { action: DashboardAction }) {
       </p>
       <p>
         <strong>数据更新：</strong>
-        {new Date(action.dataAsOf).toLocaleString("zh-CN")}；
-        <strong>有效期：</strong>
-        {new Date(action.validUntil).toLocaleString("zh-CN")}
+        {formatDateTime(action.dataAsOf)}；<strong>有效期：</strong>
+        {formatDateTime(action.validUntil)}
       </p>
       <div className="action-buttons">
         {action.positionId ? (

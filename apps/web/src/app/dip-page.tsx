@@ -1,6 +1,8 @@
 import { api } from "@portfolio/api-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { presentAction } from "./presentation/action-presentation";
+import { presentConfidence } from "./presentation/confidence-presentation";
 
 async function requireData<T>(
   request: Promise<{ data?: T; error?: unknown; response: Response }>,
@@ -143,7 +145,8 @@ export function DipPage() {
                 <ShieldCheck aria-hidden="true" />
                 <strong>{r.symbol ?? "PORTFOLIO"}</strong>
                 <span>
-                  {r.action} · {r.confidence}
+                  {presentAction(r.action).shortTitle} ·{" "}
+                  {presentConfidence(r.confidence).label}
                 </span>
                 <small>{r.status}</small>
               </p>

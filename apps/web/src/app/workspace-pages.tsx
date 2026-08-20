@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { ExecutiveDashboardPage } from "./dashboard/ExecutiveDashboardPage";
 import { WorkspaceNav } from "./workspace-nav";
+import { presentAction } from "./presentation/action-presentation";
+import { presentConfidence } from "./presentation/confidence-presentation";
 
 async function requireData<T>(
   request: Promise<{ data?: T; response: Response }>,
@@ -104,8 +106,9 @@ function OpportunityList({
                   x.positionId ? `/positions/${x.positionId}` : "/portfolio"
                 }
               >
-                <strong>{x.symbol ?? "组合"}</strong> · {x.action} ·{" "}
-                {x.confidence}
+                <strong>{x.symbol ?? "组合"}</strong> ·{" "}
+                {presentAction(x.action).shortTitle} ·{" "}
+                {presentConfidence(x.confidence).label}
               </a>
             </li>
           ))}
@@ -175,7 +178,8 @@ export function ReviewPage() {
           <ul>
             {rows.slice(0, 5).map((x, i) => (
               <li key={`${x.symbol ?? "portfolio"}-${x.dataAsOf ?? String(i)}`}>
-                {x.symbol ?? "组合"} · {x.action ?? "—"} · {x.status ?? "—"}
+                {x.symbol ?? "组合"} · {presentAction(x.action).shortTitle} ·{" "}
+                {x.status ?? "状态待确认"}
               </li>
             ))}
           </ul>

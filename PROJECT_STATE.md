@@ -469,3 +469,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - `POST /api/v1/analysis/runs` accepts only `USER_REFRESH`, reuses an active owner run, and otherwise creates an immutable durable run. The 27-step strict chain is now a MySQL-backed DAG with independent market, fundamentals, estimates/earnings, and macro branches joined before portfolio decisions.
 - Import progress no longer invents a WAITING list or silently discards polling failures. It identifies Worker offline, stalled, partial, blocked, failed, and ready states. Dashboard exposes last-analysis time and a CSRF-protected manual reanalysis control; no automatic execution path was added.
 - Verification so far: backend `-DskipTests package` passes; 6 focused R0 tests pass (DAG, state semantics, deterministic estimate/macro fixtures); OpenAPI JSON parses; Docker-backed integration and generated-contract drift verification remain blocked by the local Docker service permission state and are not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R1 — 2026-08-20
+
+- A single frontend presentation layer owns exhaustive owner-facing action, priority, classification, confidence, readiness, reason, number, and date language. Raw backend enum values are no longer used as owner copy.
+- The presentation contract test reads the deterministic backend `RecommendationAction` enum and fails when a backend action lacks a frontend mapping. Dashboard, portfolio, position detail, opportunities, review, and ETF Dip history consume the shared language.
+- The owner-facing terminology uses plain Chinese while advanced evidence remains available separately. Missing numbers remain unavailable rather than becoming zero or fake precision.
+- This phase preserves the R0 reanalysis control and runtime status UX. No strategy threshold, recommendation precedence, risk calculation, quantity calculation, or drawdown definition changed.
