@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.portfolio.runtime.AnalysisRunOrchestrator;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
@@ -30,9 +31,19 @@ class PortfolioImportConfirmationIntegrationTest extends PortfolioImportIntegrat
         assertThat(confirmed.get("idempotentReplay").asBoolean()).isFalse();
         assertThat(replay.get("idempotentReplay").asBoolean()).isTrue();
         assertThat(uuid(replay, "analysisRunId")).isEqualTo(uuid(confirmed, "analysisRunId"));
+        var runId = uuid(confirmed, "analysisRunId");
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run WHERE import_batch_id=UUID_TO_BIN('" + batchId
+                        + "')"))
+                .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_step WHERE run_id=UUID_TO_BIN('" + runId + "')"))
+                .isEqualTo(AnalysisRunOrchestrator.PIPELINE.size());
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_step_dependency WHERE run_id=UUID_TO_BIN('" + runId
+                        + "')"))
+                .isEqualTo(AnalysisRunOrchestrator.canonicalDependencyCount());
         assertThat(count("SELECT COUNT(*) FROM position_snapshot")).isEqualTo(3);
         assertThat(count("SELECT COUNT(*) FROM compensation_holding")).isEqualTo(1);
-        assertThat(count("SELECT COUNT(*) FROM job_run WHERE job_type='PORTFOLIO_ANALYSIS'"))
+        assertThat(count("SELECT COUNT(*) FROM job_run WHERE job_type='PORTFOLIO_ANALYSIS' "
+                        + "AND analysis_run_id=UUID_TO_BIN('" + runId + "')"))
                 .isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM audit_log WHERE event_type='PORTFOLIO_IMPORT_CONFIRMED'"))
                 .isEqualTo(1);

@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import com.example.portfolio.runtime.AnalysisRunOrchestrator;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
@@ -23,7 +24,13 @@ class ManualAnalysisRunIntegrationTest extends PortfolioImportIntegrationSupport
         assertThat(rerunId).isNotEqualTo(originalRunId);
         assertThat(first.path("state").asString()).isEqualTo("STARTING");
         assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_step WHERE run_id=UUID_TO_BIN('" + rerunId + "')"))
-                .isEqualTo(27);
+                .isEqualTo(AnalysisRunOrchestrator.PIPELINE.size());
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_step_dependency WHERE run_id=UUID_TO_BIN('" + rerunId
+                        + "')"))
+                .isEqualTo(AnalysisRunOrchestrator.canonicalDependencyCount());
+        assertThat(count("SELECT COUNT(*) FROM job_run WHERE job_type='PORTFOLIO_ANALYSIS' "
+                        + "AND analysis_run_id=UUID_TO_BIN('" + rerunId + "')"))
+                .isEqualTo(1);
 
         var repeatedResponse = request();
         assertThat(repeatedResponse.getResponse().getStatus()).isEqualTo(202);

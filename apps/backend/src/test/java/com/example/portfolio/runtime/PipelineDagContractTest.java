@@ -7,6 +7,10 @@ import org.junit.jupiter.api.Test;
 class PipelineDagContractTest {
     @Test
     void independentProviderBranchesStartAfterTheRootAndJoinBeforeDecisioning() {
+        assertThat(AnalysisRunOrchestrator.PIPELINE).hasSize(27).doesNotHaveDuplicates();
+        assertThat(AnalysisRunOrchestrator.DEPENDENCIES.keySet())
+                .containsExactlyInAnyOrderElementsOf(AnalysisRunOrchestrator.PIPELINE.subList(1, 27));
+        assertThat(AnalysisRunOrchestrator.canonicalDependencyCount()).isPositive();
         assertThat(AnalysisRunOrchestrator.DEPENDENCIES.get("COLLECT_BARS")).containsExactly("PORTFOLIO_ANALYSIS");
         assertThat(AnalysisRunOrchestrator.DEPENDENCIES.get("COLLECT_FUNDAMENTALS"))
                 .containsExactly("CHECK_FILINGS");

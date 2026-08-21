@@ -108,7 +108,10 @@ public class AnalysisRunOrchestrator {
         int scheduled = 0;
         for (var userId : users) {
             var key = "eod:" + userId + ":" + marketDate + ":" + properties.strategyVersion();
-            if (schedule(userId, marketDate, properties.strategyVersion(), key)) scheduled++;
+            if (!createAndSchedule(userId, marketDate, properties.strategyVersion(), null, key)
+                    .alreadyRunning()) {
+                scheduled++;
+            }
         }
         return scheduled;
     }
@@ -138,22 +141,20 @@ public class AnalysisRunOrchestrator {
         if (activeRun.isPresent()) return Optional.of(new ScheduleResult(activeRun.orElseThrow(), true));
         var runKey = "manual:" + userId.orElseThrow() + ":" + marketDate + ":" + properties.strategyVersion() + ":"
                 + UUID.randomUUID();
-        schedule(userId.orElseThrow(), marketDate, properties.strategyVersion(), runKey);
-        var runId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run WHERE run_key=:runKey")
-                .param("runKey", runKey)
-                .query(UUID.class)
-                .single();
-        return Optional.of(new ScheduleResult(runId, false));
+        return Optional.of(
+                createAndSchedule(userId.orElseThrow(), marketDate, properties.strategyVersion(), null, runKey));
     }
 
-    private boolean schedule(UUID userId, LocalDate marketDate, String strategyVersion, String runKey) {
+    @Transactional
+    public ScheduleResult createAndSchedule(
+            UUID userId, LocalDate marketDate, String strategyVersion, UUID importBatchId, String runKey) {
         var proposed = UUID.randomUUID();
-        jdbc.sql(
+        var created = jdbc.sql(
                         """
                         INSERT IGNORE INTO portfolio_analysis_run (
                             id,user_id,import_batch_id,market_date,strategy_version,status,run_key,created_at,updated_at,version
                         ) VALUES (
-                            UUID_TO_BIN(:id),UUID_TO_BIN(:userId),NULL,:marketDate,:strategyVersion,
+                            UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:importBatchId),:marketDate,:strategyVersion,
                             'QUEUED',:runKey,:now,:now,0
                         )
                         """)
@@ -161,6 +162,7 @@ public class AnalysisRunOrchestrator {
                 .param("userId", userId.toString())
                 .param("marketDate", marketDate)
                 .param("strategyVersion", strategyVersion)
+                .param("importBatchId", importBatchId == null ? null : importBatchId.toString(), java.sql.Types.VARCHAR)
                 .param("runKey", runKey)
                 .param("now", clock.instant())
                 .update();
@@ -171,13 +173,17 @@ public class AnalysisRunOrchestrator {
         initialize(runId);
         var payload =
                 "{\"runId\":\"" + runId + "\",\"userId\":\"" + userId + "\",\"marketDate\":\"" + marketDate + "\"}";
-        return jobs.enqueue(
+        var rootQueued = jobs.enqueue(
                 "PORTFOLIO_ANALYSIS",
                 "analysis:" + runId + ":PORTFOLIO_ANALYSIS",
                 payload,
                 100,
                 clock.instant(),
                 runId);
+        if (created == 1 && !rootQueued) {
+            throw new IllegalStateException("Analysis root job could not be enqueued");
+        }
+        return new ScheduleResult(runId, created == 0);
     }
 
     public void started(DurableJobStore.ClaimedJob job) {
@@ -317,6 +323,10 @@ public class AnalysisRunOrchestrator {
     record NextStep(String stepType, UUID userId, LocalDate marketDate) {}
 
     public record ScheduleResult(UUID runId, boolean alreadyRunning) {}
+
+    public static int canonicalDependencyCount() {
+        return DEPENDENCIES.values().stream().mapToInt(List::size).sum();
+    }
 
     private static Map<String, List<String>> dependencies() {
         var values = new LinkedHashMap<String, List<String>>();
