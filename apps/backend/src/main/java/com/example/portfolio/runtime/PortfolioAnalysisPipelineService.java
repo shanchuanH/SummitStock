@@ -445,13 +445,14 @@ public class PortfolioAnalysisPipelineService {
     private double returnFromPeak(String symbol, LocalDate date) {
         return jdbc.sql(
                         """
-                        SELECT COALESCE(latest.close_price/MAX(p.close_price)-1,0)
-                        FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
-                        JOIN price_bar latest ON latest.instrument_id=p.instrument_id AND latest.adjusted=TRUE
-                          AND latest.market_date=(SELECT MAX(x.market_date) FROM price_bar x
-                                                  WHERE x.instrument_id=p.instrument_id AND x.market_date<=:date)
-                        WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
-                        GROUP BY latest.close_price
+                        SELECT COALESCE(
+                          (SELECT p.close_price FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
+                           WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
+                           ORDER BY p.market_date DESC,p.data_as_of DESC,p.created_at DESC LIMIT 1)
+                          /
+                          (SELECT MAX(p.close_price) FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
+                           WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date)
+                          - 1,0)
                         """)
                 .param("symbol", symbol)
                 .param("date", date)

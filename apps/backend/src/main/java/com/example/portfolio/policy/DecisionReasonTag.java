@@ -1,4 +1,4 @@
-package com.example.portfolio.portfolio;
+package com.example.portfolio.policy;
 
 public enum DecisionReasonTag {
     NEW_FUNDAMENTAL_EVIDENCE,

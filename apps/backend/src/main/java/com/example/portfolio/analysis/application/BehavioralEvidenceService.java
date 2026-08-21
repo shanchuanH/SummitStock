@@ -2,7 +2,7 @@ package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.analysis.domain.HoldingEvidence;
 import com.example.portfolio.market.provider.TradingCalendar;
-import com.example.portfolio.portfolio.DecisionReasonTag;
+import com.example.portfolio.policy.DecisionReasonTag;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;

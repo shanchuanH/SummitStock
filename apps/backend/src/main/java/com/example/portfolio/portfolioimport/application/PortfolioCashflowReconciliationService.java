@@ -2,7 +2,6 @@ package com.example.portfolio.portfolioimport.application;
 
 import com.example.portfolio.analysis.risk.PortfolioNavService;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
@@ -138,10 +137,10 @@ public class PortfolioCashflowReconciliationService {
     }
 
     static TradeExplanation tradeExplanation(Snapshot before, Snapshot after) {
-        Map<UUID, PositionBalance> old = before.positions().stream()
-                .collect(Collectors.toMap(PositionBalance::instrumentId, Function.identity()));
-        Map<UUID, PositionBalance> current = after.positions().stream()
-                .collect(Collectors.toMap(PositionBalance::instrumentId, Function.identity()));
+        Map<BalanceKey, PositionBalance> old =
+                before.positions().stream().collect(Collectors.toMap(PositionBalance::key, Function.identity()));
+        Map<BalanceKey, PositionBalance> current =
+                after.positions().stream().collect(Collectors.toMap(PositionBalance::key, Function.identity()));
         var instruments = new java.util.HashSet<>(old.keySet());
         instruments.addAll(current.keySet());
         var net = BigDecimal.ZERO;
@@ -154,16 +153,12 @@ public class PortfolioCashflowReconciliationService {
             var delta = nextQuantity.subtract(priorQuantity);
             if (delta.signum() == 0) continue;
             changed = true;
-            var price = unitPrice(next != null ? next : prior);
-            if (price == null) return new TradeExplanation(true, BigDecimal.ZERO);
-            net = net.add(delta.multiply(price));
+            var priorValue = prior == null ? BigDecimal.ZERO : prior.marketValue();
+            var nextValue = next == null ? BigDecimal.ZERO : next.marketValue();
+            if (priorValue == null || nextValue == null) return new TradeExplanation(true, BigDecimal.ZERO);
+            net = net.add(nextValue.subtract(priorValue));
         }
         return new TradeExplanation(changed, net);
-    }
-
-    private static BigDecimal unitPrice(PositionBalance position) {
-        if (position == null || position.quantity().signum() == 0 || position.marketValue() == null) return null;
-        return position.marketValue().divide(position.quantity(), 8, RoundingMode.HALF_UP);
     }
 
     private Snapshot snapshot(UUID userId) {
@@ -182,7 +177,8 @@ public class PortfolioCashflowReconciliationService {
                 .single();
         var positions = jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(p.instrument_id) instrumentId,p.quantity,p.market_value marketValue
+                        SELECT BIN_TO_UUID(p.account_id) accountId,BIN_TO_UUID(p.instrument_id) instrumentId,
+                               p.quantity,p.market_value marketValue
                         FROM position p JOIN investment_account a ON a.id=p.account_id
                         WHERE a.user_id=UUID_TO_BIN(:userId) AND a.import_source='FIDELITY_CSV' AND p.status='OPEN'
                         """)
@@ -226,7 +222,17 @@ public class PortfolioCashflowReconciliationService {
             boolean rawCashEstablished,
             List<PositionBalance> positions) {}
 
-    public record PositionBalance(UUID instrumentId, BigDecimal quantity, BigDecimal marketValue) {}
+    public record PositionBalance(UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal marketValue) {
+        public PositionBalance(UUID instrumentId, BigDecimal quantity, BigDecimal marketValue) {
+            this(null, instrumentId, quantity, marketValue);
+        }
+
+        BalanceKey key() {
+            return new BalanceKey(accountId, instrumentId);
+        }
+    }
+
+    record BalanceKey(UUID accountId, UUID instrumentId) {}
 
     record TradeExplanation(boolean quantityChanged, BigDecimal netPurchaseValue) {}
 

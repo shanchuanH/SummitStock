@@ -2,7 +2,7 @@ package com.example.portfolio.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.example.portfolio.portfolio.DecisionReasonTag;
+import com.example.portfolio.policy.DecisionReasonTag;
 import org.junit.jupiter.api.Test;
 
 class DecisionReasonTagsTest {

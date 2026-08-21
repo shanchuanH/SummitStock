@@ -93,7 +93,10 @@ public class ValuationEvidenceStore {
                 .param("instrumentId", instrumentId.toString())
                 .param("fromDate", from)
                 .param("toDate", to)
-                .query(WeeklyPrice.class)
+                .query((result, rowNumber) -> new WeeklyPrice(
+                        result.getObject("marketDate", LocalDate.class),
+                        result.getBigDecimal("price"),
+                        result.getTimestamp("dataAsOf").toInstant()))
                 .list();
     }
 
@@ -108,7 +111,12 @@ public class ValuationEvidenceStore {
                         ORDER BY p.end_date,m.data_as_of
                         """)
                 .param("instrumentId", instrumentId.toString())
-                .query(PointInTimeValuationAssembler.MetricPoint.class)
+                .query((result, rowNumber) -> new PointInTimeValuationAssembler.MetricPoint(
+                        result.getString("periodType"),
+                        result.getObject("periodEnd", LocalDate.class),
+                        result.getString("metricCode"),
+                        result.getBigDecimal("value"),
+                        result.getTimestamp("dataAsOf").toInstant()))
                 .list();
     }
 
@@ -121,7 +129,10 @@ public class ValuationEvidenceStore {
                         ORDER BY period_end,data_as_of
                         """)
                 .param("instrumentId", instrumentId.toString())
-                .query(PointInTimeValuationAssembler.EstimatePoint.class)
+                .query((result, rowNumber) -> new PointInTimeValuationAssembler.EstimatePoint(
+                        result.getObject("periodEnd", LocalDate.class),
+                        result.getBigDecimal("meanValue"),
+                        result.getTimestamp("dataAsOf").toInstant()))
                 .list();
     }
 

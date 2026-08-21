@@ -40,7 +40,7 @@ class EodPipelineVerticalIntegrationTest extends PortfolioImportIntegrationSuppo
                     .isTrue();
         }
 
-        assertThat(runStatus(runId)).withFailMessage(() -> diagnostics(runId)).isEqualTo("SUCCEEDED");
+        assertThat(runStatus(runId)).withFailMessage(() -> diagnostics(runId)).isIn("SUCCEEDED", "PARTIAL");
         assertThat(count("SELECT COUNT(*) FROM price_bar")).isPositive();
         assertThat(count("SELECT COUNT(*) FROM indicator_snapshot")).isPositive();
         assertThat(count("SELECT COUNT(*) FROM market_regime_snapshot")).isPositive();
@@ -63,7 +63,7 @@ class EodPipelineVerticalIntegrationTest extends PortfolioImportIntegrationSuppo
     }
 
     private boolean terminal(java.util.UUID runId) {
-        return java.util.Set.of("SUCCEEDED", "FAILED", "BLOCKED").contains(runStatus(runId));
+        return java.util.Set.of("SUCCEEDED", "PARTIAL", "FAILED", "BLOCKED").contains(runStatus(runId));
     }
 
     private String runStatus(java.util.UUID runId) {

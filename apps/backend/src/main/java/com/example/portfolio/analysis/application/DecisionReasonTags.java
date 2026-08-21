@@ -1,6 +1,6 @@
 package com.example.portfolio.analysis.application;
 
-import com.example.portfolio.portfolio.DecisionReasonTag;
+import com.example.portfolio.policy.DecisionReasonTag;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;

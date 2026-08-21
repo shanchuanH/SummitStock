@@ -170,7 +170,11 @@ public final class PositionSizing {
         }
         if (requireHealthyPrice && (input.priceQuality() != EvidenceQuality.HEALTHY || !input.priceFresh()))
             return false;
-        if (requireReadyRisk && (input.riskQuality() != EvidenceQuality.HEALTHY || !input.riskFresh())) return false;
+        if (requireReadyRisk
+                && (input.riskQuality() != EvidenceQuality.HEALTHY
+                        || !input.riskFresh()
+                        || input.currentPortfolioOpenRiskAmount() == null
+                        || input.currentClusterOpenRiskAmount() == null)) return false;
         return !input.stopRequired()
                 || (input.formalStop() != null
                         && input.entryPrice() != null

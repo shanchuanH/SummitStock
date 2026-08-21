@@ -21,6 +21,7 @@ public class ValuationBootstrapService {
             var metrics = store.pointInTimeMetrics(instrument.id());
             var estimates = store.pointInTimeEstimates(instrument.id());
             for (var price : store.weeklyPrices(instrument.id(), marketDate.minusYears(5), marketDate)) {
+                if (!tradingCalendar.isSession(price.marketDate())) continue;
                 var completedClose = tradingCalendar.sessionClose(price.marketDate());
                 var priceAvailability = price.dataAsOf().isAfter(completedClose) ? price.dataAsOf() : completedClose;
                 var pointInTime = assembler.assemble(price.marketDate(), priceAvailability, metrics, estimates);

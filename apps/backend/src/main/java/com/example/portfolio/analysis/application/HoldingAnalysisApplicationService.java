@@ -279,7 +279,7 @@ public final class HoldingAnalysisApplicationService {
                         weightCap,
                         trimTarget,
                         deployableCash,
-                        investableAssets.multiply(evidence.clusterOpenRisk()),
+                        amountFromFraction(investableAssets, evidence.clusterOpenRisk()),
                         evidence.strategy().clusterOpenRiskMax(),
                         evidence.strategy().qualityStarterFraction(),
                         stopRequired(evidence.position().classification()),
@@ -297,12 +297,16 @@ public final class HoldingAnalysisApplicationService {
                                 evidence.strategy().freshness().macroDailyDays()),
                         evidence.position().classificationConfirmed(),
                         evidence.providerHardError(),
-                        investableAssets.multiply(evidence.totalOpenRisk()),
+                        amountFromFraction(investableAssets, evidence.totalOpenRisk()),
                         evidence.strategy().totalOpenRiskMax(),
                         liquidityMaxShares(evidence),
                         themeRiskProxyPerShare(evidence)),
                 evidence.strategy().exactQuantityRequiresHealthyPrice(),
                 evidence.strategy().exactQuantityRequiresReadyRisk());
+    }
+
+    private static BigDecimal amountFromFraction(BigDecimal amount, BigDecimal fraction) {
+        return amount == null || fraction == null ? null : amount.multiply(fraction);
     }
 
     private PositionSizing.Result dipSize(

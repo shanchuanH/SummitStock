@@ -132,7 +132,7 @@ public class PortfolioStore {
                         ), latest_bars AS (
                             SELECT instrument_id,market_date,close_price,
                                    LEAD(close_price) OVER (PARTITION BY instrument_id ORDER BY market_date DESC) previous_close,
-                                   ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY market_date DESC) row_number
+                                   ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY market_date DESC) row_rank
                             FROM price_bar WHERE timeframe='1D' AND adjusted=TRUE AND quality_status='HEALTHY'
                         )
                         SELECT BIN_TO_UUID(o.id) id, o.version, o.symbol, o.instrument_name name, o.asset_type assetType,
@@ -174,7 +174,7 @@ public class PortfolioStore {
                         LEFT JOIN quote q ON q.id=(
                             SELECT z.id FROM quote z WHERE z.instrument_id=o.instrument_id
                             ORDER BY z.data_as_of DESC,z.created_at DESC LIMIT 1)
-                        LEFT JOIN latest_bars lb ON lb.instrument_id=o.instrument_id AND lb.row_number=1
+                        LEFT JOIN latest_bars lb ON lb.instrument_id=o.instrument_id AND lb.row_rank=1
                         LEFT JOIN indicator_snapshot sma ON sma.id=(
                             SELECT s.id FROM indicator_snapshot s WHERE s.instrument_id=o.instrument_id
                               AND s.indicator_code='SMA_20' AND s.status='READY'

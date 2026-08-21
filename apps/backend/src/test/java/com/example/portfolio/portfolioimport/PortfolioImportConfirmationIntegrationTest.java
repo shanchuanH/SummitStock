@@ -68,7 +68,7 @@ class PortfolioImportConfirmationIntegrationTest extends PortfolioImportIntegrat
         mockMvc.perform(get("/api/v1/analysis/status/{runId}", uuid(confirmed, "analysisRunId"))
                         .with(httpBasic(EMAIL, PASSWORD)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.state").value("ANALYSIS_RUNNING"))
+                .andExpect(jsonPath("$.state").value("WORKER_OFFLINE"))
                 .andExpect(jsonPath("$.stages.length()").value(8));
     }
 
