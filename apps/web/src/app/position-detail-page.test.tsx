@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -322,8 +322,13 @@ describe("PositionDetailPage", () => {
     );
     renderPage();
     await screen.findByText("最多建议 17 股");
+    const sizing = screen.getByText("最多建议 17 股").closest("div");
+    if (!sizing) throw new Error("Missing sizing explanation");
     expect(screen.getByText("为什么不是 30 股？")).toBeInTheDocument();
     expect(screen.getByText(/交易后总计划风险 1.99% \/ 2.00%/)).toBeInTheDocument();
+    expect(within(sizing).getByText("交易后仓位").nextElementSibling).toHaveTextContent("11.0%");
+    expect(within(sizing).getByText("交易后总计划退出风险").nextElementSibling).toHaveTextContent("1.99%");
+    expect(within(sizing).getByText("交易后簇计划退出风险").nextElementSibling).toHaveTextContent("1.40%");
     expect(screen.getByText(/如果出现隔夜跳空/)).toBeInTheDocument();
     expect(screen.queryByText(/最大可能损失/)).not.toBeInTheDocument();
   });

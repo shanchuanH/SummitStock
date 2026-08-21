@@ -48,7 +48,45 @@ describe("ImportResult", () => {
       await screen.findByRole("heading", { name: "分析服务没有运行" }),
     ).toBeInTheDocument();
     expect(screen.getByText("离线")).toBeInTheDocument();
+    expect(
+      screen.getByText(/启动完整环境：make dev/),
+    ).toBeInTheDocument();
     expect(screen.queryByText("WAITING")).not.toBeInTheDocument();
+  });
+
+  it("shows stalled stage, update time, and recovery actions", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            runId: result.analysisRunId,
+            state: "STALLED",
+            worker: { alive: true },
+            progress: {
+              completed: 8,
+              total: 27,
+              currentStage: "公司财务",
+              lastProgressAt: "2026-08-20T12:00:00Z",
+            },
+            stages: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    render(<ImportResult result={result} onAnother={vi.fn()} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "分析长时间没有推进" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("公司财务")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新分析" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "检查数据源" })).toHaveAttribute(
+      "href",
+      "/advanced/data-health",
+    );
   });
 
   it("asks the owner to classify an unexplained broker cash movement", () => {

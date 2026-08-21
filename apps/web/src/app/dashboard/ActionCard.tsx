@@ -98,6 +98,13 @@ export function ActionCard({ action }: { action: DashboardAction }) {
         {formatPercent(action.targetWeightMin)}–
         {formatPercent(action.targetWeightMax)}
       </p>
+      {action.action === "DO_NOT_ADD" || action.action === "HOLD_DO_NOT_ADD" ? (
+        <section className="do-not-add-explanation" aria-label="不加仓说明">
+          <p><strong>为什么不能加：</strong>{reasons[0] ?? "当前证据不足以支持新增风险。"}</p>
+          <p><strong>当前缺口或限制：</strong>{presentReason(action.riskCalculationReason)}</p>
+          <p><strong>重新评估条件：</strong>{changes[0] ?? "等待缺失证据更新后重新分析。"}</p>
+        </section>
+      ) : null}
       <details className="action-disclosure">
         <summary>查看原因与风险</summary>
         <div className="action-evidence">

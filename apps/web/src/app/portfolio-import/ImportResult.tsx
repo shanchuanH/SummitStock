@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { postJson } from "../http";
+import { formatDateTime } from "../presentation/date-format";
 import type {
   AnalysisStatus,
   CashflowReconciliation,
@@ -20,12 +21,12 @@ const stateMessage: Record<string, { title: string; detail: string }> = {
     detail: "部分外部数据暂不可用；系统不会补造缺失指标。",
   },
   STALLED: {
-    title: "分析进度暂时停滞",
-    detail: "持仓已安全保存，可以重新检查 Worker 和数据提供器。",
+    title: "分析长时间没有推进",
+    detail: "建议操作：重新分析；如果仍停滞，请检查数据源。",
   },
   WORKER_OFFLINE: {
     title: "分析服务没有运行",
-    detail: "持仓已安全保存，但后台 Worker 当前未连接，因此分析还没有开始。",
+    detail: "如果你在本机使用 SummitStock，请启动完整环境：make dev",
   },
   FAILED: {
     title: "分析未能完成",
@@ -55,6 +56,7 @@ export function ImportResult({
     "EXTERNAL_CASHFLOW" | "INTERNAL_TRADE" | "OTHER"
   >("EXTERNAL_CASHFLOW");
   const [cashflowBusy, setCashflowBusy] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
 
   async function confirmCashflow() {
     setCashflowBusy(true);
@@ -67,6 +69,16 @@ export function ImportResult({
       );
     } finally {
       setCashflowBusy(false);
+    }
+  }
+
+  async function reanalyze() {
+    setReanalyzing(true);
+    try {
+      await postJson("/api/v1/analysis/runs", { reason: "USER_REFRESH" });
+      await refresh();
+    } finally {
+      setReanalyzing(false);
     }
   }
 
@@ -166,7 +178,19 @@ export function ImportResult({
             <dt>当前阶段</dt>
             <dd>{status.progress.currentStage ?? "—"}</dd>
           </div>
+          <div>
+            <dt>最后更新时间</dt>
+            <dd>{formatDateTime(status.progress.lastProgressAt)}</dd>
+          </div>
         </dl>
+      ) : null}
+      {status?.state === "STALLED" ? (
+        <div className="analysis-recovery-actions">
+          <button disabled={reanalyzing} onClick={() => void reanalyze()} type="button">
+            {reanalyzing ? "正在重新分析…" : "重新分析"}
+          </button>
+          <a href="/advanced/data-health">检查数据源</a>
+        </div>
       ) : null}
       {status?.failure ? (
         <p role="alert">

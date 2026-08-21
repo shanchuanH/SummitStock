@@ -21,6 +21,9 @@ const reasonPresentations: Record<string, string> = {
   EARNINGS_TOO_CLOSE: "距离财报太近，暂不增加风险。",
   EMERGENCY_CASH_BELOW_FLOOR: "生活备用金低于保护目标。",
   ETF_DIP_WAITING_FOR_CONFIRMATION: "ETF 回撤条件仍在等待价格确认。",
+  PROJECTED_RISK_INPUT_MISSING: "缺少完整风险快照，无法可靠计算新增仓位。",
+  ESTIMATE_DATA_MISSING: "缺少分析师盈利预测。",
+  VALUATION_HISTORY_INSUFFICIENT: "历史估值样本不足。",
 };
 
 export function presentReason(value?: string | null) {

@@ -456,9 +456,11 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await roleChecks.nth(0).check();
   await roleChecks.nth(1).check();
   await page.getByRole("button", { name: "继续设置备用金" }).click();
-  await page.getByRole("radio", { name: /全部在 Fidelity 现金里/ }).check();
   await page
-    .getByRole("spinbutton", { name: "确认生活备用金金额" })
+    .getByRole("radio", { name: /全部在 Fidelity 现金中/ })
+    .check();
+  await page
+    .getByRole("spinbutton", { name: "Fidelity 中保护的备用金" })
     .fill("1500");
   await page.getByRole("button", { name: "继续最终确认" }).click();
   const confirmButton = page.getByRole("button", { name: "确认并开始分析" });
@@ -496,4 +498,29 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await expect(page.getByText(/财报风险/)).toBeVisible();
   await page.getByRole("heading", { name: "完整证据" }).click();
   await expect(page.getByText(/什么情况下建议会改变/)).toBeVisible();
+});
+
+test("core owner pages never overflow the viewport horizontally", async ({ page }) => {
+  const pages = [
+    "/portfolio/import",
+    "/",
+    "/portfolio",
+    "/positions/p1",
+    "/advanced/market-context",
+    "/review",
+  ];
+
+  for (const path of pages) {
+    await page.goto(path);
+    await page.waitForLoadState("domcontentloaded");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+  }
 });

@@ -37,5 +37,14 @@ describe("compact owner action card", () => {
     expect(screen.getByText(/暂不提供精确股数/)).toBeInTheDocument();
     expect(screen.queryByText("DO_NOT_ADD")).not.toBeInTheDocument();
     expect(screen.queryByText(/建议卖出/)).not.toBeInTheDocument();
+    expect(screen.getByText("为什么不能加：").closest("p")).toHaveTextContent(
+      "仓位已经超过正常上限",
+    );
+    expect(screen.getByText("当前缺口或限制：").closest("p")).toHaveTextContent(
+      "缺少完整风险快照",
+    );
+    expect(screen.getByText("重新评估条件：").closest("p")).toHaveTextContent(
+      "仓位降回正常范围",
+    );
   });
 });

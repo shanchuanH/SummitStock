@@ -628,6 +628,28 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.sizing-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+}
+.sizing-metrics div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.analysis-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+}
+.readiness-missing-items {
+  padding-left: 20px;
+}
 .position-modules .chart-module {
   grid-column: 1 / -1;
 }
@@ -752,6 +774,26 @@
   }
 }
 @media (max-width: 560px) {
+  #root,
+  .shell,
+  main,
+  section,
+  article,
+  .context-card,
+  .action-card,
+  .analyst-layer {
+    min-width: 0;
+    max-width: 100%;
+  }
+  p,
+  li,
+  dd,
+  a,
+  button,
+  summary,
+  strong {
+    overflow-wrap: anywhere;
+  }
   .shell {
     width: min(100% - 24px, 1380px);
   }
@@ -788,8 +830,15 @@
   }
   .manual-grid,
   .cash-impact-summary,
-  .import-final-summary {
+  .import-final-summary,
+  .sizing-metrics {
     grid-template-columns: 1fr;
+  }
+  .action-card > header,
+  .import-actions,
+  .analysis-recovery-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
   .import-role-card header {
     display: block;

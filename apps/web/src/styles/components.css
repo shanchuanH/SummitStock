@@ -183,6 +183,19 @@
   color: var(--muted);
   line-height: 1.55;
 }
+.do-not-add-explanation {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--amber) 8%, var(--surface-1));
+}
+.do-not-add-explanation p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .action-card .analyst-line {
   margin: 14px 0;
 }

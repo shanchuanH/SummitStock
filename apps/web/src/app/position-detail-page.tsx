@@ -611,6 +611,20 @@ export function PositionDetailPage() {
                   ? `：交易后总计划风险 ${formatPercent(riskDetails.projectedTotalRiskAfterAction, 2)} / ${formatPercent(riskDetails.totalPortfolioRiskCap, 2)}`
                   : "。"}
               </p>
+              <dl className="sizing-metrics">
+                <Metric
+                  label="交易后仓位"
+                  value={formatPercent(riskDetails.projectedPositionWeight)}
+                />
+                <Metric
+                  label="交易后总计划退出风险"
+                  value={formatPercent(riskDetails.projectedTotalRiskAfterAction, 2)}
+                />
+                <Metric
+                  label="交易后簇计划退出风险"
+                  value={formatPercent(riskDetails.projectedClusterRiskAfterAction, 2)}
+                />
+              </dl>
             </div>
           ) : null}
         </details>
