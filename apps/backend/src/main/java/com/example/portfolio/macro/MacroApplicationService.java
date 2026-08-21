@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -80,23 +81,26 @@ public class MacroApplicationService {
     }
 
     public int computeFactors(LocalDate marketDate, BigDecimal realizedVolatilityStress) {
+        var context = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion());
+        var ninetyDaysEarlier =
+                new DecisionAsOfContext(marketDate.minusDays(90), context.dataCutoff(), context.strategyVersion());
         var result = engine.evaluate(new MacroFactorEngine.Input(
-                latest("VIXCLS", marketDate),
-                history("VIXCLS", marketDate),
-                latest("BAMLH0A0HYM2", marketDate),
-                history("BAMLH0A0HYM2", marketDate),
-                latest("DGS10", marketDate),
-                latest("DGS10", marketDate.minusDays(90)),
-                latest("DGS2", marketDate),
-                latest("FEDFUNDS", marketDate),
+                latest("VIXCLS", context),
+                history("VIXCLS", context),
+                latest("BAMLH0A0HYM2", context),
+                history("BAMLH0A0HYM2", context),
+                latest("DGS10", context),
+                latest("DGS10", ninetyDaysEarlier),
+                latest("DGS2", context),
+                latest("FEDFUNDS", context),
                 realizedVolatilityStress));
         var volatilityPolicy = strategies.loadVolatilityResearchPolicy(properties.strategyConfigPath());
         var volatility = volatilityEngine.evaluate(new VolatilityContextEngine.Input(
-                latest("VIXCLS", marketDate),
-                history("VIXCLS", marketDate),
-                latest("VIX3M", marketDate),
-                latest("VXNCLS", marketDate),
-                history("VXNCLS", marketDate),
+                latest("VIXCLS", context),
+                history("VIXCLS", context),
+                latest("VIX3M", context),
+                latest("VXNCLS", context),
+                history("VXNCLS", context),
                 volatilityPolicy.vixTermFlatLower(),
                 volatilityPolicy.vixTermBackwardation(),
                 volatilityPolicy.techPremiumElevatedRatio()));
@@ -156,10 +160,10 @@ public class MacroApplicationService {
                 .param("vxnVixRatio", volatility.vxnVixRatio())
                 .param("vxnVixSpread", volatility.vxnVixSpread())
                 .param("techStressState", volatility.techStressState().name())
-                .param("tenYearYield", latest("DGS10", marketDate))
-                .param("twoYearYield", latest("DGS2", marketDate))
-                .param("fedFunds", latest("FEDFUNDS", marketDate))
-                .param("tenYearRealYield", latest("DFII10", marketDate))
+                .param("tenYearYield", latest("DGS10", context))
+                .param("twoYearYield", latest("DGS2", context))
+                .param("fedFunds", latest("FEDFUNDS", context))
+                .param("tenYearRealYield", latest("DFII10", context))
                 .update();
     }
 
@@ -183,6 +187,10 @@ public class MacroApplicationService {
     }
 
     public VolatilitySnapshot latestVolatility(LocalDate marketDate) {
+        return latestVolatility(DecisionAsOfContext.marketClose(marketDate, "CURRENT"));
+    }
+
+    public VolatilitySnapshot latestVolatility(DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT vix_level vix,vix_percentile_5y vixPercentile,vix_delta_1d vixDelta1d,
@@ -191,23 +199,31 @@ public class MacroApplicationService {
                                vxn_percentile_5y vxnPercentile,vxn_delta_1d vxnDelta1d,
                                vxn_delta_2d vxnDelta2d,vxn_delta_5d vxnDelta5d,vxn_vix_ratio vxnVixRatio,
                                vxn_vix_spread vxnVixSpread,tech_stress_state techStressState,quality
-                        FROM macro_factor_snapshot WHERE market_date<=:date ORDER BY market_date DESC LIMIT 1
+                        FROM macro_factor_snapshot WHERE market_date<=:date AND data_as_of<=:cutoff
+                        ORDER BY market_date DESC,data_as_of DESC LIMIT 1
                         """)
-                .param("date", marketDate)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(VolatilitySnapshot.class)
                 .optional()
                 .orElse(VolatilitySnapshot.missing());
     }
 
     public MacroBackgroundSnapshot latestMacroBackground(LocalDate marketDate) {
+        return latestMacroBackground(DecisionAsOfContext.marketClose(marketDate, "CURRENT"));
+    }
+
+    public MacroBackgroundSnapshot latestMacroBackground(DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT ten_year_yield tenYearYield,two_year_yield twoYearYield,
                                fed_funds_rate fedFundsRate,ten_year_real_yield tenYearRealYield,
                                rate_stress rateStress,curve_state curveState,quality
-                        FROM macro_factor_snapshot WHERE market_date<=:date ORDER BY market_date DESC LIMIT 1
+                        FROM macro_factor_snapshot WHERE market_date<=:date AND data_as_of<=:cutoff
+                        ORDER BY market_date DESC,data_as_of DESC LIMIT 1
                         """)
-                .param("date", marketDate)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(MacroBackgroundSnapshot.class)
                 .optional()
                 .orElse(new MacroBackgroundSnapshot(null, null, null, null, null, "MISSING", "MISSING"));
@@ -232,18 +248,35 @@ public class MacroApplicationService {
                 .orElse(null);
     }
 
-    private BigDecimal latest(String code, LocalDate marketDate) {
-        return latest(code, DecisionAsOfContext.marketClose(marketDate, "CURRENT"));
+    List<BigDecimal> history(String code, DecisionAsOfContext context) {
+        var observations = jdbc.sql(
+                        """
+                        SELECT observation_date observationDate,value_decimal value,data_as_of dataAsOf
+                        FROM macro_observation
+                        WHERE series_code=:code AND observation_date<=:marketDate
+                          AND observation_date>=:fromDate AND data_as_of<=:cutoff
+                        ORDER BY observation_date,data_as_of,created_at
+                        """)
+                .param("code", code)
+                .param("marketDate", context.marketDate())
+                .param("fromDate", context.marketDate().minusYears(5))
+                .param("cutoff", context.dataCutoff())
+                .query(HistoryObservation.class)
+                .list();
+        return selectHistoryVersions(observations, context);
     }
 
-    private List<BigDecimal> history(String code, LocalDate date) {
-        return jdbc.sql(
-                        "SELECT value_decimal FROM macro_observation WHERE series_code=:code AND observation_date<=:date AND observation_date>=:fromDate ORDER BY observation_date")
-                .param("code", code)
-                .param("date", date)
-                .param("fromDate", date.minusYears(5))
-                .query(BigDecimal.class)
-                .list();
+    static List<BigDecimal> selectHistoryVersions(List<HistoryObservation> observations, DecisionAsOfContext context) {
+        var selected = new LinkedHashMap<LocalDate, HistoryObservation>();
+        var fromDate = context.marketDate().minusYears(5);
+        observations.stream()
+                .filter(value -> !value.observationDate().isBefore(fromDate))
+                .filter(value -> !value.observationDate().isAfter(context.marketDate()))
+                .filter(value -> !value.dataAsOf().isAfter(context.dataCutoff()))
+                .sorted(java.util.Comparator.comparing(HistoryObservation::observationDate)
+                        .thenComparing(HistoryObservation::dataAsOf))
+                .forEach(value -> selected.put(value.observationDate(), value));
+        return selected.values().stream().map(HistoryObservation::value).toList();
     }
 
     private static String sha256(String value) {
@@ -303,4 +336,6 @@ public class MacroApplicationService {
             BigDecimal rateStress,
             String curveState,
             String quality) {}
+
+    record HistoryObservation(LocalDate observationDate, BigDecimal value, java.time.Instant dataAsOf) {}
 }
