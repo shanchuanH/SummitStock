@@ -19,7 +19,7 @@ public record DecisionContext(
         Instant lastDecisionAt,
         Instant lastAddAt,
         boolean averagingDown,
-        boolean thesisImproving,
+        boolean independentNewEvidence,
         boolean anchoredToCostBasis,
         int holdingTradingDays,
         boolean thesisProgress,

@@ -230,7 +230,7 @@ public final class HoldingAnalysisApplicationService {
                 behavior.lastDecisionAt(),
                 behavior.lastAddAt(),
                 behavior.averagingDown(),
-                behavior.thesisImproving(),
+                behavior.independentNewEvidence(),
                 behavior.anchoredToCostBasis(),
                 behavior.holdingTradingDays(),
                 behavior.thesisProgress(),

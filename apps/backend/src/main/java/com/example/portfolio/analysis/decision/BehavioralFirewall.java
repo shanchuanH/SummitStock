@@ -31,7 +31,7 @@ public final class BehavioralFirewall {
         }
         if (proposesNewCapital(proposedCandidates)
                 && context.averagingDown()
-                && (!context.thesisImproving()
+                && (!context.independentNewEvidence()
                         || (context.evidence().position().classification() == HoldingClassification.SPECULATIVE
                                 && !strategy.speculativeAverageDownAllowed()))) {
             values.add(block(
@@ -67,7 +67,7 @@ public final class BehavioralFirewall {
                         < 0;
         var ideaCooling =
                 context.ideaCooldownUntil() != null && context.decisionAt().isBefore(context.ideaCooldownUntil());
-        var invalidAverageDown = context.averagingDown() && !context.thesisImproving();
+        var invalidAverageDown = context.averagingDown() && !context.independentNewEvidence();
         return !decisionCooling && !ideaCooling && !invalidAverageDown && !context.anchoredToCostBasis();
     }
 

@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Set;
+import java.util.Objects;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -41,7 +41,7 @@ public final class BehavioralEvidenceService {
                              AND ra.reference_price IS NOT NULL
                            ORDER BY ra.acknowledged_at DESC LIMIT 1) lastAddReferencePrice,
                           COALESCE(t.thesis_progress,FALSE) thesisProgress,
-                          t.confirmed_at confirmedAt,t.last_evidence_at lastEvidenceAt,
+                          t.last_evidence_at lastEvidenceAt,
                           (SELECT MAX(i.cooldown_until) FROM investment_idea i
                            JOIN investment_account a ON a.user_id=i.user_id
                            WHERE a.id=p.account_id AND i.instrument_id=p.instrument_id) ideaCooldownUntil
@@ -55,31 +55,52 @@ public final class BehavioralEvidenceService {
         var reference = row.lastAddReferencePrice() != null ? row.lastAddReferencePrice() : row.averageCost();
         var proposedEntryBelowReference = reference != null && last != null && last.compareTo(reference) < 0;
         var reasonTags = DecisionReasonTags.parse(row.lastReasonTags());
-        var thesisImproving = row.thesisProgress()
-                || (row.lastEvidenceAt() != null
-                        && row.confirmedAt() != null
-                        && row.lastEvidenceAt().isAfter(row.confirmedAt()))
-                || reasonTags.stream().anyMatch(BehavioralEvidenceService::independentEvidence);
+        var referenceTime =
+                referenceTime(instant(row.lastAddAt()), instant(row.lastDecisionAt()), instant(row.openedAt()));
+        var latestIndependentEvidenceAt = latestIndependentEvidenceAt(evidence, instant(row.lastEvidenceAt()), now);
+        var independentNewEvidence = independentNewEvidence(latestIndependentEvidenceAt, referenceTime);
         var completed = calendar.latestCompletedSession(now);
         var holdingDays = calendar.sessionsBetween(row.openedAt().toLocalDate(), completed);
         return new BehavioralEvidence(
                 instant(row.lastDecisionAt()),
                 instant(row.lastAddAt()),
                 proposedEntryBelowReference,
-                thesisImproving,
+                independentNewEvidence,
                 reasonTags.contains(DecisionReasonTag.COST_BASIS_ANCHOR),
                 holdingDays,
                 row.thesisProgress(),
                 instant(row.ideaCooldownUntil()));
     }
 
-    private static boolean independentEvidence(DecisionReasonTag tag) {
-        return Set.of(
-                        DecisionReasonTag.NEW_FUNDAMENTAL_EVIDENCE,
-                        DecisionReasonTag.VALUATION,
-                        DecisionReasonTag.PRICE_CONFIRMATION,
-                        DecisionReasonTag.CATALYST)
-                .contains(tag);
+    static Instant referenceTime(Instant lastAddAt, Instant lastDecisionAt, Instant openedAt) {
+        return lastAddAt != null ? lastAddAt : lastDecisionAt != null ? lastDecisionAt : openedAt;
+    }
+
+    static boolean independentNewEvidence(Instant latestIndependentEvidenceAt, Instant referenceTime) {
+        return latestIndependentEvidenceAt != null
+                && referenceTime != null
+                && latestIndependentEvidenceAt.isAfter(referenceTime);
+    }
+
+    private static Instant latestIndependentEvidenceAt(
+            HoldingEvidence evidence, Instant thesisEvidenceAt, Instant now) {
+        var timestamps = new java.util.ArrayList<Instant>();
+        if (evidence.fundamentals().available()) {
+            timestamps.add(evidence.fundamentals().dataAsOf());
+            timestamps.add(evidence.fundamentals().estimateDataAsOf());
+        }
+        if (evidence.valuation().available())
+            timestamps.add(evidence.valuation().dataAsOf());
+        if (evidence.catalyst().available()) timestamps.add(evidence.catalyst().dataAsOf());
+        if ("REVERSAL_CONFIRMED".equals(evidence.indicators().priceState())) {
+            timestamps.add(evidence.quote().dataAsOf());
+        }
+        timestamps.add(thesisEvidenceAt);
+        return timestamps.stream()
+                .filter(Objects::nonNull)
+                .filter(value -> !value.isAfter(now))
+                .max(Instant::compareTo)
+                .orElse(null);
     }
 
     private static Instant instant(LocalDateTime value) {
@@ -94,7 +115,6 @@ public final class BehavioralEvidenceService {
             String lastReasonTags,
             BigDecimal lastAddReferencePrice,
             boolean thesisProgress,
-            LocalDateTime confirmedAt,
             LocalDateTime lastEvidenceAt,
             LocalDateTime ideaCooldownUntil) {}
 
@@ -102,7 +122,7 @@ public final class BehavioralEvidenceService {
             Instant lastDecisionAt,
             Instant lastAddAt,
             boolean averagingDown,
-            boolean thesisImproving,
+            boolean independentNewEvidence,
             boolean anchoredToCostBasis,
             int holdingTradingDays,
             boolean thesisProgress,
