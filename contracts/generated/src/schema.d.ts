@@ -340,6 +340,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/market/macro-background": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["macroBackground"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/market/regime": {
     parameters: {
       query?: never;
@@ -348,6 +364,22 @@ export interface paths {
       cookie?: never;
     };
     get: operations["regime"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/market/volatility": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["volatility"];
     put?: never;
     post?: never;
     delete?: never;
@@ -366,6 +398,22 @@ export interface paths {
     get: operations["find"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/portfolio-imports/{batchId}/cashflow-confirmation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["confirmCashflow"];
     delete?: never;
     options?: never;
     head?: never;
@@ -791,6 +839,17 @@ export interface components {
       decisionType?: string;
       idempotencyKey: string;
       rationale?: string;
+      reasonTags?: (
+        | "NEW_FUNDAMENTAL_EVIDENCE"
+        | "VALUATION"
+        | "PRICE_CONFIRMATION"
+        | "CATALYST"
+        | "RISK_REDUCTION"
+        | "COST_BASIS_ANCHOR"
+        | "HISTORICAL_HIGH_ANCHOR"
+        | "LOSS_AVERSION"
+        | "SOCIAL_IDEA"
+      )[];
     };
     AcknowledgementResponse: {
       /** Format: date-time */
@@ -892,6 +951,9 @@ export interface components {
       tacticalReserve: string;
       totalLiquidAssets: string;
     };
+    CashflowConfirmationRequest: {
+      type: string;
+    };
     CashflowPlanRequest: {
       emergencyCash: number;
       monthlyExpenses: number;
@@ -908,6 +970,12 @@ export interface components {
       tacticalReserve?: string;
       techCore?: string;
     };
+    CashflowReconciliationResponse: {
+      cashChange?: string;
+      /** Format: uuid */
+      reconciliationId?: string;
+      status?: string;
+    };
     CashResponse: {
       accountName?: string;
       accountNumberMasked?: string;
@@ -920,7 +988,8 @@ export interface components {
       warnings?: string[];
     };
     CashSetupRequest: {
-      amount: string;
+      externalAmount: string;
+      fidelityAmount: string;
       location: string;
     };
     ChartBarResponse: {
@@ -985,6 +1054,7 @@ export interface components {
       analysisState?: string;
       /** Format: uuid */
       batchId?: string;
+      cashflowReconciliation?: components["schemas"]["CashflowReconciliationResponse"];
       /** Format: int32 */
       cashRowCount?: number;
       /** Format: int32 */
@@ -1446,7 +1516,18 @@ export interface components {
       plannedR?: string;
       plannedRiskAmount?: string;
       realizedR?: string;
+      reasonTags?: string;
       taxStatus?: string;
+    };
+    MacroBackgroundResponse: {
+      curveState?: string;
+      fedFundsRate?: string;
+      includedInAggregateStress?: boolean;
+      quality?: string;
+      rateStress?: string;
+      tenYearRealYield?: string;
+      tenYearYield?: string;
+      twoYearYield?: string;
     };
     ManualHoldingRequest: {
       accountName: string;
@@ -1871,10 +1952,22 @@ export interface components {
       snapshot?: components["schemas"]["DrawdownResponse"];
       status?: string;
     };
+    SnapshotEnvelopeMacroBackgroundResponse: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      snapshot?: components["schemas"]["MacroBackgroundResponse"];
+      status?: string;
+    };
     SnapshotEnvelopeRegimeResponse: {
       /** Format: date-time */
       dataAsOf?: string;
       snapshot?: components["schemas"]["RegimeResponse"];
+      status?: string;
+    };
+    SnapshotEnvelopeVolatilityResponse: {
+      /** Format: date-time */
+      dataAsOf?: string;
+      snapshot?: components["schemas"]["VolatilityResponse"];
       status?: string;
     };
     SpeculativeEvidence: {
@@ -2085,6 +2178,25 @@ export interface components {
       strategyPublishState?: string;
       strategyVersion?: string;
       version?: string;
+    };
+    VolatilityResponse: {
+      quality?: string;
+      techStressState?: string;
+      vix?: string;
+      vix3m?: string;
+      vixDelta1d?: string;
+      vixDelta2d?: string;
+      vixDelta5d?: string;
+      vixPercentile?: string;
+      vixTermRatio?: string;
+      vixTermState?: string;
+      vxn?: string;
+      vxnDelta1d?: string;
+      vxnDelta2d?: string;
+      vxnDelta5d?: string;
+      vxnPercentile?: string;
+      vxnVixRatio?: string;
+      vxnVixSpread?: string;
     };
     WorkerStatus: {
       alive?: boolean;
@@ -2558,6 +2670,26 @@ export interface operations {
       };
     };
   };
+  macroBackground: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["SnapshotEnvelopeMacroBackgroundResponse"];
+        };
+      };
+    };
+  };
   regime: {
     parameters: {
       query?: never;
@@ -2574,6 +2706,26 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["SnapshotEnvelopeRegimeResponse"];
+        };
+      };
+    };
+  };
+  volatility: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["SnapshotEnvelopeVolatilityResponse"];
         };
       };
     };
@@ -2596,6 +2748,32 @@ export interface operations {
         };
         content: {
           "*/*": components["schemas"]["PreviewResponse"];
+        };
+      };
+    };
+  };
+  confirmCashflow: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        batchId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CashflowConfirmationRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "*/*": components["schemas"]["CashflowReconciliationResponse"];
         };
       };
     };

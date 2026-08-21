@@ -1,7 +1,5 @@
 package com.example.portfolio.portfolio;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -20,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/api/v1/recommendations")
@@ -99,7 +99,7 @@ class RecommendationAcknowledgementController {
     private String reasonTagsJson(Set<DecisionReasonTag> reasonTags) {
         try {
             return json.writeValueAsString(reasonTags);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Validated reason tags could not be serialized", exception);
         }
     }

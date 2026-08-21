@@ -6,6 +6,7 @@ import com.example.portfolio.analysis.infrastructure.PositionAnalystDataStore;
 import com.example.portfolio.estimates.EstimateConsensusMath;
 import com.example.portfolio.estimates.EstimateRevisionEngine;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.security.Principal;
 import java.time.Clock;
@@ -511,6 +512,7 @@ public final class PositionReportController {
             boolean atHardMax,
             String capacityExplanation) {}
 
+    @Schema(name = "PositionMarket")
     public record Market(
             String price,
             String dayChangePct,
@@ -614,6 +616,7 @@ public final class PositionReportController {
             String quality,
             Instant dataAsOf) {}
 
+    @Schema(name = "PositionRisk")
     public record Risk(
             String currentWeight,
             String normalMaxWeight,

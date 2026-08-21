@@ -88,6 +88,24 @@
           },
           "rationale": {
             "type": "string"
+          },
+          "reasonTags": {
+            "items": {
+              "enum": [
+                "NEW_FUNDAMENTAL_EVIDENCE",
+                "VALUATION",
+                "PRICE_CONFIRMATION",
+                "CATALYST",
+                "RISK_REDUCTION",
+                "COST_BASIS_ANCHOR",
+                "HISTORICAL_HIGH_ANCHOR",
+                "LOSS_AVERSION",
+                "SOCIAL_IDEA"
+              ],
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
           }
         },
         "required": ["idempotencyKey"],
@@ -397,6 +415,15 @@
         ],
         "type": "object"
       },
+      "CashflowConfirmationRequest": {
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type"],
+        "type": "object"
+      },
       "CashflowPlanRequest": {
         "properties": {
           "emergencyCash": {
@@ -450,6 +477,21 @@
         },
         "type": "object"
       },
+      "CashflowReconciliationResponse": {
+        "properties": {
+          "cashChange": {
+            "type": "string"
+          },
+          "reconciliationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "CashResponse": {
         "properties": {
           "accountName": {
@@ -485,14 +527,17 @@
       },
       "CashSetupRequest": {
         "properties": {
-          "amount": {
+          "externalAmount": {
+            "type": "string"
+          },
+          "fidelityAmount": {
             "type": "string"
           },
           "location": {
             "type": "string"
           }
         },
-        "required": ["amount", "location"],
+        "required": ["externalAmount", "fidelityAmount", "location"],
         "type": "object"
       },
       "ChartBarResponse": {
@@ -680,6 +725,9 @@
           "batchId": {
             "format": "uuid",
             "type": "string"
+          },
+          "cashflowReconciliation": {
+            "$ref": "#/components/schemas/CashflowReconciliationResponse"
           },
           "cashRowCount": {
             "format": "int32",
@@ -1974,7 +2022,39 @@
           "realizedR": {
             "type": "string"
           },
+          "reasonTags": {
+            "type": "string"
+          },
           "taxStatus": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MacroBackgroundResponse": {
+        "properties": {
+          "curveState": {
+            "type": "string"
+          },
+          "fedFundsRate": {
+            "type": "string"
+          },
+          "includedInAggregateStress": {
+            "type": "boolean"
+          },
+          "quality": {
+            "type": "string"
+          },
+          "rateStress": {
+            "type": "string"
+          },
+          "tenYearRealYield": {
+            "type": "string"
+          },
+          "tenYearYield": {
+            "type": "string"
+          },
+          "twoYearYield": {
             "type": "string"
           }
         },
@@ -3180,6 +3260,21 @@
         },
         "type": "object"
       },
+      "SnapshotEnvelopeMacroBackgroundResponse": {
+        "properties": {
+          "dataAsOf": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/MacroBackgroundResponse"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "SnapshotEnvelopeRegimeResponse": {
         "properties": {
           "dataAsOf": {
@@ -3188,6 +3283,21 @@
           },
           "snapshot": {
             "$ref": "#/components/schemas/RegimeResponse"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SnapshotEnvelopeVolatilityResponse": {
+        "properties": {
+          "dataAsOf": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/VolatilityResponse"
           },
           "status": {
             "type": "string"
@@ -3843,6 +3953,62 @@
         },
         "type": "object"
       },
+      "VolatilityResponse": {
+        "properties": {
+          "quality": {
+            "type": "string"
+          },
+          "techStressState": {
+            "type": "string"
+          },
+          "vix": {
+            "type": "string"
+          },
+          "vix3m": {
+            "type": "string"
+          },
+          "vixDelta1d": {
+            "type": "string"
+          },
+          "vixDelta2d": {
+            "type": "string"
+          },
+          "vixDelta5d": {
+            "type": "string"
+          },
+          "vixPercentile": {
+            "type": "string"
+          },
+          "vixTermRatio": {
+            "type": "string"
+          },
+          "vixTermState": {
+            "type": "string"
+          },
+          "vxn": {
+            "type": "string"
+          },
+          "vxnDelta1d": {
+            "type": "string"
+          },
+          "vxnDelta2d": {
+            "type": "string"
+          },
+          "vxnDelta5d": {
+            "type": "string"
+          },
+          "vxnPercentile": {
+            "type": "string"
+          },
+          "vxnVixRatio": {
+            "type": "string"
+          },
+          "vxnVixSpread": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "WorkerStatus": {
         "properties": {
           "alive": {
@@ -4411,6 +4577,24 @@
         "tags": ["market-data-controller"]
       }
     },
+    "/api/v1/market/macro-background": {
+      "get": {
+        "operationId": "macroBackground",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotEnvelopeMacroBackgroundResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": ["market-context-controller"]
+      }
+    },
     "/api/v1/market/regime": {
       "get": {
         "operationId": "regime",
@@ -4420,6 +4604,24 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/SnapshotEnvelopeRegimeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": ["market-context-controller"]
+      }
+    },
+    "/api/v1/market/volatility": {
+      "get": {
+        "operationId": "volatility",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotEnvelopeVolatilityResponse"
                 }
               }
             },
@@ -4449,6 +4651,45 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": ["portfolio-import-controller"]
+      }
+    },
+    "/api/v1/portfolio-imports/{batchId}/cashflow-confirmation": {
+      "post": {
+        "operationId": "confirmCashflow",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batchId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashflowConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashflowReconciliationResponse"
                 }
               }
             },

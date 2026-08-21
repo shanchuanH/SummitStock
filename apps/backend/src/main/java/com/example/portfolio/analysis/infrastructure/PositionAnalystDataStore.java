@@ -13,7 +13,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public final class PositionAnalystDataStore {
+public class PositionAnalystDataStore {
     private static final MathContext CALCULATION = MathContext.DECIMAL64;
     private final JdbcClient jdbc;
 
