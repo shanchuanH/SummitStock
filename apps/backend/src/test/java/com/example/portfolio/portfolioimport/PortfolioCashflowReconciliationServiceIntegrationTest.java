@@ -21,9 +21,9 @@ class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImp
                 .single();
 
         var cashOnlyBefore = reconciliation.before(userId);
-        update("UPDATE cash_bucket c JOIN investment_account a ON a.id=c.account_id "
-                + "SET c.current_amount=c.current_amount+7000 WHERE a.user_id=UUID_TO_BIN('" + userId
-                + "') AND a.import_source='FIDELITY_CSV' AND c.bucket_type='ALLOCATED_TRADE'");
+        update(
+                "UPDATE broker_cash_snapshot SET cash_amount=cash_amount+7000,data_as_of=DATE_ADD(data_as_of,INTERVAL 1 SECOND) "
+                        + "WHERE user_id=UUID_TO_BIN('" + userId + "')");
         var required = reconciliation.reconcile(userId, uuid(confirmed, "batchId"), cashOnlyBefore);
 
         assertThat(required.status()).isEqualTo("REQUIRED");
@@ -38,9 +38,9 @@ class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImp
                 .isEqualTo(1);
 
         var internalBefore = reconciliation.before(userId);
-        update("UPDATE cash_bucket c JOIN investment_account a ON a.id=c.account_id "
-                + "SET c.current_amount=c.current_amount-120 WHERE a.user_id=UUID_TO_BIN('" + userId
-                + "') AND a.import_source='FIDELITY_CSV' AND c.bucket_type='ALLOCATED_TRADE'");
+        update(
+                "UPDATE broker_cash_snapshot SET cash_amount=cash_amount-120,data_as_of=DATE_ADD(data_as_of,INTERVAL 1 SECOND) "
+                        + "WHERE user_id=UUID_TO_BIN('" + userId + "')");
         update("UPDATE position SET quantity=quantity+1,market_value=market_value+120 "
                 + "WHERE id=(SELECT id FROM (SELECT p.id FROM position p "
                 + "JOIN investment_account a ON a.id=p.account_id WHERE a.user_id=UUID_TO_BIN('" + userId

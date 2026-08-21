@@ -37,16 +37,12 @@ public class PortfolioCashflowReconciliationService {
 
     public Result reconcile(UUID userId, UUID batchId, Snapshot before) {
         var after = snapshot(userId);
-        var cashChange = after.brokerCash().subtract(before.brokerCash());
-        if (!before.portfolioEstablished()) return new Result(null, "BASELINE_ESTABLISHED", cashChange);
-        if (cashChange.signum() == 0) return new Result(null, "NO_CASH_CHANGE", BigDecimal.ZERO);
-
-        var trade = tradeExplanation(before, after);
-        var tolerance = after.brokerValue().multiply(VALUE_TOLERANCE).max(MIN_TOLERANCE);
-        if (trade.quantityChanged()
-                && cashChange.add(trade.netPurchaseValue()).abs().compareTo(tolerance) <= 0) {
-            return new Result(null, "RECONCILED_INTERNAL_TRADE", cashChange);
+        var assessment = assess(before, after);
+        var cashChange = assessment.cashChange();
+        if (!"REQUIRED".equals(assessment.status())) {
+            return new Result(null, assessment.status(), cashChange);
         }
+        var trade = tradeExplanation(before, after);
 
         var id = UUID.randomUUID();
         jdbc.sql(
@@ -72,6 +68,19 @@ public class PortfolioCashflowReconciliationService {
                 .update();
         auditRequired(userId, batchId, cashChange, trade.netPurchaseValue());
         return pending(batchId);
+    }
+
+    static Assessment assess(Snapshot before, Snapshot after) {
+        var cashChange = after.brokerCash().subtract(before.brokerCash());
+        if (!before.rawCashEstablished()) return new Assessment("BASELINE_ESTABLISHED", cashChange);
+        if (cashChange.signum() == 0) return new Assessment("NO_CASH_CHANGE", BigDecimal.ZERO);
+        var trade = tradeExplanation(before, after);
+        var tolerance = after.brokerValue().multiply(VALUE_TOLERANCE).max(MIN_TOLERANCE);
+        if (trade.quantityChanged()
+                && cashChange.add(trade.netPurchaseValue()).abs().compareTo(tolerance) <= 0) {
+            return new Assessment("RECONCILED_INTERNAL_TRADE", cashChange);
+        }
+        return new Assessment("REQUIRED", cashChange);
     }
 
     @Transactional
@@ -158,15 +167,18 @@ public class PortfolioCashflowReconciliationService {
     }
 
     private Snapshot snapshot(UUID userId) {
-        var cash = jdbc.sql(
+        var rawCash = jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(c.current_amount),0) FROM cash_bucket c
-                        JOIN investment_account a ON a.id=c.account_id
-                        WHERE c.user_id=UUID_TO_BIN(:userId) AND c.bucket_type='ALLOCATED_TRADE'
-                          AND a.import_source='FIDELITY_CSV'
+                        SELECT COUNT(*) evidenceCount,COALESCE(SUM(s.cash_amount),0) brokerCash
+                        FROM broker_cash_snapshot s
+                        WHERE s.import_batch_id=(
+                          SELECT latest.import_batch_id FROM broker_cash_snapshot latest
+                          WHERE latest.user_id=UUID_TO_BIN(:userId) AND latest.source='FIDELITY_CSV'
+                          ORDER BY latest.data_as_of DESC,latest.created_at DESC LIMIT 1
+                        )
                         """)
                 .param("userId", userId.toString())
-                .query(BigDecimal.class)
+                .query(RawCashTotal.class)
                 .single();
         var positions = jdbc.sql(
                         """
@@ -181,7 +193,8 @@ public class PortfolioCashflowReconciliationService {
                 .map(PositionBalance::marketValue)
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new Snapshot(cash, cash.add(holdings), !positions.isEmpty(), positions);
+        return new Snapshot(
+                rawCash.brokerCash(), rawCash.brokerCash().add(holdings), rawCash.evidenceCount() > 0, positions);
     }
 
     private void auditRequired(UUID userId, UUID batchId, BigDecimal cashChange, BigDecimal tradeValue) {
@@ -210,14 +223,18 @@ public class PortfolioCashflowReconciliationService {
     public record Snapshot(
             BigDecimal brokerCash,
             BigDecimal brokerValue,
-            boolean portfolioEstablished,
+            boolean rawCashEstablished,
             List<PositionBalance> positions) {}
 
     public record PositionBalance(UUID instrumentId, BigDecimal quantity, BigDecimal marketValue) {}
 
     record TradeExplanation(boolean quantityChanged, BigDecimal netPurchaseValue) {}
 
+    record Assessment(String status, BigDecimal cashChange) {}
+
     private record PendingRow(UUID id, UUID userId, BigDecimal cashChange, String status) {}
+
+    private record RawCashTotal(long evidenceCount, BigDecimal brokerCash) {}
 
     public record Result(UUID reconciliationId, String status, BigDecimal cashChange) {}
 }

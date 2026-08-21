@@ -119,6 +119,7 @@ public class PortfolioReconciliationService {
                     throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Unsupported import row type");
             }
         }
+        cashByAccount.forEach((accountId, amount) -> persistRawBrokerCash(userId, accountId, batchId, amount));
         cashByAccount.forEach((accountId, amount) -> upsertCash(userId, accountId, amount));
         applyCashSetup(userId, batchId, cashByAccount, command.cashSetup());
         return new ReconciliationResult(positionIds.size(), closed, cashByAccount.size(), compensationKeys.size());
@@ -447,6 +448,33 @@ public class PortfolioReconciliationService {
                 .param("accountId", accountId.toString())
                 .param("amount", amount)
                 .param("now", clock.instant())
+                .update();
+    }
+
+    private void persistRawBrokerCash(UUID userId, UUID accountId, UUID batchId, BigDecimal amount) {
+        var now = clock.instant();
+        var checksum = sha256(batchId + "|" + accountId + "|USD|"
+                + amount.stripTrailingZeros().toPlainString());
+        jdbc.sql(
+                        """
+                        INSERT INTO broker_cash_snapshot (
+                          id,user_id,account_id,import_batch_id,source,cash_amount,currency,
+                          statement_as_of,data_as_of,evidence_checksum,created_at)
+                        SELECT UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:accountId),b.id,
+                               'FIDELITY_CSV',:amount,'USD',b.data_as_of,:dataAsOf,:checksum,:createdAt
+                        FROM portfolio_import_batch b WHERE b.id=UUID_TO_BIN(:batchId)
+                        ON DUPLICATE KEY UPDATE cash_amount=VALUES(cash_amount),
+                          statement_as_of=VALUES(statement_as_of),data_as_of=VALUES(data_as_of),
+                          evidence_checksum=VALUES(evidence_checksum)
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("userId", userId.toString())
+                .param("accountId", accountId.toString())
+                .param("batchId", batchId.toString())
+                .param("amount", amount)
+                .param("dataAsOf", now)
+                .param("checksum", checksum)
+                .param("createdAt", now)
                 .update();
     }
 

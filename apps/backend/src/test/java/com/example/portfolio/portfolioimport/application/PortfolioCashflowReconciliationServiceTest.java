@@ -9,6 +9,55 @@ import org.junit.jupiter.api.Test;
 
 class PortfolioCashflowReconciliationServiceTest {
     @Test
+    void strategyBucketReallocationCannotCreateAReportedBrokerCashflow() {
+        var positions = List.<PortfolioCashflowReconciliationService.PositionBalance>of();
+        var before = snapshot("30000", "30000", positions);
+        var after = snapshot("30000", "30000", positions);
+
+        var result = PortfolioCashflowReconciliationService.assess(before, after);
+
+        assertThat(result.status()).isEqualTo("NO_CASH_CHANGE");
+        assertThat(result.cashChange()).isZero();
+    }
+
+    @Test
+    void rawBrokerCashIncreaseWithoutPositionChangeRequiresReconciliation() {
+        var positions = List.<PortfolioCashflowReconciliationService.PositionBalance>of();
+
+        var result = PortfolioCashflowReconciliationService.assess(
+                snapshot("30000", "30000", positions), snapshot("35000", "35000", positions));
+
+        assertThat(result.status()).isEqualTo("REQUIRED");
+        assertThat(result.cashChange()).isEqualByComparingTo("5000");
+    }
+
+    @Test
+    void cashDecreaseMatchedByPositionPurchaseIsAnInternalTrade() {
+        var instrument = UUID.randomUUID();
+        var beforePositions = List.of(position(instrument, "10", "10000"));
+        var afterPositions = List.of(position(instrument, "20", "20000"));
+
+        var result = PortfolioCashflowReconciliationService.assess(
+                snapshot("30000", "40000", beforePositions), snapshot("20000", "40000", afterPositions));
+
+        assertThat(result.status()).isEqualTo("RECONCILED_INTERNAL_TRADE");
+        assertThat(result.cashChange()).isEqualByComparingTo("-10000");
+    }
+
+    @Test
+    void cashIncreaseMatchedByPositionSaleIsAnInternalTrade() {
+        var instrument = UUID.randomUUID();
+        var beforePositions = List.of(position(instrument, "20", "20000"));
+        var afterPositions = List.of(position(instrument, "10", "10000"));
+
+        var result = PortfolioCashflowReconciliationService.assess(
+                snapshot("30000", "50000", beforePositions), snapshot("40000", "50000", afterPositions));
+
+        assertThat(result.status()).isEqualTo("RECONCILED_INTERNAL_TRADE");
+        assertThat(result.cashChange()).isEqualByComparingTo("10000");
+    }
+
+    @Test
     void derivesInternalTradeValueFromQuantityDeltaWithoutUsingMarketGainAsCashflow() {
         var instrument = UUID.randomUUID();
         var before = new PortfolioCashflowReconciliationService.Snapshot(
@@ -45,5 +94,17 @@ class PortfolioCashflowReconciliationServiceTest {
         assertThat(PortfolioCashflowReconciliationService.tradeExplanation(before, after)
                         .quantityChanged())
                 .isFalse();
+    }
+
+    private static PortfolioCashflowReconciliationService.Snapshot snapshot(
+            String cash, String brokerValue, List<PortfolioCashflowReconciliationService.PositionBalance> positions) {
+        return new PortfolioCashflowReconciliationService.Snapshot(
+                new BigDecimal(cash), new BigDecimal(brokerValue), true, positions);
+    }
+
+    private static PortfolioCashflowReconciliationService.PositionBalance position(
+            UUID instrument, String quantity, String marketValue) {
+        return new PortfolioCashflowReconciliationService.PositionBalance(
+                instrument, new BigDecimal(quantity), new BigDecimal(marketValue));
     }
 }
