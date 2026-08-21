@@ -6,7 +6,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -83,12 +82,13 @@ public class ValuationEvidenceStore {
         return jdbc.sql(
                         """
                         WITH ranked AS (
-                          SELECT market_date,close_price,
+                          SELECT market_date,close_price,data_as_of,
                                  ROW_NUMBER() OVER (PARTITION BY YEARWEEK(market_date,3) ORDER BY market_date DESC,data_as_of DESC) rn
                           FROM price_bar WHERE instrument_id=UUID_TO_BIN(:instrumentId) AND adjusted=TRUE
                             AND market_date BETWEEN :fromDate AND :toDate
                         )
-                        SELECT market_date marketDate,close_price price FROM ranked WHERE rn=1 ORDER BY market_date
+                        SELECT market_date marketDate,close_price price,data_as_of dataAsOf
+                        FROM ranked WHERE rn=1 ORDER BY market_date
                         """)
                 .param("instrumentId", instrumentId.toString())
                 .param("fromDate", from)
@@ -125,8 +125,13 @@ public class ValuationEvidenceStore {
                 .list();
     }
 
-    public int saveBootstrapMetrics(UUID instrumentId, LocalDate marketDate, ValuationEngineV2.Metrics value) {
-        var checksum = sha256(instrumentId + "|" + marketDate + "|point-in-time-bootstrap-v1|" + value);
+    public int saveBootstrapMetrics(
+            UUID instrumentId,
+            LocalDate marketDate,
+            ValuationEngineV2.Metrics value,
+            java.time.Instant evidenceDataAsOf) {
+        var checksum = sha256(
+                instrumentId + "|" + marketDate + "|point-in-time-bootstrap-v2|" + value + "|" + evidenceDataAsOf);
         return jdbc.sql(
                         """
                         INSERT IGNORE INTO valuation_metric_history (
@@ -134,7 +139,7 @@ public class ValuationEvidenceStore {
                           market_cap,source,quality,evidence_checksum,data_as_of,created_at
                         ) VALUES (
                           UUID_TO_BIN(:id),UUID_TO_BIN(:instrumentId),:marketDate,:trailingPe,:forwardPe,:evSales,
-                          :fcfYield,:priceSales,:marketCap,'point-in-time-bootstrap-v1',:quality,:checksum,:dataAsOf,:now
+                          :fcfYield,:priceSales,:marketCap,'point-in-time-bootstrap-v2',:quality,:checksum,:dataAsOf,:now
                         )
                         """)
                 .param("id", UUID.randomUUID().toString())
@@ -148,7 +153,7 @@ public class ValuationEvidenceStore {
                 .param("marketCap", value.marketCap())
                 .param("quality", ValuationEngineV2.availableFamilyCount(value) >= 2 ? "HEALTHY" : "PARTIAL")
                 .param("checksum", checksum)
-                .param("dataAsOf", marketDate.atStartOfDay().toInstant(ZoneOffset.UTC))
+                .param("dataAsOf", evidenceDataAsOf)
                 .param("now", clock.instant())
                 .update();
     }
@@ -247,7 +252,7 @@ public class ValuationEvidenceStore {
 
     public record ValuationInstrument(UUID id, String symbol) {}
 
-    public record WeeklyPrice(LocalDate marketDate, BigDecimal price) {}
+    public record WeeklyPrice(LocalDate marketDate, BigDecimal price, java.time.Instant dataAsOf) {}
 
     public record InputRow(
             UUID instrumentId,

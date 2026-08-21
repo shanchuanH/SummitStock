@@ -1,15 +1,18 @@
 package com.example.portfolio.valuation;
 
+import com.example.portfolio.market.provider.TradingCalendar;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ValuationBootstrapService {
     private final ValuationEvidenceStore store;
+    private final TradingCalendar tradingCalendar;
     private final PointInTimeValuationAssembler assembler = new PointInTimeValuationAssembler();
 
-    public ValuationBootstrapService(ValuationEvidenceStore store) {
+    public ValuationBootstrapService(ValuationEvidenceStore store, TradingCalendar tradingCalendar) {
         this.store = store;
+        this.tradingCalendar = tradingCalendar;
     }
 
     public int bootstrap(LocalDate marketDate) {
@@ -18,7 +21,10 @@ public class ValuationBootstrapService {
             var metrics = store.pointInTimeMetrics(instrument.id());
             var estimates = store.pointInTimeEstimates(instrument.id());
             for (var price : store.weeklyPrices(instrument.id(), marketDate.minusYears(5), marketDate)) {
-                var inputs = assembler.assemble(price.marketDate(), metrics, estimates);
+                var completedClose = tradingCalendar.sessionClose(price.marketDate());
+                var priceAvailability = price.dataAsOf().isAfter(completedClose) ? price.dataAsOf() : completedClose;
+                var pointInTime = assembler.assemble(price.marketDate(), priceAvailability, metrics, estimates);
+                var inputs = pointInTime.inputs();
                 if (inputs.commonShares() == null) continue;
                 var row = new ValuationEvidenceStore.InputRow(
                         instrument.id(),
@@ -36,7 +42,10 @@ public class ValuationBootstrapService {
                         null,
                         null);
                 affected += store.saveBootstrapMetrics(
-                        instrument.id(), price.marketDate(), ValuationApplicationService.metrics(row));
+                        instrument.id(),
+                        price.marketDate(),
+                        ValuationApplicationService.metrics(row),
+                        pointInTime.evidenceDataAsOf());
             }
         }
         return affected;
