@@ -1,6 +1,7 @@
 package com.example.portfolio.portfolio;
 
 import com.example.portfolio.analysis.application.PublishedStrategyService;
+import com.example.portfolio.analysis.capital.CapitalBase;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -72,6 +73,10 @@ public class PortfolioStore {
                 .param("email", email)
                 .query(PortfolioSummaryView.class)
                 .single();
+    }
+
+    public CapitalBase capitalBase(String email) {
+        return findUserId(email).map(capitalBases::calculate).orElseGet(capitalBases::empty);
     }
 
     public List<PositionView> positions(String email) {
@@ -165,12 +170,10 @@ public class PortfolioStore {
                                 WHERE e.instrument_id=o.instrument_id AND e.event_at>=UTC_TIMESTAMP(6)) nextEvent,
                                COALESCE(h.readiness,o.data_readiness,'WAIT_FOR_DATA') dataStatus
                         FROM owned o
-                        LEFT JOIN holding_analysis_snapshot h ON h.id=(
-                            SELECT x.id FROM holding_analysis_snapshot x WHERE x.position_id=o.id
-                            ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)
                         LEFT JOIN recommendation r ON r.id=(
                             SELECT y.id FROM recommendation y WHERE y.position_id=o.id AND y.status='ACTIVE'
                             ORDER BY y.data_as_of DESC,y.created_at DESC LIMIT 1)
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
                         LEFT JOIN quote q ON q.id=(
                             SELECT z.id FROM quote z WHERE z.instrument_id=o.instrument_id
                             ORDER BY z.data_as_of DESC,z.created_at DESC LIMIT 1)
@@ -188,11 +191,14 @@ public class PortfolioStore {
     }
 
     private UUID userId(String email) {
+        return findUserId(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private Optional<UUID> findUserId(String email) {
         return jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email=:email")
                 .param("email", email)
                 .query(UUID.class)
-                .optional()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .optional();
     }
 
     @Transactional

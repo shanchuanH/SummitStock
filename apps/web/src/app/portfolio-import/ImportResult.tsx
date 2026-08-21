@@ -57,6 +57,7 @@ export function ImportResult({
   >("EXTERNAL_CASHFLOW");
   const [cashflowBusy, setCashflowBusy] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [polledRunId, setPolledRunId] = useState(result.analysisRunId);
 
   async function confirmCashflow() {
     setCashflowBusy(true);
@@ -75,8 +76,11 @@ export function ImportResult({
   async function reanalyze() {
     setReanalyzing(true);
     try {
-      await postJson("/api/v1/analysis/runs", { reason: "USER_REFRESH" });
-      await refresh();
+      const next = await postJson<{ runId: string }>("/api/v1/analysis/runs", {
+        reason: "USER_REFRESH",
+      });
+      setStatus(undefined);
+      setPolledRunId(next.runId);
     } finally {
       setReanalyzing(false);
     }
@@ -84,13 +88,10 @@ export function ImportResult({
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch(
-        `/api/v1/analysis/status/${result.analysisRunId}`,
-        {
-          cache: "no-store",
-          credentials: "same-origin",
-        },
-      );
+      const response = await fetch(`/api/v1/analysis/status/${polledRunId}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
       setStatus((await response.json()) as AnalysisStatus);
       setRequestError(undefined);
@@ -99,7 +100,7 @@ export function ImportResult({
         error instanceof Error ? error.message : "STATUS_UNAVAILABLE",
       );
     }
-  }, [result.analysisRunId]);
+  }, [polledRunId]);
 
   useEffect(() => {
     void refresh();
@@ -143,14 +144,21 @@ export function ImportResult({
               {label}
             </label>
           ))}
-          <button disabled={cashflowBusy} onClick={() => void confirmCashflow()} type="button">
+          <button
+            disabled={cashflowBusy}
+            onClick={() => void confirmCashflow()}
+            type="button"
+          >
             确认现金变化
           </button>
           {cashflowType === "OTHER" ? (
-            <small>选择“其他”会继续保留 NAV 待核对状态，不会生成高置信度回撤。</small>
+            <small>
+              选择“其他”会继续保留 NAV 待核对状态，不会生成高置信度回撤。
+            </small>
           ) : null}
         </section>
-      ) : cashflow.status !== "NONE" && cashflow.status !== "BASELINE_ESTABLISHED" ? (
+      ) : cashflow.status !== "NONE" &&
+        cashflow.status !== "BASELINE_ESTABLISHED" ? (
         <p role="status">现金变化已核对：{cashflow.status}</p>
       ) : null}
       {requestError ? (
@@ -186,7 +194,11 @@ export function ImportResult({
       ) : null}
       {status?.state === "STALLED" ? (
         <div className="analysis-recovery-actions">
-          <button disabled={reanalyzing} onClick={() => void reanalyze()} type="button">
+          <button
+            disabled={reanalyzing}
+            onClick={() => void reanalyze()}
+            type="button"
+          >
             {reanalyzing ? "正在重新分析…" : "重新分析"}
           </button>
           <a href="/advanced/data-health">检查数据源</a>

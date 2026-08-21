@@ -32,7 +32,7 @@ class PortfolioCashflowReconciliationServiceTest {
     }
 
     @Test
-    void cashDecreaseMatchedByPositionPurchaseIsAnInternalTrade() {
+    void marketValueDeltaCannotAutoClassifyAnInternalTrade() {
         var instrument = UUID.randomUUID();
         var beforePositions = List.of(position(instrument, "10", "10000"));
         var afterPositions = List.of(position(instrument, "20", "20000"));
@@ -40,12 +40,12 @@ class PortfolioCashflowReconciliationServiceTest {
         var result = PortfolioCashflowReconciliationService.assess(
                 snapshot("30000", "40000", beforePositions), snapshot("20000", "40000", afterPositions));
 
-        assertThat(result.status()).isEqualTo("RECONCILED_INTERNAL_TRADE");
+        assertThat(result.status()).isEqualTo("REQUIRED");
         assertThat(result.cashChange()).isEqualByComparingTo("-10000");
     }
 
     @Test
-    void cashIncreaseMatchedByPositionSaleIsAnInternalTrade() {
+    void positionSaleValueDeltaStillRequiresReliableExecutionEvidence() {
         var instrument = UUID.randomUUID();
         var beforePositions = List.of(position(instrument, "20", "20000"));
         var afterPositions = List.of(position(instrument, "10", "10000"));
@@ -53,12 +53,12 @@ class PortfolioCashflowReconciliationServiceTest {
         var result = PortfolioCashflowReconciliationService.assess(
                 snapshot("30000", "50000", beforePositions), snapshot("40000", "50000", afterPositions));
 
-        assertThat(result.status()).isEqualTo("RECONCILED_INTERNAL_TRADE");
+        assertThat(result.status()).isEqualTo("REQUIRED");
         assertThat(result.cashChange()).isEqualByComparingTo("10000");
     }
 
     @Test
-    void derivesInternalTradeValueFromQuantityDeltaWithoutUsingMarketGainAsCashflow() {
+    void reliableExecutionEvidenceCanReconcileInternalTrade() {
         var instrument = UUID.randomUUID();
         var before = new PortfolioCashflowReconciliationService.Snapshot(
                 new BigDecimal("1000"),
@@ -73,12 +73,9 @@ class PortfolioCashflowReconciliationServiceTest {
                 List.of(new PortfolioCashflowReconciliationService.PositionBalance(
                         instrument, new BigDecimal("12"), new BigDecimal("1200"))));
 
-        var explanation = PortfolioCashflowReconciliationService.tradeExplanation(before, after);
+        var result = PortfolioCashflowReconciliationService.assess(before, after, new BigDecimal("200"));
 
-        assertThat(explanation.quantityChanged()).isTrue();
-        assertThat(explanation.netPurchaseValue()).isEqualByComparingTo("200");
-        assertThat(after.brokerCash().subtract(before.brokerCash()).add(explanation.netPurchaseValue()))
-                .isZero();
+        assertThat(result.status()).isEqualTo("RECONCILED_INTERNAL_TRADE");
     }
 
     @Test
@@ -91,9 +88,8 @@ class PortfolioCashflowReconciliationServiceTest {
         var after = new PortfolioCashflowReconciliationService.Snapshot(
                 new BigDecimal("8000"), new BigDecimal("9100"), true, List.of(position));
 
-        assertThat(PortfolioCashflowReconciliationService.tradeExplanation(before, after)
-                        .quantityChanged())
-                .isFalse();
+        assertThat(PortfolioCashflowReconciliationService.assess(before, after).status())
+                .isEqualTo("REQUIRED");
     }
 
     private static PortfolioCashflowReconciliationService.Snapshot snapshot(

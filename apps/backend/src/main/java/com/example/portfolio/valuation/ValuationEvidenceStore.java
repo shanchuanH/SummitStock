@@ -1,5 +1,6 @@
 package com.example.portfolio.valuation;
 
+import com.example.portfolio.financialaggregation.CanonicalFinancialAggregationService;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -16,46 +17,29 @@ import org.springframework.stereotype.Repository;
 public class ValuationEvidenceStore {
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final CanonicalFinancialAggregationService financialAggregation;
 
-    public ValuationEvidenceStore(JdbcClient jdbc, Clock clock) {
+    public ValuationEvidenceStore(
+            JdbcClient jdbc, Clock clock, CanonicalFinancialAggregationService financialAggregation) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.financialAggregation = financialAggregation;
     }
 
     public List<InputRow> inputs() {
-        return jdbc.sql(
+        var rows = jdbc.sql(
                         """
-                        WITH metric_versions AS (
-                          SELECT m.instrument_id,m.period_id,m.metric_code,m.value_decimal,p.period_type,p.end_date,
-                                 ROW_NUMBER() OVER (PARTITION BY m.instrument_id,m.period_id,m.metric_code
-                                                    ORDER BY m.data_as_of DESC,m.created_at DESC) version_rank
-                          FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id
-                        ), quarterly AS (
-                          SELECT instrument_id,metric_code,value_decimal,end_date,
-                                 DENSE_RANK() OVER (PARTITION BY instrument_id,metric_code ORDER BY end_date DESC) quarter_rank
-                          FROM metric_versions WHERE version_rank=1 AND period_type='QUARTERLY'
-                        ), ttm AS (
-                          SELECT instrument_id,
-                                 CASE WHEN COUNT(CASE WHEN metric_code='DILUTED_EPS' THEN 1 END)=4
-                                      THEN SUM(CASE WHEN metric_code='DILUTED_EPS' THEN value_decimal ELSE 0 END) END eps_ttm,
-                                 CASE WHEN COUNT(CASE WHEN metric_code='REVENUE' THEN 1 END)=4
-                                      THEN SUM(CASE WHEN metric_code='REVENUE' THEN value_decimal ELSE 0 END) END revenue_ttm,
-                                 CASE WHEN COUNT(CASE WHEN metric_code='FREE_CASH_FLOW' THEN 1 END)=4
-                                      THEN SUM(CASE WHEN metric_code='FREE_CASH_FLOW' THEN value_decimal ELSE 0 END) END fcf_ttm
-                          FROM quarterly WHERE quarter_rank<=4
-                          GROUP BY instrument_id
-                        )
                         SELECT BIN_TO_UUID(i.id) instrumentId, i.symbol,
                           (SELECT q.decision_market_date FROM quote q WHERE q.instrument_id=i.id AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1) marketDate,
                           (SELECT q.last_price FROM quote q WHERE q.instrument_id=i.id AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1) price,
-                          t.eps_ttm trailingEps,
+                          NULL trailingEps,
                           (SELECT e.mean_value FROM estimate_observation e WHERE e.instrument_id=i.id
                              AND e.estimate_type='EPS' AND e.period_type='ANNUAL'
                              AND e.period_end>=(SELECT q.decision_market_date FROM quote q WHERE q.instrument_id=i.id
                                                 AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1)
                            ORDER BY e.period_end,e.data_as_of DESC LIMIT 1) forwardEps,
-                          t.revenue_ttm revenue,
-                          t.fcf_ttm freeCashFlow,
+                          NULL revenue,
+                          NULL freeCashFlow,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='CASH' ORDER BY m.data_as_of DESC LIMIT 1) cash,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='TOTAL_DEBT' ORDER BY m.data_as_of DESC LIMIT 1) totalDebt,
                           (SELECT m.value_decimal FROM financial_metric_snapshot m
@@ -65,11 +49,42 @@ public class ValuationEvidenceStore {
                           (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='REVENUE_YOY' ORDER BY m.data_as_of DESC LIMIT 1) revenueGrowth,
                           (SELECT h.overall_status FROM financial_health_snapshot h WHERE h.instrument_id=i.id ORDER BY h.data_as_of DESC LIMIT 1) health,
                           (SELECT r.overall_revision FROM estimate_revision_snapshot r WHERE r.instrument_id=i.id ORDER BY r.data_as_of DESC LIMIT 1) revision
-                        FROM instrument i LEFT JOIN ttm t ON t.instrument_id=i.id
+                        FROM instrument i
                         WHERE i.active=TRUE AND i.asset_type='EQUITY'
                         """)
                 .query(InputRow.class)
                 .list();
+        return rows.stream()
+                .map(row -> {
+                    if (row.marketDate() == null) return row;
+                    var cutoff = row.marketDate()
+                            .plusDays(1)
+                            .atStartOfDay()
+                            .toInstant(java.time.ZoneOffset.UTC)
+                            .minusNanos(1);
+                    var ttm = financialAggregation.ttm(row.instrumentId(), cutoff);
+                    return new InputRow(
+                            row.instrumentId(),
+                            row.symbol(),
+                            row.marketDate(),
+                            row.price(),
+                            value(ttm.eps()),
+                            row.forwardEps(),
+                            value(ttm.revenue()),
+                            value(ttm.freeCashFlow()),
+                            row.cash(),
+                            row.totalDebt(),
+                            row.shares(),
+                            row.revenueGrowth(),
+                            row.health(),
+                            row.revision());
+                })
+                .toList();
+    }
+
+    private static BigDecimal value(
+            com.example.portfolio.financialaggregation.CanonicalFinancialAggregation.Aggregate value) {
+        return value == null ? null : value.value();
     }
 
     public List<ValuationInstrument> valuationInstruments() {

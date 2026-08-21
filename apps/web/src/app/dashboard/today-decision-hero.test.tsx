@@ -26,6 +26,7 @@ function brief(overrides: Partial<Brief> = {}): Brief {
     },
     capital: {
       totalLiquidAssets: "1",
+      requiredEmergencyFloor: "0",
       emergencyReserve: "0",
       deployableCash: "0",
       investableAssets: "1",

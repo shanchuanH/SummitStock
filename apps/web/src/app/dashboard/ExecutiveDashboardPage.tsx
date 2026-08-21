@@ -109,6 +109,11 @@ export function ExecutiveDashboardPage() {
       ) : (
         <>
           <TodayDecisionHero brief={brief.data} />
+          {brief.data.recommendationNotice ? (
+            <section className="context-card" aria-live="polite">
+              {brief.data.recommendationNotice}
+            </section>
+          ) : null}
           <ActionSection actions={brief.data.todayPriorities} />
           <PortfolioSafetySummary brief={brief.data} />
           <DataReadinessBanner

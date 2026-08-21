@@ -105,7 +105,8 @@ public class PerformanceReviewController {
             String coreMaxDrawdown,
             String turnover,
             String budgetMultiplier,
-            List<String> ruleIds) {
+            List<String> ruleIds,
+            String performanceQuality) {
         static ActiveSleeveAccountabilityResponse from(PerformanceReviewService.Accountability v) {
             return new ActiveSleeveAccountabilityResponse(
                     v.reviewMonths(),
@@ -118,7 +119,8 @@ public class PerformanceReviewController {
                     decimal(v.coreMaxDrawdown()),
                     decimal(v.turnover()),
                     decimal(v.budgetMultiplier()),
-                    v.ruleIds());
+                    v.ruleIds(),
+                    v.performanceQuality());
         }
     }
 

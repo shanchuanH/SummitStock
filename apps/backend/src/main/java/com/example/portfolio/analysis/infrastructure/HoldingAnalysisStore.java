@@ -247,6 +247,8 @@ public class HoldingAnalysisStore {
                                h.evidence_refs evidenceRefs,
                                h.strategy_version strategyVersion, h.config_hash configHash,
                                h.data_as_of dataAsOf, h.valid_until validUntil,
+                               BIN_TO_UUID(h.analysis_run_id) analysisRunId, ar.market_date marketDate,
+                               ar.data_as_of runDataAsOf, ar.strategy_version runStrategyVersion,
                                BIN_TO_UUID(r.id) recommendationId, r.action recommendationAction,
                                r.priority recommendationPriority, r.winning_rule winningRule,
                                r.risk_before_fraction riskBeforeFraction,
@@ -260,12 +262,11 @@ public class HoldingAnalysisStore {
                         FROM position p
                         JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
-                        LEFT JOIN holding_analysis_snapshot h ON h.id=(
-                            SELECT x.id FROM holding_analysis_snapshot x WHERE x.position_id=p.id
-                            ORDER BY x.data_as_of DESC, x.created_at DESC LIMIT 1)
                         LEFT JOIN recommendation r ON r.id=(
                             SELECT y.id FROM recommendation y WHERE y.position_id=p.id AND y.user_id=a.user_id
                             ORDER BY (y.status='ACTIVE') DESC, y.data_as_of DESC, y.created_at DESC LIMIT 1)
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
+                        LEFT JOIN portfolio_analysis_run ar ON ar.id=h.analysis_run_id
                         LEFT JOIN decision_narrative n ON n.recommendation_id=r.id
                         WHERE p.id=UUID_TO_BIN(:positionId) AND a.user_id=UUID_TO_BIN(:userId)
                         """)
@@ -334,6 +335,10 @@ public class HoldingAnalysisStore {
             String configHash,
             LocalDateTime dataAsOf,
             LocalDateTime validUntil,
+            UUID analysisRunId,
+            java.time.LocalDate marketDate,
+            LocalDateTime runDataAsOf,
+            String runStrategyVersion,
             UUID recommendationId,
             String recommendationAction,
             String recommendationPriority,

@@ -207,43 +207,108 @@ export function ReviewPage() {
           {performance.data?.periods?.length ? (
             <div className="table-scroll">
               <table>
-                <thead><tr><th>期间</th><th>Portfolio TWR</th><th>SPY</th><th>QQQ</th><th>Active Sleeve</th></tr></thead>
-                <tbody>{performance.data.periods.map((period) => (
-                  <tr key={period.period}><td>{(period.period ?? "—").replace("SINCE_INCEPTION", "成立以来")}</td>
-                    <td>{formatPercent(period.portfolioTwr)}</td><td>{formatPercent(period.spyReturn)}</td>
-                    <td>{formatPercent(period.qqqReturn)}</td><td>{formatPercent(period.activeReturn)}</td></tr>
-                ))}</tbody>
+                <thead>
+                  <tr>
+                    <th>期间</th>
+                    <th>Portfolio TWR</th>
+                    <th>SPY</th>
+                    <th>QQQ</th>
+                    <th>Active Sleeve</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {performance.data.periods.map((period) => (
+                    <tr key={period.period}>
+                      <td>
+                        {(period.period ?? "—").replace(
+                          "SINCE_INCEPTION",
+                          "成立以来",
+                        )}
+                      </td>
+                      <td>{formatPercent(period.portfolioTwr)}</td>
+                      <td>{formatPercent(period.spyReturn)}</td>
+                      <td>{formatPercent(period.qqqReturn)}</td>
+                      <td>{formatPercent(period.activeReturn)}</td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
-          ) : <p>现金流调整净值历史不足，暂不显示假精确收益。</p>}
+          ) : (
+            <p>现金流调整净值历史不足，暂不显示假精确收益。</p>
+          )}
         </article>
         <article className="context-card">
           <p className="eyebrow">MONTHLY</p>
           <h2>收益贡献</h2>
-          {performance.data?.contributions?.length ? <ul>{performance.data.contributions.map((item) => (
-            <li key={item.symbol}>{item.symbol} · {formatPercent(item.contribution, 2)}pp</li>
-          ))}</ul> : <p>持仓快照历史不足，无法可靠拆分 contribution to return。</p>}
+          {performance.data?.contributions?.length ? (
+            <ul>
+              {performance.data.contributions.map((item) => (
+                <li key={item.symbol}>
+                  {item.symbol} · {formatPercent(item.contribution, 2)}pp
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>持仓快照历史不足，无法可靠拆分 contribution to return。</p>
+          )}
         </article>
         <article className="context-card">
-          <p className="eyebrow">RULE OBJECTIVE</p><h2>决策结果</h2>
-          <ul>{(performance.data?.decisionOutcomes ?? []).slice(0, 8).map((item) => (
-            <li key={item.recommendationId}>{item.symbol} · {presentAction(item.action).shortTitle} · {item.ruleObjective} · {item.evaluation}</li>
-          ))}</ul>
+          <p className="eyebrow">RULE OBJECTIVE</p>
+          <h2>决策结果</h2>
+          <ul>
+            {(performance.data?.decisionOutcomes ?? [])
+              .slice(0, 8)
+              .map((item) => (
+                <li key={item.recommendationId}>
+                  {item.symbol} · {presentAction(item.action).shortTitle} ·{" "}
+                  {item.ruleObjective} · {item.evaluation}
+                </li>
+              ))}
+          </ul>
           <p>建议按规则目标评价，不用建议后短期涨跌倒推对错。</p>
         </article>
         <article className="context-card">
-          <p className="eyebrow">ACTIVE SLEEVE</p><h2>主动仓位问责</h2>
-          {performance.data?.activeSleeve ? <dl>
-            <dt>复盘期间</dt><dd>{performance.data.activeSleeve.reviewMonths}M</dd>
-            <dt>Active return</dt><dd>{formatPercent(performance.data.activeSleeve.activeReturn)}</dd>
-            <dt>Benchmark (QQQ)</dt><dd>{formatPercent(performance.data.activeSleeve.benchmarkReturn)}</dd>
-            <dt>Relative</dt><dd>{formatPercent(performance.data.activeSleeve.relativeReturn)}</dd>
-            <dt>Contribution</dt><dd>{formatPercent(performance.data.activeSleeve.contribution, 2)}pp</dd>
-            <dt>Active max DD</dt><dd>{formatPercent(performance.data.activeSleeve.activeMaxDrawdown)}</dd>
-            <dt>Core max DD</dt><dd>{formatPercent(performance.data.activeSleeve.coreMaxDrawdown)}</dd>
-            <dt>Turnover</dt><dd>{formatPercent(performance.data.activeSleeve.turnover)}</dd>
-            <dt>预算倍数</dt><dd>{performance.data.activeSleeve.budgetMultiplier}</dd>
-          </dl> : <p>12 个月可比数据不足，暂不触发主动预算调整。</p>}
+          <p className="eyebrow">ACTIVE SLEEVE</p>
+          <h2>主动仓位问责</h2>
+          {performance.data?.activeSleeve ? (
+            <dl>
+              <dt>复盘期间</dt>
+              <dd>{performance.data.activeSleeve.reviewMonths}M</dd>
+              <dt>Active return</dt>
+              <dd>
+                {formatPercent(performance.data.activeSleeve.activeReturn)}
+              </dd>
+              <dt>Benchmark (QQQ)</dt>
+              <dd>
+                {formatPercent(performance.data.activeSleeve.benchmarkReturn)}
+              </dd>
+              <dt>Relative</dt>
+              <dd>
+                {formatPercent(performance.data.activeSleeve.relativeReturn)}
+              </dd>
+              <dt>Contribution</dt>
+              <dd>
+                {formatPercent(performance.data.activeSleeve.contribution, 2)}pp
+              </dd>
+              <dt>Active max DD</dt>
+              <dd>
+                {formatPercent(performance.data.activeSleeve.activeMaxDrawdown)}
+              </dd>
+              <dt>Core max DD</dt>
+              <dd>
+                {formatPercent(performance.data.activeSleeve.coreMaxDrawdown)}
+              </dd>
+              <dt>Turnover</dt>
+              <dd>{formatPercent(performance.data.activeSleeve.turnover)}</dd>
+              <dt>Performance quality</dt>
+              <dd>{performance.data.activeSleeve.performanceQuality}</dd>
+              <dt>预算倍数</dt>
+              <dd>{performance.data.activeSleeve.budgetMultiplier}</dd>
+            </dl>
+          ) : (
+            <p>12 个月可比数据不足，暂不触发主动预算调整。</p>
+          )}
         </article>
       </section>
       {history.isError ? <p role="alert">无法读取复盘历史。</p> : null}

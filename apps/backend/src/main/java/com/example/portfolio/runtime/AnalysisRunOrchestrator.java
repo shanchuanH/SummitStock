@@ -131,14 +131,22 @@ public class AnalysisRunOrchestrator {
         if (userId.isEmpty()) return Optional.empty();
         var activeRun = jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run
+                        SELECT BIN_TO_UUID(id) id,updated_at updatedAt FROM portfolio_analysis_run
                         WHERE user_id=UUID_TO_BIN(:userId) AND status IN ('QUEUED','RUNNING','WAITING')
                         ORDER BY created_at DESC LIMIT 1
                         """)
                 .param("userId", userId.orElseThrow().toString())
-                .query(UUID.class)
+                .query(ActiveRun.class)
                 .optional();
-        if (activeRun.isPresent()) return Optional.of(new ScheduleResult(activeRun.orElseThrow(), true));
+        if (activeRun.isPresent()) {
+            var active = activeRun.orElseThrow();
+            var stale =
+                    java.time.Duration.between(active.updatedAt().toInstant(java.time.ZoneOffset.UTC), clock.instant())
+                                    .compareTo(java.time.Duration.ofSeconds(120))
+                            >= 0;
+            if (!stale) return Optional.of(new ScheduleResult(active.id(), true));
+            abandonStalled(active.id());
+        }
         var runKey = "manual:" + userId.orElseThrow() + ":" + marketDate + ":" + properties.strategyVersion() + ":"
                 + UUID.randomUUID();
         return Optional.of(
@@ -184,6 +192,35 @@ public class AnalysisRunOrchestrator {
             throw new IllegalStateException("Analysis root job could not be enqueued");
         }
         return new ScheduleResult(runId, created == 0);
+    }
+
+    private void abandonStalled(UUID runId) {
+        jdbc.sql(
+                        """
+                        UPDATE job_run SET status='DEAD',last_error_code='STALLED_ABANDONED',updated_at=:now,version=version+1,
+                          lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL
+                        WHERE analysis_run_id=UUID_TO_BIN(:runId) AND status IN ('PENDING','RUNNING')
+                        """)
+                .param("now", clock.instant())
+                .param("runId", runId.toString())
+                .update();
+        jdbc.sql(
+                        """
+                        UPDATE portfolio_analysis_step SET status=IF(status='RUNNING','FAILED','BLOCKED'),
+                          error_code='STALLED_ABANDONED',updated_at=:now,version=version+1
+                        WHERE run_id=UUID_TO_BIN(:runId) AND status IN ('PENDING','QUEUED','RUNNING')
+                        """)
+                .param("now", clock.instant())
+                .param("runId", runId.toString())
+                .update();
+        jdbc.sql(
+                        """
+                        UPDATE portfolio_analysis_run SET status='FAILED',completed_at=:now,error_code='STALLED_ABANDONED',
+                          updated_at=:now,version=version+1 WHERE id=UUID_TO_BIN(:runId)
+                        """)
+                .param("now", clock.instant())
+                .param("runId", runId.toString())
+                .update();
     }
 
     public void started(DurableJobStore.ClaimedJob job) {
@@ -321,6 +358,8 @@ public class AnalysisRunOrchestrator {
     }
 
     record NextStep(String stepType, UUID userId, LocalDate marketDate) {}
+
+    record ActiveRun(UUID id, java.time.LocalDateTime updatedAt) {}
 
     public record ScheduleResult(UUID runId, boolean alreadyRunning) {}
 

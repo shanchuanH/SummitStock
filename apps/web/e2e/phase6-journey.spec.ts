@@ -60,6 +60,7 @@ const brief = {
   },
   capital: {
     totalLiquidAssets: "6000",
+    requiredEmergencyFloor: "500",
     emergencyReserve: "500",
     deployableCash: "500",
     investableAssets: "5500",
@@ -456,9 +457,7 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await roleChecks.nth(0).check();
   await roleChecks.nth(1).check();
   await page.getByRole("button", { name: "继续设置备用金" }).click();
-  await page
-    .getByRole("radio", { name: /全部在 Fidelity 现金中/ })
-    .check();
+  await page.getByRole("radio", { name: /全部在 Fidelity 现金中/ }).check();
   await page
     .getByRole("spinbutton", { name: "Fidelity 中保护的备用金" })
     .fill("1500");
@@ -492,7 +491,9 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await expect(page.locator(".action-card")).toHaveCount(1);
   await page.goto("/positions/p1");
   await expect(
-    page.locator(".position-weight-summary").getByText("15.0%", { exact: true }),
+    page
+      .locator(".position-weight-summary")
+      .getByText("15.0%", { exact: true }),
   ).toBeVisible();
   await page.getByRole("heading", { name: "价格 / 风险 / 财报" }).click();
   await expect(page.getByText(/财报风险/)).toBeVisible();
@@ -500,7 +501,9 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   await expect(page.getByText(/什么情况下建议会改变/)).toBeVisible();
 });
 
-test("core owner pages never overflow the viewport horizontally", async ({ page }) => {
+test("core owner pages never overflow the viewport horizontally", async ({
+  page,
+}) => {
   const pages = [
     "/portfolio/import",
     "/",

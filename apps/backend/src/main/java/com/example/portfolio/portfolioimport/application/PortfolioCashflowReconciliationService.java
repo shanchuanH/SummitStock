@@ -5,10 +5,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -36,13 +33,12 @@ public class PortfolioCashflowReconciliationService {
 
     public Result reconcile(UUID userId, UUID batchId, Snapshot before) {
         var after = snapshot(userId);
-        var assessment = assess(before, after);
+        var reliableTradeValue = reliableTradeValue(userId, before.capturedAt(), after.capturedAt());
+        var assessment = assess(before, after, reliableTradeValue);
         var cashChange = assessment.cashChange();
         if (!"REQUIRED".equals(assessment.status())) {
             return new Result(null, assessment.status(), cashChange);
         }
-        var trade = tradeExplanation(before, after);
-
         var id = UUID.randomUUID();
         jdbc.sql(
                         """
@@ -61,22 +57,25 @@ public class PortfolioCashflowReconciliationService {
                 .param("priorCash", before.brokerCash())
                 .param("currentCash", after.brokerCash())
                 .param("change", cashChange)
-                .param("tradeValue", trade.netPurchaseValue())
+                .param("tradeValue", reliableTradeValue == null ? BigDecimal.ZERO : reliableTradeValue)
                 .param("brokerValue", after.brokerValue())
                 .param("now", clock.instant())
                 .update();
-        auditRequired(userId, batchId, cashChange, trade.netPurchaseValue());
+        auditRequired(userId, batchId, cashChange, reliableTradeValue == null ? BigDecimal.ZERO : reliableTradeValue);
         return pending(batchId);
     }
 
     static Assessment assess(Snapshot before, Snapshot after) {
+        return assess(before, after, null);
+    }
+
+    static Assessment assess(Snapshot before, Snapshot after, BigDecimal reliableNetPurchaseValue) {
         var cashChange = after.brokerCash().subtract(before.brokerCash());
         if (!before.rawCashEstablished()) return new Assessment("BASELINE_ESTABLISHED", cashChange);
         if (cashChange.signum() == 0) return new Assessment("NO_CASH_CHANGE", BigDecimal.ZERO);
-        var trade = tradeExplanation(before, after);
         var tolerance = after.brokerValue().multiply(VALUE_TOLERANCE).max(MIN_TOLERANCE);
-        if (trade.quantityChanged()
-                && cashChange.add(trade.netPurchaseValue()).abs().compareTo(tolerance) <= 0) {
+        if (reliableNetPurchaseValue != null
+                && cashChange.add(reliableNetPurchaseValue).abs().compareTo(tolerance) <= 0) {
             return new Assessment("RECONCILED_INTERNAL_TRADE", cashChange);
         }
         return new Assessment("REQUIRED", cashChange);
@@ -86,8 +85,10 @@ public class PortfolioCashflowReconciliationService {
     public Result confirm(String email, UUID batchId, ConfirmationType type) {
         var row = jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(c.id) id,BIN_TO_UUID(c.user_id) userId,c.cash_change cashChange,c.status
+                        SELECT BIN_TO_UUID(c.id) id,BIN_TO_UUID(c.user_id) userId,c.cash_change cashChange,c.status,
+                               DATE(COALESCE(b.data_as_of,b.created_at)) effectiveDate
                         FROM portfolio_cashflow_reconciliation c JOIN app_user u ON u.id=c.user_id
+                        JOIN portfolio_import_batch b ON b.id=c.import_batch_id
                         WHERE c.import_batch_id=UUID_TO_BIN(:batchId) AND u.email=:email
                         """)
                 .param("batchId", batchId.toString())
@@ -105,7 +106,7 @@ public class PortfolioCashflowReconciliationService {
         if (type == ConfirmationType.EXTERNAL_CASHFLOW) {
             nav.recordExternalCashflow(
                     row.userId(),
-                    LocalDate.now(clock),
+                    row.effectiveDate(),
                     row.cashChange(),
                     "USER_CONFIRMED_BROKER_CASHFLOW",
                     batchId.toString());
@@ -136,29 +137,20 @@ public class PortfolioCashflowReconciliationService {
                 .orElse(new Result(null, "NONE", BigDecimal.ZERO));
     }
 
-    static TradeExplanation tradeExplanation(Snapshot before, Snapshot after) {
-        Map<BalanceKey, PositionBalance> old =
-                before.positions().stream().collect(Collectors.toMap(PositionBalance::key, Function.identity()));
-        Map<BalanceKey, PositionBalance> current =
-                after.positions().stream().collect(Collectors.toMap(PositionBalance::key, Function.identity()));
-        var instruments = new java.util.HashSet<>(old.keySet());
-        instruments.addAll(current.keySet());
-        var net = BigDecimal.ZERO;
-        var changed = false;
-        for (var instrument : instruments) {
-            var prior = old.get(instrument);
-            var next = current.get(instrument);
-            var priorQuantity = prior == null ? BigDecimal.ZERO : prior.quantity();
-            var nextQuantity = next == null ? BigDecimal.ZERO : next.quantity();
-            var delta = nextQuantity.subtract(priorQuantity);
-            if (delta.signum() == 0) continue;
-            changed = true;
-            var priorValue = prior == null ? BigDecimal.ZERO : prior.marketValue();
-            var nextValue = next == null ? BigDecimal.ZERO : next.marketValue();
-            if (priorValue == null || nextValue == null) return new TradeExplanation(true, BigDecimal.ZERO);
-            net = net.add(nextValue.subtract(priorValue));
-        }
-        return new TradeExplanation(changed, net);
+    private BigDecimal reliableTradeValue(UUID userId, java.time.Instant afterExclusive, java.time.Instant through) {
+        if (afterExclusive == null || through == null || !through.isAfter(afterExclusive)) return null;
+        return jdbc.sql(
+                        """
+                        SELECT SUM(quantity_delta*execution_price) FROM trade_journal
+                        WHERE user_id=UUID_TO_BIN(:userId) AND quantity_delta IS NOT NULL AND execution_price IS NOT NULL
+                          AND occurred_at>:afterExclusive AND occurred_at<=:through
+                        """)
+                .param("userId", userId.toString())
+                .param("afterExclusive", afterExclusive)
+                .param("through", through)
+                .query(BigDecimal.class)
+                .optional()
+                .orElse(null);
     }
 
     private Snapshot snapshot(UUID userId) {
@@ -190,7 +182,11 @@ public class PortfolioCashflowReconciliationService {
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new Snapshot(
-                rawCash.brokerCash(), rawCash.brokerCash().add(holdings), rawCash.evidenceCount() > 0, positions);
+                rawCash.brokerCash(),
+                rawCash.brokerCash().add(holdings),
+                rawCash.evidenceCount() > 0,
+                positions,
+                clock.instant());
     }
 
     private void auditRequired(UUID userId, UUID batchId, BigDecimal cashChange, BigDecimal tradeValue) {
@@ -220,7 +216,16 @@ public class PortfolioCashflowReconciliationService {
             BigDecimal brokerCash,
             BigDecimal brokerValue,
             boolean rawCashEstablished,
-            List<PositionBalance> positions) {}
+            List<PositionBalance> positions,
+            java.time.Instant capturedAt) {
+        public Snapshot(
+                BigDecimal brokerCash,
+                BigDecimal brokerValue,
+                boolean rawCashEstablished,
+                List<PositionBalance> positions) {
+            this(brokerCash, brokerValue, rawCashEstablished, positions, java.time.Instant.EPOCH);
+        }
+    }
 
     public record PositionBalance(UUID accountId, UUID instrumentId, BigDecimal quantity, BigDecimal marketValue) {
         public PositionBalance(UUID instrumentId, BigDecimal quantity, BigDecimal marketValue) {
@@ -234,11 +239,9 @@ public class PortfolioCashflowReconciliationService {
 
     record BalanceKey(UUID accountId, UUID instrumentId) {}
 
-    record TradeExplanation(boolean quantityChanged, BigDecimal netPurchaseValue) {}
-
     record Assessment(String status, BigDecimal cashChange) {}
 
-    private record PendingRow(UUID id, UUID userId, BigDecimal cashChange, String status) {}
+    private record PendingRow(UUID id, UUID userId, BigDecimal cashChange, String status, LocalDate effectiveDate) {}
 
     private record RawCashTotal(long evidenceCount, BigDecimal brokerCash) {}
 

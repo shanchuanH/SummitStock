@@ -867,12 +867,22 @@ export interface components {
       budgetMultiplier?: string;
       contribution?: string;
       coreMaxDrawdown?: string;
+      performanceQuality?: string;
       relativeReturn?: string;
       /** Format: int32 */
       reviewMonths?: number;
       ruleIds?: string[];
       turnover?: string;
       underperformance?: string;
+    };
+    AnalysisAsOf: {
+      /** Format: uuid */
+      analysisRunId?: string;
+      /** Format: date-time */
+      dataCutoff?: string;
+      /** Format: date */
+      marketDate?: string;
+      strategyVersion?: string;
     };
     AnalysisStatusResponse: {
       estimatedCategory?: string;
@@ -948,6 +958,7 @@ export interface components {
       deployableCash: string;
       emergencyReserve: string;
       investableAssets: string;
+      requiredEmergencyFloor: string;
       tacticalReserve: string;
       totalLiquidAssets: string;
     };
@@ -1076,6 +1087,13 @@ export interface components {
       headerName?: string;
       parameterName?: string;
       token?: string;
+    };
+    CurrentChange: {
+      changeSinceAnalysis?: string;
+      /** Format: date-time */
+      dataAsOf?: string;
+      label?: string;
+      price?: string;
     };
     DataHealthResponse: {
       /** Format: int64 */
@@ -1327,6 +1345,7 @@ export interface components {
       opportunities: components["schemas"]["BriefAction"][];
       portfolio: components["schemas"]["PortfolioCommand"];
       portfolioHealth: components["schemas"]["PortfolioHealth"];
+      recommendationNotice?: string;
       /** @enum {string} */
       state:
         | "NO_PORTFOLIO"
@@ -1334,6 +1353,7 @@ export interface components {
         | "IMPORTING"
         | "PORTFOLIO_READY"
         | "ANALYSIS_QUEUED"
+        | "UPDATING"
         | "WAIT_FOR_MARKET_DATA"
         | "WAIT_FOR_FUNDAMENTALS"
         | "PARTIAL_ANALYSIS"
@@ -1712,7 +1732,9 @@ export interface components {
       unrealizedPnlPct?: string;
     };
     PositionReportResponse: {
+      analysisAsOf?: components["schemas"]["AnalysisAsOf"];
       assetEvidence?: components["schemas"]["AssetEvidence"];
+      currentChange?: components["schemas"]["CurrentChange"];
       /** Format: date-time */
       dataAsOf?: string;
       evidence?: components["schemas"]["AuditEvidence"];

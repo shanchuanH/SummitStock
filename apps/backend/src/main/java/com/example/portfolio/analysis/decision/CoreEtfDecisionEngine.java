@@ -24,8 +24,12 @@ public final class CoreEtfDecisionEngine implements AssetDecisionEngine {
         var sleeveHasGap = sleeve != null
                 && sleeve.gapWeight() != null
                 && sleeve.gapWeight().signum() > 0;
+        var newRiskReadiness = NewRiskReadiness.assess(context);
         var values = new ArrayList<RecommendationCandidate>();
-        if (context.dipEvent() != null && context.dipEvent().readyForNextTranche() && sleeveHasGap) {
+        if (newRiskReadiness == NewRiskReadiness.READY
+                && context.dipEvent() != null
+                && context.dipEvent().readyForNextTranche()
+                && sleeveHasGap) {
             values.add(of(
                     RecommendationAction.DEPLOY_DIP_TRANCHE,
                     "NORMAL",
@@ -44,7 +48,7 @@ public final class CoreEtfDecisionEngine implements AssetDecisionEngine {
                     "CORE_ETF.REGIME.PAUSE",
                     "Risk regime pauses ordinary core buying.",
                     "Weak market conditions can deepen before recovery."));
-        } else if (sleeveHasGap && sleeve.primaryInstrumentPosition()) {
+        } else if (newRiskReadiness == NewRiskReadiness.READY && sleeveHasGap && sleeve.primaryInstrumentPosition()) {
             values.add(of(
                     RecommendationAction.BUY,
                     "NORMAL",

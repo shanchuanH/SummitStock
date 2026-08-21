@@ -3,6 +3,7 @@ package com.example.portfolio.analysis;
 import com.example.portfolio.analysis.application.HoldingEvidenceAssembler;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
 import com.example.portfolio.analysis.infrastructure.PositionAnalystDataStore;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.estimates.EstimateConsensusMath;
 import com.example.portfolio.estimates.EstimateRevisionEngine;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
@@ -56,8 +57,18 @@ public final class PositionReportController {
         if (value.readiness() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Holding analysis has not been generated");
         }
-        var evidence = evidenceAssembler.assemble(userId, positionId);
-        var analytics = analystData.load(evidence);
+        if (value.analysisRunId() == null || value.marketDate() == null || value.runDataAsOf() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Analysis run as-of context is unavailable");
+        }
+        if (!value.strategyVersion().equals(value.runStrategyVersion())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Recommendation strategy version is inconsistent");
+        }
+        var context = new DecisionAsOfContext(
+                value.marketDate(), value.runDataAsOf().toInstant(ZoneOffset.UTC), value.runStrategyVersion());
+        var evidence = evidenceAssembler.assemble(userId, positionId, context);
+        var analytics = analystData.load(evidence, context);
+        var currentChange = analystData.currentPriceChange(
+                evidence.instrument().id(), analytics.market().price(), context.dataCutoff());
         return new PositionReportResponse(
                 new Position(value.positionId(), value.symbol(), value.classification(), value.classificationSource()),
                 value.readiness(),
@@ -88,6 +99,15 @@ public final class PositionReportController {
                         value.configHash()),
                 assetEvidence(evidence),
                 analystLayers(value, evidence, analytics),
+                new AnalysisAsOf(
+                        value.analysisRunId(), value.marketDate(), context.dataCutoff(), context.strategyVersion()),
+                currentChange == null
+                        ? null
+                        : new CurrentChange(
+                                decimal(currentChange.price()),
+                                decimal(currentChange.changeSinceAnalysis()),
+                                instant(currentChange.dataAsOf()),
+                                "CURRENT_CHANGE_NOT_USED_IN_RECOMMENDATION"),
                 instant(value.dataAsOf()));
     }
 
@@ -662,5 +682,12 @@ public final class PositionReportController {
             AuditEvidence evidence,
             AssetEvidence assetEvidence,
             AnalystLayers layers,
+            AnalysisAsOf analysisAsOf,
+            CurrentChange currentChange,
             Instant dataAsOf) {}
+
+    public record AnalysisAsOf(
+            UUID analysisRunId, java.time.LocalDate marketDate, Instant dataCutoff, String strategyVersion) {}
+
+    public record CurrentChange(String price, String changeSinceAnalysis, Instant dataAsOf, String label) {}
 }

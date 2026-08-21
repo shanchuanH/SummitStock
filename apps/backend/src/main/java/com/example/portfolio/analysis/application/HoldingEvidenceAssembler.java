@@ -66,6 +66,14 @@ public final class HoldingEvidenceAssembler {
                 .orElseThrow(() -> new IllegalArgumentException("Position is not owned by user"));
     }
 
+    public HoldingEvidence assemble(UUID userId, UUID positionId, DecisionAsOfContext context) {
+        return positions(userId).stream()
+                .filter(value -> value.positionId().equals(positionId))
+                .findFirst()
+                .map(position -> assemble(position, context))
+                .orElseThrow(() -> new IllegalArgumentException("Position is not owned by user"));
+    }
+
     private HoldingEvidence assemble(PositionRow position, DecisionAsOfContext context) {
         var totals = totals(position.userId());
         var capital = capitalBases.calculate(position.userId());

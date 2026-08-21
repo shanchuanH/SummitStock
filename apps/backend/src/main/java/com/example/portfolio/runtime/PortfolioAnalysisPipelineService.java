@@ -164,27 +164,14 @@ public class PortfolioAnalysisPipelineService {
     }
 
     public int computeDrawdown(UUID userId, LocalDate marketDate) {
-        var totals = jdbc.sql(
-                        """
-                        SELECT COALESCE(SUM(m.marked_market_value),0) invested,
-                               COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
-                                         WHERE c.user_id=UUID_TO_BIN(:userId)),0) cash,
-                               COALESCE(MAX(m.marked_market_value),0) largest,
-                               COUNT(p.id) openPositions,COUNT(m.id) markCount
-                        FROM position p JOIN investment_account a ON a.id=p.account_id
-                        LEFT JOIN current_position_mark m ON m.position_id=p.id
-                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
-                        """)
-                .param("userId", userId.toString())
-                .query(PortfolioTotals.class)
-                .single();
-        if (totals.markCount() < totals.openPositions()
-                || capitalBases.calculate(userId).quality() != EvidenceQuality.HEALTHY) {
+        var capital = capitalBases.calculate(userId);
+        if (capital.quality() != EvidenceQuality.HEALTHY) {
             return 0;
         }
-        var equity = totals.invested().add(totals.cash());
-        if (equity.signum() <= 0) throw new PermanentDataException("NO_PORTFOLIO_EQUITY", "Portfolio has no equity");
-        var nav = portfolioNav.capture(userId, marketDate, equity);
+        var strategyNav = capital.strategyNav();
+        if (strategyNav.signum() <= 0)
+            throw new PermanentDataException("NO_STRATEGY_NAV", "Portfolio has no investable strategy capital");
+        var nav = portfolioNav.capture(userId, marketDate, strategyNav);
         var attribution =
                 drawdownAttribution.calculate(userId, nav.peakMarketDate(), marketDate, nav.peakAccountEquity());
         var input = new DrawdownEngine.Input(
@@ -204,7 +191,7 @@ public class PortfolioAnalysisPipelineService {
                                 attribution.positionJson(),
                                 attribution.clusterJson(),
                                 nav.dataAsOf(),
-                                equity)
+                                strategyNav)
                         .inserted()
                 ? 1
                 : 0;
@@ -537,9 +524,6 @@ public class PortfolioAnalysisPipelineService {
             throw new IllegalStateException(exception);
         }
     }
-
-    record PortfolioTotals(
-            BigDecimal invested, BigDecimal cash, BigDecimal largest, long openPositions, long markCount) {}
 
     record StopInput(
             UUID positionId,

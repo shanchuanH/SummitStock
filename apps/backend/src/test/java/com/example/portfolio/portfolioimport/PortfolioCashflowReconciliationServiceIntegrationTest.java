@@ -12,7 +12,7 @@ class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImp
     private PortfolioCashflowReconciliationService reconciliation;
 
     @Test
-    void requiresOwnerConfirmationForExternalCashAndAutoExplainsMatchedInternalTrade() throws Exception {
+    void requiresOwnerConfirmationWithoutReliableExecutionEvidence() throws Exception {
         var confirmed =
                 confirm(uuid(preview("fidelity-positions.csv"), "batchId"), 0, "[{\"rowNumber\":7,\"ignored\":true}]");
         var userId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email=:email")
@@ -36,6 +36,15 @@ class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImp
         assertThat(count("SELECT COUNT(*) FROM portfolio_external_cashflow_event WHERE amount=7000 "
                         + "AND source='USER_CONFIRMED_BROKER_CASHFLOW'"))
                 .isEqualTo(1);
+        assertThat(jdbc.sql(
+                                "SELECT effective_date FROM portfolio_external_cashflow_event WHERE amount=7000 AND source='USER_CONFIRMED_BROKER_CASHFLOW'")
+                        .query(java.time.LocalDate.class)
+                        .single())
+                .isEqualTo(jdbc.sql(
+                                "SELECT DATE(COALESCE(data_as_of,created_at)) FROM portfolio_import_batch WHERE id=UUID_TO_BIN(:id)")
+                        .param("id", uuid(confirmed, "batchId").toString())
+                        .query(java.time.LocalDate.class)
+                        .single());
 
         var internalBefore = reconciliation.before(userId);
         update(
@@ -47,7 +56,7 @@ class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImp
                 + "') AND p.status='OPEN' ORDER BY p.id LIMIT 1) selected_position)");
         var internal = reconciliation.reconcile(userId, uuid(confirmed, "batchId"), internalBefore);
 
-        assertThat(internal.status()).isEqualTo("RECONCILED_INTERNAL_TRADE");
+        assertThat(internal.status()).isEqualTo("REQUIRED");
         assertThat(count("SELECT COUNT(*) FROM portfolio_external_cashflow_event WHERE amount=-120"))
                 .isZero();
     }

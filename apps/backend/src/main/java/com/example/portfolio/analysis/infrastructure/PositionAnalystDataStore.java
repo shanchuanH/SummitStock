@@ -1,6 +1,8 @@
 package com.example.portfolio.analysis.infrastructure;
 
 import com.example.portfolio.analysis.domain.HoldingEvidence;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
+import com.example.portfolio.financialaggregation.CanonicalFinancialAggregationService;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.time.LocalDate;
@@ -16,22 +18,44 @@ import org.springframework.stereotype.Repository;
 public class PositionAnalystDataStore {
     private static final MathContext CALCULATION = MathContext.DECIMAL64;
     private final JdbcClient jdbc;
+    private final CanonicalFinancialAggregationService financialAggregation;
 
-    public PositionAnalystDataStore(JdbcClient jdbc) {
+    public PositionAnalystDataStore(JdbcClient jdbc, CanonicalFinancialAggregationService financialAggregation) {
         this.jdbc = jdbc;
+        this.financialAggregation = financialAggregation;
     }
 
-    public AnalystData load(HoldingEvidence evidence) {
+    public AnalystData load(HoldingEvidence evidence, DecisionAsOfContext context) {
         var instrumentId = evidence.instrument().id();
-        var prices = prices(instrumentId);
+        var prices = prices(instrumentId, context);
         return new AnalystData(
                 market(evidence, prices),
-                fundamentals(instrumentId),
-                valuation(instrumentId),
-                estimates(instrumentId),
-                technical(instrumentId, evidence, prices),
-                earnings(evidence.position().id(), instrumentId),
-                risk(evidence.position().id()));
+                fundamentals(instrumentId, context),
+                valuation(instrumentId, context),
+                estimates(instrumentId, context),
+                technical(instrumentId, evidence, prices, context),
+                earnings(evidence.position().id(), instrumentId, context),
+                risk(evidence.position().id(), context));
+    }
+
+    public CurrentPriceChange currentPriceChange(
+            UUID instrumentId, BigDecimal decisionPrice, java.time.Instant cutoff) {
+        var latest = jdbc.sql(
+                        """
+                        SELECT last_price price,data_as_of dataAsOf FROM quote
+                        WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                        ORDER BY data_as_of DESC,created_at DESC LIMIT 1
+                        """)
+                .param("instrumentId", instrumentId.toString())
+                .query(CurrentPriceRow.class)
+                .optional()
+                .orElse(null);
+        if (latest == null
+                || !latest.dataAsOf().toInstant(java.time.ZoneOffset.UTC).isAfter(cutoff)) return null;
+        var change = decisionPrice == null || decisionPrice.signum() == 0
+                ? null
+                : latest.price().divide(decisionPrice, CALCULATION).subtract(BigDecimal.ONE);
+        return new CurrentPriceChange(latest.price(), change, latest.dataAsOf());
     }
 
     private MarketData market(HoldingEvidence evidence, List<HoldingEvidence.PriceBar> bars) {
@@ -53,7 +77,7 @@ public class PositionAnalystDataStore {
                         : price.subtract(averageCost).divide(averageCost, CALCULATION));
     }
 
-    private FundamentalData fundamentals(UUID instrumentId) {
+    private FundamentalData fundamentals(UUID instrumentId, DecisionAsOfContext context) {
         var metrics = new HashMap<String, BigDecimal>();
         LocalDateTime dataAsOf = null;
         String quality = null;
@@ -64,25 +88,32 @@ public class PositionAnalystDataStore {
                           SELECT m.*,ROW_NUMBER() OVER (
                             PARTITION BY metric_code ORDER BY data_as_of DESC,created_at DESC,id DESC) rn
                           FROM financial_metric_snapshot m
-                          WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          WHERE instrument_id=UUID_TO_BIN(:instrumentId) AND data_as_of<=:cutoff
                         ) latest WHERE rn=1
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
                 .query(MetricRow.class)
                 .list()) {
             metrics.put(row.metricCode(), row.value());
             if (dataAsOf == null || row.dataAsOf().isAfter(dataAsOf)) dataAsOf = row.dataAsOf();
             quality = combineQuality(quality, row.quality());
         }
+        var ttm = financialAggregation.ttm(instrumentId, context.dataCutoff());
+        var revenueTtm = ttm.revenue();
+        var epsTtm = ttm.eps();
+        var fcfTtm = ttm.freeCashFlow();
+        dataAsOf =
+                latest(dataAsOf, aggregateDataAsOf(revenueTtm), aggregateDataAsOf(epsTtm), aggregateDataAsOf(fcfTtm));
         return new FundamentalData(
-                metric(metrics, "REVENUE"),
+                aggregateValue(revenueTtm),
                 metric(metrics, "REVENUE_YOY"),
                 metric(metrics, "REVENUE_3Y_CAGR"),
-                metric(metrics, "DILUTED_EPS"),
+                aggregateValue(epsTtm),
                 metric(metrics, "EPS_YOY"),
                 metric(metrics, "OPERATING_MARGIN"),
                 metric(metrics, "OPERATING_MARGIN_YOY_CHANGE"),
-                metric(metrics, "FREE_CASH_FLOW"),
+                aggregateValue(fcfTtm),
                 metric(metrics, "FCF_MARGIN"),
                 metric(metrics, "FCF_CONVERSION"),
                 metric(metrics, "NET_CASH"),
@@ -93,16 +124,19 @@ public class PositionAnalystDataStore {
                 quality);
     }
 
-    private ValuationData valuation(UUID instrumentId) {
+    private ValuationData valuation(UUID instrumentId, DecisionAsOfContext context) {
         var assessment = jdbc.sql(
                         """
                         SELECT valuation_state state,confidence,own_history_percentile_3y percentile3y,
                                own_history_percentile_5y percentile5y,relative_valuation relativeValuation,
                                observation_count observationCount,quality,data_as_of dataAsOf
                         FROM valuation_assessment_snapshot WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          AND data_as_of<=:cutoff AND strategy_version=:strategyVersion
                         ORDER BY data_as_of DESC,created_at DESC LIMIT 1
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
                 .query(ValuationAssessmentRow.class)
                 .optional()
                 .orElse(null);
@@ -111,9 +145,12 @@ public class PositionAnalystDataStore {
                         SELECT trailing_pe trailingPe,forward_pe forwardPe,ev_sales evSales,
                                price_sales priceSales,fcf_yield fcfYield,data_as_of dataAsOf
                         FROM valuation_metric_history WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          AND market_date<=:marketDate AND data_as_of<=:cutoff
                         ORDER BY market_date DESC,data_as_of DESC,created_at DESC LIMIT 1
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(ValuationMetricRow.class)
                 .optional()
                 .orElse(null);
@@ -133,7 +170,7 @@ public class PositionAnalystDataStore {
                 latest(assessment == null ? null : assessment.dataAsOf(), metrics == null ? null : metrics.dataAsOf()));
     }
 
-    private EstimateData estimates(UUID instrumentId) {
+    private EstimateData estimates(UUID instrumentId, DecisionAsOfContext context) {
         var observations = jdbc.sql(
                         """
                         SELECT estimate_type estimateType,mean_value meanValue,high_value highValue,
@@ -142,10 +179,12 @@ public class PositionAnalystDataStore {
                           SELECT e.*,ROW_NUMBER() OVER (
                             PARTITION BY estimate_type ORDER BY period_end,data_as_of DESC,created_at DESC) rn
                           FROM estimate_observation e WHERE instrument_id=UUID_TO_BIN(:instrumentId)
-                            AND period_type='ANNUAL' AND period_end>=CURRENT_DATE
+                            AND period_type='ANNUAL' AND period_end>=:marketDate AND data_as_of<=:cutoff
                         ) latest WHERE rn=1
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(EstimateObservationRow.class)
                 .list();
         var byType = new HashMap<String, EstimateObservationRow>();
@@ -156,9 +195,11 @@ public class PositionAnalystDataStore {
                                revenue_change_30d revenue30d,revenue_change_90d revenue90d,
                                analyst_count analystCount,dispersion,overall_revision state,quality,data_as_of dataAsOf
                         FROM estimate_revision_snapshot WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          AND data_as_of<=:cutoff
                         ORDER BY data_as_of DESC,created_at DESC LIMIT 1
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
                 .query(EstimateRevisionRow.class)
                 .optional()
                 .orElse(null);
@@ -188,7 +229,11 @@ public class PositionAnalystDataStore {
                         revenue == null ? null : revenue.dataAsOf()));
     }
 
-    private TechnicalData technical(UUID instrumentId, HoldingEvidence evidence, List<HoldingEvidence.PriceBar> bars) {
+    private TechnicalData technical(
+            UUID instrumentId,
+            HoldingEvidence evidence,
+            List<HoldingEvidence.PriceBar> bars,
+            DecisionAsOfContext context) {
         var values = new HashMap<String, BigDecimal>();
         LocalDateTime dataAsOf = null;
         for (var row : jdbc.sql(
@@ -196,11 +241,15 @@ public class PositionAnalystDataStore {
                         SELECT indicator_code code,value_double value,data_as_of dataAsOf
                         FROM indicator_snapshot s WHERE instrument_id=UUID_TO_BIN(:instrumentId)
                           AND status='READY' AND market_date=(SELECT MAX(x.market_date)
-                            FROM indicator_snapshot x WHERE x.instrument_id=s.instrument_id)
+                            FROM indicator_snapshot x WHERE x.instrument_id=s.instrument_id
+                              AND x.market_date<=:marketDate AND x.data_as_of<=:cutoff)
+                          AND s.data_as_of<=:cutoff
                           AND indicator_code IN ('SMA_20','SMA_50','SMA_200','RSI_14','ATR_14',
                                                  'MACD_12_26_9','REALIZED_VOL_20')
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(IndicatorValueRow.class)
                 .list()) {
             values.put(row.code(), row.value());
@@ -211,8 +260,8 @@ public class PositionAnalystDataStore {
             price = evidence.completedBars().getFirst().close();
         var atr = values.get("ATR_14");
         var macd = values.get("MACD_12_26_9");
-        var benchmarkSpy = prices("SPY");
-        var benchmarkQqq = prices("QQQ");
+        var benchmarkSpy = prices("SPY", context);
+        var benchmarkQqq = prices("QQQ", context);
         return new TechnicalData(
                 values.get("SMA_20"),
                 values.get("SMA_50"),
@@ -236,7 +285,7 @@ public class PositionAnalystDataStore {
                 dataAsOf);
     }
 
-    private EarningsData earnings(UUID positionId, UUID instrumentId) {
+    private EarningsData earnings(UUID positionId, UUID instrumentId, DecisionAsOfContext context) {
         var risk = jdbc.sql(
                         """
                         SELECT next_event_at nextEventAt,event_risk eventRisk,
@@ -246,9 +295,12 @@ public class PositionAnalystDataStore {
                                CASE WHEN event_count>0 THEN 'HEALTHY' ELSE 'PARTIAL' END quality,
                                data_as_of dataAsOf
                         FROM earnings_risk_snapshot WHERE position_id=UUID_TO_BIN(:positionId)
+                          AND data_as_of<=:cutoff AND strategy_version=:strategyVersion
                         ORDER BY data_as_of DESC,created_at DESC LIMIT 1
                         """)
                 .param("positionId", positionId.toString())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
                 .query(EarningsRiskRow.class)
                 .optional()
                 .orElse(null);
@@ -256,9 +308,10 @@ public class PositionAnalystDataStore {
                         """
                         SELECT event_at nextEventAt,timing,data_as_of dataAsOf,quality
                         FROM earnings_event WHERE instrument_id=UUID_TO_BIN(:instrumentId)
-                          AND event_at>=UTC_TIMESTAMP(6) ORDER BY event_at LIMIT 1
+                          AND event_at>=:cutoff AND data_as_of<=:cutoff ORDER BY event_at LIMIT 1
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
                 .query(EarningsEventRow.class)
                 .optional()
                 .orElse(null);
@@ -266,9 +319,11 @@ public class PositionAnalystDataStore {
                         """
                         SELECT return_1d return1d,return_3d return3d,return_5d return5d
                         FROM earnings_reaction_snapshot WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          AND data_as_of<=:cutoff
                         ORDER BY data_as_of DESC
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("cutoff", context.dataCutoff())
                 .query(ReactionRow.class)
                 .list();
         return new EarningsData(
@@ -298,21 +353,24 @@ public class PositionAnalystDataStore {
                 latest(risk == null ? null : risk.dataAsOf(), event == null ? null : event.dataAsOf()));
     }
 
-    private RiskData risk(UUID positionId) {
+    private RiskData risk(UUID positionId, DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT risk_amount plannedRiskDollar,open_risk_fraction plannedRiskFraction,
                                quality_status quality,data_as_of dataAsOf
                         FROM position_risk_snapshot WHERE position_id=UUID_TO_BIN(:positionId)
+                          AND data_as_of<=:cutoff AND strategy_version=:strategyVersion
                         ORDER BY data_as_of DESC,created_at DESC LIMIT 1
                         """)
                 .param("positionId", positionId.toString())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
                 .query(RiskData.class)
                 .optional()
                 .orElse(new RiskData(null, null, "MISSING", null));
     }
 
-    private List<HoldingEvidence.PriceBar> prices(String symbol) {
+    private List<HoldingEvidence.PriceBar> prices(String symbol, DecisionAsOfContext context) {
         return jdbc
                 .sql(
                         """
@@ -322,9 +380,12 @@ public class PositionAnalystDataStore {
                                    ORDER BY b.data_as_of DESC,b.created_at DESC,b.id DESC) rn
                           FROM price_bar b JOIN instrument i ON i.id=b.instrument_id
                           WHERE i.symbol=:symbol AND b.adjusted=TRUE AND b.timeframe='1D'
+                            AND b.market_date<=:marketDate AND b.data_as_of<=:cutoff
                         ) canonical WHERE rn=1 ORDER BY marketDate DESC LIMIT 130
                         """)
                 .param("symbol", symbol)
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(PriceRow.class)
                 .list()
                 .stream()
@@ -332,7 +393,7 @@ public class PositionAnalystDataStore {
                 .toList();
     }
 
-    private List<HoldingEvidence.PriceBar> prices(UUID instrumentId) {
+    private List<HoldingEvidence.PriceBar> prices(UUID instrumentId, DecisionAsOfContext context) {
         return jdbc
                 .sql(
                         """
@@ -342,9 +403,12 @@ public class PositionAnalystDataStore {
                                    ORDER BY b.data_as_of DESC,b.created_at DESC,b.id DESC) rn
                           FROM price_bar b WHERE b.instrument_id=UUID_TO_BIN(:instrumentId)
                             AND b.adjusted=TRUE AND b.timeframe='1D'
+                            AND b.market_date<=:marketDate AND b.data_as_of<=:cutoff
                         ) canonical WHERE rn=1 ORDER BY marketDate DESC LIMIT 253
                         """)
                 .param("instrumentId", instrumentId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(PriceRow.class)
                 .list()
                 .stream()
@@ -402,6 +466,16 @@ public class PositionAnalystDataStore {
 
     private static BigDecimal metric(Map<String, BigDecimal> metrics, String name) {
         return metrics.get(name);
+    }
+
+    private static BigDecimal aggregateValue(
+            com.example.portfolio.financialaggregation.CanonicalFinancialAggregation.Aggregate value) {
+        return value == null ? null : value.value();
+    }
+
+    private static LocalDateTime aggregateDataAsOf(
+            com.example.portfolio.financialaggregation.CanonicalFinancialAggregation.Aggregate value) {
+        return value == null ? null : LocalDateTime.ofInstant(value.dataAsOf(), java.time.ZoneOffset.UTC);
     }
 
     private static String combineQuality(String... values) {
@@ -527,7 +601,11 @@ public class PositionAnalystDataStore {
     public record RiskData(
             BigDecimal plannedRiskDollar, BigDecimal plannedRiskFraction, String quality, LocalDateTime dataAsOf) {}
 
+    public record CurrentPriceChange(BigDecimal price, BigDecimal changeSinceAnalysis, LocalDateTime dataAsOf) {}
+
     private record MetricRow(String metricCode, BigDecimal value, LocalDateTime dataAsOf, String quality) {}
+
+    private record CurrentPriceRow(BigDecimal price, LocalDateTime dataAsOf) {}
 
     private record ValuationAssessmentRow(
             String state,

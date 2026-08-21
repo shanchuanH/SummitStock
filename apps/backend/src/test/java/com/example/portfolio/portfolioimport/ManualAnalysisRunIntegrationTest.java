@@ -39,6 +39,33 @@ class ManualAnalysisRunIntegrationTest extends PortfolioImportIntegrationSupport
         assertThat(repeated.path("state").asString()).isEqualTo("RUNNING");
     }
 
+    @Test
+    void stalledRunIsAbandonedAndReplacedWithAPollableNewRun() throws Exception {
+        var confirmation =
+                confirm(uuid(preview("fidelity-positions.csv"), "batchId"), 0, "[{\"rowNumber\":7,\"ignored\":true}]");
+        var stalledRunId = uuid(confirmation, "analysisRunId");
+        update(
+                "UPDATE portfolio_analysis_run SET status='RUNNING',updated_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 5 MINUTE) "
+                        + "WHERE id=UUID_TO_BIN('" + stalledRunId + "')");
+        update("UPDATE portfolio_analysis_step SET updated_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 5 MINUTE) "
+                + "WHERE run_id=UUID_TO_BIN('" + stalledRunId + "')");
+
+        var response = request();
+        var body = json.readTree(response.getResponse().getContentAsString());
+        var replacement = uuid(body, "runId");
+
+        assertThat(replacement).isNotEqualTo(stalledRunId);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run WHERE id=UUID_TO_BIN('" + stalledRunId
+                        + "') AND status='FAILED' AND error_code='STALLED_ABANDONED'"))
+                .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM job_run WHERE analysis_run_id=UUID_TO_BIN('" + stalledRunId
+                        + "') AND status='DEAD'"))
+                .isGreaterThan(0);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run WHERE id=UUID_TO_BIN('" + replacement
+                        + "') AND status='RUNNING'"))
+                .isEqualTo(1);
+    }
+
     private org.springframework.test.web.servlet.MvcResult request() throws Exception {
         return mockMvc.perform(post("/api/v1/analysis/runs")
                         .with(httpBasic(EMAIL, PASSWORD))

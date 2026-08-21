@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 public record CapitalBase(
         BigDecimal investedTradableAssets,
         BigDecimal trackedCash,
+        BigDecimal requiredEmergencyFloor,
         BigDecimal emergencyReserve,
         BigDecimal deployableCash,
         BigDecimal investableAssets,
@@ -15,6 +16,7 @@ public record CapitalBase(
     public CapitalBase {
         if (investedTradableAssets.signum() < 0
                 || trackedCash.signum() < 0
+                || requiredEmergencyFloor.signum() < 0
                 || emergencyReserve.signum() < 0
                 || deployableCash.signum() < 0
                 || investableAssets.signum() < 0
@@ -25,5 +27,15 @@ public record CapitalBase(
         if (emergencyReserve.compareTo(trackedCash) > 0) {
             throw new IllegalArgumentException("Emergency reserve cannot exceed tracked cash");
         }
+    }
+
+    /** The owner-protected amount. Kept separate from the strategy's minimum required floor. */
+    public BigDecimal protectedEmergencyAmount() {
+        return emergencyReserve;
+    }
+
+    /** Capital to which allocation, drawdown and risk sizing rules apply. */
+    public BigDecimal strategyNav() {
+        return investableAssets;
     }
 }

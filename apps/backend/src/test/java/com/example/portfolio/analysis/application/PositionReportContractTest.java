@@ -10,12 +10,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 
 class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
+    private static final java.util.UUID REPORT_RUN = java.util.UUID.fromString("90000000-0000-0000-0000-000000000099");
+
     @Autowired
     MockMvc mockMvc;
 
     @Test
     void reportIsOwnerScopedAndExposesStructuredAuditEvidence() throws Exception {
-        recommendations.generateAll(USER_ID);
+        generateReportRun();
 
         mockMvc.perform(get("/api/v1/positions/{positionId}/report", GOOGL_POSITION)
                         .with(httpBasic(USER_EMAIL, "change-before-use")))
@@ -33,7 +35,7 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
 
     @Test
     void canonicalAnalystReportUsesSixLayersAndClassificationSpecificHardLimits() throws Exception {
-        recommendations.generateAll(USER_ID);
+        generateReportRun();
 
         assertAnalystReport(GOOGL_POSITION, "GOOGL", "QUALITY_STOCK", "0.15");
         assertAnalystReport(DRAM_POSITION, "DRAM", "THEMATIC_ETF", "0.1");
@@ -70,7 +72,7 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
 
     @Test
     void qualityStockReportExposesCanonicalNumbersAndPreservesMissingValues() throws Exception {
-        recommendations.generateAll(USER_ID);
+        generateReportRun();
 
         mockMvc.perform(get("/api/v1/holdings/{positionId}/analyst-report", GOOGL_POSITION)
                         .with(httpBasic(USER_EMAIL, "change-before-use")))
@@ -87,11 +89,49 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
                 .andExpect(jsonPath("$.layers.estimates.fy1Eps").value("8.42"))
                 .andExpect(jsonPath("$.layers.estimates.epsRevision30d").value("0.021"))
                 .andExpect(jsonPath("$.layers.estimates.analystCount").value(39))
-                .andExpect(jsonPath("$.layers.risk.projectedPositionWeight").doesNotExist())
+                .andExpect(jsonPath("$.layers.risk.projectedPositionWeight").value("0.15"))
                 .andExpect(
                         jsonPath("$.layers.risk.projectedTotalRiskAfterAction").doesNotExist())
                 .andExpect(jsonPath("$.layers.risk.projectedClusterRiskAfterAction")
                         .doesNotExist())
                 .andExpect(jsonPath("$.layers.risk.riskPerShare").doesNotExist());
+    }
+
+    @Test
+    void newerQuoteIsSeparatedFromRunBoundDecisionEvidence() throws Exception {
+        generateReportRun();
+        jdbc.sql(
+                        """
+                        INSERT INTO quote (id,instrument_id,last_price,currency,provider,source_timestamp,checksum,
+                          quality_status,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN('96000000-0000-0000-0000-000000000099'),
+                          UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),250,'USD','TEST',
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),SHA2('newer-current-price',256),'HEALTHY',
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE))
+                        """)
+                .update();
+
+        mockMvc.perform(get("/api/v1/holdings/{positionId}/analyst-report", GOOGL_POSITION)
+                        .with(httpBasic(USER_EMAIL, "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.layers.market.price").value("200"))
+                .andExpect(jsonPath("$.currentChange.price").value("250"))
+                .andExpect(jsonPath("$.currentChange.label").value("CURRENT_CHANGE_NOT_USED_IN_RECOMMENDATION"))
+                .andExpect(jsonPath("$.analysisAsOf.analysisRunId").value(REPORT_RUN.toString()));
+    }
+
+    private void generateReportRun() {
+        jdbc.sql(
+                        """
+                INSERT INTO portfolio_analysis_run (
+                  id,user_id,market_date,strategy_version,status,started_at,completed_at,data_as_of,
+                  run_key,created_at,updated_at,version)
+                VALUES (UUID_TO_BIN('90000000-0000-0000-0000-000000000099'),
+                  UUID_TO_BIN('91000000-0000-0000-0000-000000000001'),CURRENT_DATE,'3.0.0-draft','SUCCEEDED',
+                  UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'test:position-report',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0)
+                """)
+                .update();
+        analysis.analyzeAll(USER_ID, REPORT_RUN);
+        recommendations.generateForRun(USER_ID, REPORT_RUN);
     }
 }

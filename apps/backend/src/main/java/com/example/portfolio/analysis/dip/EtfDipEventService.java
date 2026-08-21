@@ -68,7 +68,8 @@ public class EtfDipEventService {
                     && evidence.vix3m() != null
                     && evidence.dataAsOf() != null
                     && evidence.quality() != EvidenceQuality.MISSING;
-            boolean emergencyProtected = capital.emergencyReserve().compareTo(strategy.emergencyCashFloor()) >= 0;
+            boolean emergencyProtected =
+                    capital.protectedEmergencyAmount().compareTo(capital.requiredEmergencyFloor()) >= 0;
             var result = EtfDipEngine.evaluate(
                     new EtfDipEngine.Input(
                             zero(evidence.portfolioDrawdown()),

@@ -134,6 +134,50 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.dataReadiness.status").value("HEALTHY"));
     }
 
+    @Test
+    void activeLatestRunForcesUpdatingAndNeverConfirmsNoAction() throws Exception {
+        seedReadyPortfolio();
+        update("DELETE FROM recommendation WHERE user_id=UUID_TO_BIN('" + USER_ID + "')");
+        update(
+                "INSERT INTO portfolio_analysis_run (id,user_id,market_date,strategy_version,status,run_key,created_at,updated_at,version) "
+                        + "VALUES (UUID_TO_BIN('71000000-0000-0000-0000-000000000020'),UUID_TO_BIN('" + USER_ID
+                        + "'),CURRENT_DATE,'3.0.0-draft','RUNNING','brief:updating',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0)");
+
+        mockMvc.perform(get("/api/v1/brief/today").with(httpBasic("brief-contract@example.local", "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("UPDATING"))
+                .andExpect(jsonPath("$.confirmedNoAction").value(false))
+                .andExpect(jsonPath("$.recommendationNotice").isNotEmpty());
+    }
+
+    @Test
+    void tacticalSpeculativeExposureUsesCanonicalClassificationsAndStrategyNav() throws Exception {
+        seedReadyPortfolio();
+        for (var classification :
+                java.util.List.of("TACTICAL_STOCK", "CYCLICAL_TACTICAL", "TURNAROUND_TACTICAL", "SPECULATIVE")) {
+            update("UPDATE position SET classification='" + classification + "' WHERE id=UUID_TO_BIN('" + POSITION_ID
+                    + "')");
+            mockMvc.perform(get("/api/v1/brief/today")
+                            .with(httpBasic("brief-contract@example.local", "change-before-use")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.summary.tacticalSpeculativeExposureFraction")
+                            .value("0.7163120567"));
+        }
+    }
+
+    @Test
+    void protectedEmergencyAmountAboveFloorIsExcludedConsistently() throws Exception {
+        seedReadyPortfolio();
+        update("UPDATE cash_bucket SET current_amount=25000 WHERE user_id=UUID_TO_BIN('" + USER_ID
+                + "') AND bucket_type='EMERGENCY'");
+
+        mockMvc.perform(get("/api/v1/brief/today").with(httpBasic("brief-contract@example.local", "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.capital.requiredEmergencyFloor").value("20000"))
+                .andExpect(jsonPath("$.capital.emergencyReserve").value("25000"))
+                .andExpect(jsonPath("$.capital.investableAssets").value("14100"));
+    }
+
     private void seedReadyPortfolio() {
         update(
                 """
@@ -186,6 +230,7 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
     }
 
     private void cleanContractData() {
+        update("DELETE FROM portfolio_analysis_run WHERE user_id=UUID_TO_BIN('" + USER_ID + "')");
         update("DELETE FROM recommendation WHERE user_id=UUID_TO_BIN('" + USER_ID + "')");
         update("DELETE FROM holding_analysis_snapshot WHERE position_id=UUID_TO_BIN('" + POSITION_ID + "')");
         update("DELETE FROM position_mark_snapshot WHERE position_id=UUID_TO_BIN('" + POSITION_ID + "')");

@@ -126,6 +126,7 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
 
         assertThat(capital.investedTradableAssets()).isEqualByComparingTo("80000");
         assertThat(capital.trackedCash()).isEqualByComparingTo("20000");
+        assertThat(capital.requiredEmergencyFloor()).isEqualByComparingTo("20000");
         assertThat(capital.emergencyReserve()).isEqualByComparingTo("20000");
         assertThat(capital.deployableCash()).isEqualByComparingTo("0");
         assertThat(capital.investableAssets()).isEqualByComparingTo("80000");
@@ -139,6 +140,20 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
                         .query(String.class)
                         .single())
                 .isEqualTo("3.0.0-draft");
+    }
+
+    @Test
+    void ownerProtectedCashAboveRequiredFloorIsFullyExcluded() {
+        update(
+                "UPDATE cash_bucket SET target_amount=35000,current_amount=35000 WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
+
+        var capital = capitalBases.calculate(USER);
+
+        assertThat(capital.requiredEmergencyFloor()).isEqualByComparingTo("20000");
+        assertThat(capital.protectedEmergencyAmount()).isEqualByComparingTo("35000");
+        assertThat(capital.deployableCash()).isZero();
+        assertThat(capital.strategyNav()).isEqualByComparingTo("80000");
+        assertThat(capital.totalLiquidAssets()).isEqualByComparingTo("115000");
     }
 
     @Test

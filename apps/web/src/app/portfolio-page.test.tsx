@@ -86,6 +86,7 @@ describe("PortfolioPage", () => {
                   summary: { investedValue: "5900.125" },
                   capital: {
                     deployableCash: "1200",
+                    requiredEmergencyFloor: "5000",
                     emergencyReserve: "5000",
                   },
                   mustAct: [rows[1]],

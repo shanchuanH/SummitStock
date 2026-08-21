@@ -662,3 +662,13 @@ Configure production provider credentials, run the documented deployment smoke c
 
 - The locked transitive `nanoid` dependency is upgraded from 3.3.17 to patched 3.3.18 after the required high-severity audit identified GHSA-2v37-7h3g-55p8. No application dependency, strategy rule, or runtime behavior changed.
 - Verification: `pnpm audit --audit-level high` reports no known vulnerabilities; frontend lint, Web/API-client typecheck, and both production builds pass after the lockfile update.
+
+## Minimum Usable Fix - 2026-08-21
+
+- Capital decisions now share one `CapitalBase`: the full owner-protected Emergency Cash amount is excluded from Strategy NAV, while deployable cash remains included. The required emergency floor is reported separately.
+- Position reports bind recommendation and all evidence to one analysis run, market date, data cutoff, and strategy version. Revenue, diluted EPS, and free cash flow TTM share one canonical four-valid-quarter aggregation; later quotes are shown only as current change.
+- Cashflow reconciliation fails closed unless execution evidence explains the movement, and confirmed external flows retain the statement/import effective date.
+- Active analysis runs publish `UPDATING`, suppress confirmed-no-action, retain an explicit previous-result notice, and stalled recovery abandons the old run and returns a replacement run id that the UI polls.
+- New-risk readiness gates Core ETF buying. Risk reductions bypass new-risk portfolio gates, and fractional exits preserve the exact holding quantity. Approximate active-sleeve performance is labeled and cannot reduce the budget multiplier.
+- Dashboard active/speculative exposure uses the canonical classifications and Strategy NAV denominator.
+- Local verification: Maven reactor `verify` passed all 301 backend tests; frontend lint, typecheck, 49 tests, and production build passed. GitHub CI remains the authoritative desktop/mobile, supply-chain, gitleaks, and Docker gate.

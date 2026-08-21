@@ -9,6 +9,7 @@ const waitingStates = new Set<ExecutiveBrief["state"]>([
   "IMPORTING",
   "PORTFOLIO_READY",
   "ANALYSIS_QUEUED",
+  "UPDATING",
   "WAIT_FOR_MARKET_DATA",
   "WAIT_FOR_FUNDAMENTALS",
   "PARTIAL_ANALYSIS",

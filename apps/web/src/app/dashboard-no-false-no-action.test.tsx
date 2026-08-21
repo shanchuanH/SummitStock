@@ -61,6 +61,7 @@ describe("DashboardNoFalseNoActionTest", () => {
         },
         capital: {
           totalLiquidAssets: "12000",
+          requiredEmergencyFloor: "1000",
           emergencyReserve: "1000",
           deployableCash: "1000",
           investableAssets: "11000",
@@ -127,6 +128,7 @@ describe("DashboardNoFalseNoActionTest", () => {
         },
         capital: {
           totalLiquidAssets: "12000",
+          requiredEmergencyFloor: "1000",
           emergencyReserve: "1000",
           deployableCash: "1000",
           investableAssets: "11000",

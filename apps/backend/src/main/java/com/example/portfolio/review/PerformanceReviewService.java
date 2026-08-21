@@ -76,9 +76,18 @@ class PerformanceReviewService {
                                 accountabilityPeriod.activeMaxDrawdown(),
                                 accountabilityPeriod.coreMaxDrawdown(),
                                 accountabilityPeriod.turnover(),
-                                accountability.budgetMultiplier(),
-                                accountability.ruleIds()),
+                                safeBudgetMultiplier(),
+                                java.util.stream.Stream.concat(
+                                                accountability.ruleIds().stream(),
+                                                java.util.stream.Stream.of(
+                                                        "ACTIVE_SLEEVE_APPROXIMATION_NO_AUTO_MULTIPLIER"))
+                                        .toList(),
+                                "APPROXIMATE"),
                 nav.size() >= 2 ? "HEALTHY" : "INSUFFICIENT_HISTORY");
+    }
+
+    static BigDecimal safeBudgetMultiplier() {
+        return BigDecimal.ONE;
     }
 
     private Period period(
@@ -320,5 +329,6 @@ class PerformanceReviewService {
             BigDecimal coreMaxDrawdown,
             BigDecimal turnover,
             BigDecimal budgetMultiplier,
-            List<String> ruleIds) {}
+            List<String> ruleIds,
+            String performanceQuality) {}
 }

@@ -1,5 +1,6 @@
 package com.example.portfolio.valuation;
 
+import com.example.portfolio.financialaggregation.CanonicalFinancialAggregation;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,26 +40,18 @@ public final class PointInTimeValuationAssembler {
     }
 
     private static SelectedValue ttm(String metric, Instant cutoff, List<MetricPoint> values) {
-        var periods = values.stream()
-                .filter(value -> value.metricCode().equals(metric))
-                .filter(value -> value.periodType().equals("QUARTERLY"))
-                .filter(value -> value.dataAsOf().isBefore(cutoff))
-                .collect(java.util.stream.Collectors.groupingBy(MetricPoint::periodEnd))
-                .entrySet()
-                .stream()
-                .map(entry -> entry.getValue().stream()
-                        .max(Comparator.comparing(MetricPoint::dataAsOf))
-                        .orElseThrow())
-                .sorted(Comparator.comparing(MetricPoint::periodEnd).reversed())
-                .limit(4)
-                .toList();
-        if (periods.size() != 4) return null;
-        return new SelectedValue(
-                periods.stream().map(MetricPoint::value).reduce(BigDecimal.ZERO, BigDecimal::add),
-                periods.stream()
-                        .map(MetricPoint::dataAsOf)
-                        .max(Instant::compareTo)
-                        .orElseThrow());
+        var aggregate = CanonicalFinancialAggregation.ttm(
+                metric,
+                cutoff,
+                values.stream()
+                        .map(value -> new CanonicalFinancialAggregation.Observation(
+                                value.periodType(),
+                                value.periodEnd(),
+                                value.metricCode(),
+                                value.value(),
+                                value.dataAsOf()))
+                        .toList());
+        return aggregate == null ? null : new SelectedValue(aggregate.value(), aggregate.dataAsOf());
     }
 
     private static SelectedValue latest(String metric, Instant cutoff, List<MetricPoint> values) {

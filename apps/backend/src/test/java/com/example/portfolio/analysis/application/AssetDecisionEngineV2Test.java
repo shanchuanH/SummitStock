@@ -426,6 +426,30 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void partialEvidenceCannotBuyCoreEtfOnlyBecauseSleeveIsUnderweight() {
+        var evidence = HoldingEvidenceFixtures.evidence("QQQM", "ETF", HoldingClassification.CORE_TECH_ETF);
+        var context = new DecisionContext(
+                evidence,
+                AnalysisReadiness.PARTIAL,
+                evidence.strategy().techCoreTarget(),
+                evidence.strategy().techCoreTarget(),
+                evidence.strategy().techCoreTarget(),
+                null,
+                new SleeveAllocation(
+                        PortfolioSleeve.TECH_CORE,
+                        new BigDecimal("0.10"),
+                        new BigDecimal("0.10"),
+                        new BigDecimal("0.15"),
+                        new BigDecimal("0.05"),
+                        "QQQM",
+                        true,
+                        EvidenceQuality.PARTIAL));
+
+        assertThat(resolve(evidence, context, new CoreEtfDecisionEngine().evaluate(context)))
+                .isEqualTo(RecommendationAction.HOLD);
+    }
+
+    @Test
     void aggregateBroadSleeveAtTargetDoesNotBuy() {
         assertThat(coreEtfAction("VOO", HoldingClassification.CORE_BROAD_ETF, "0.35", "0.35", "VOO"))
                 .isEqualTo(RecommendationAction.HOLD);
