@@ -126,6 +126,8 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
         update("DELETE FROM audit_log WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER + "'))");
         update("DELETE FROM recommendation WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER
                 + "'))");
+        update("DELETE FROM portfolio_capital_snapshot WHERE user_id IN (UUID_TO_BIN('" + OWNER
+                + "'), UUID_TO_BIN('" + OTHER + "'))");
         update("DELETE FROM portfolio_drawdown_snapshot WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('"
                 + OTHER + "'))");
         update("DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('" + OWNER_POSITION
