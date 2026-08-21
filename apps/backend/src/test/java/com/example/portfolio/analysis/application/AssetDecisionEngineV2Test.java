@@ -203,6 +203,74 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void missingClusterRiskFailsClosedWithoutAnException() {
+        var evidence = withRisk(
+                qualityEvidence("STRONG", "ATTRACTIVE", "POSITIVE", "REVERSAL_CONFIRMED", "0.01"),
+                null,
+                new BigDecimal("0.0100"),
+                EvidenceQuality.HEALTHY,
+                Instant.parse("2026-08-07T20:00:00Z"));
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.DO_NOT_ADD);
+    }
+
+    @Test
+    void missingTotalRiskFailsClosed() {
+        var evidence = withRisk(
+                qualityEvidence("STRONG", "ATTRACTIVE", "POSITIVE", "REVERSAL_CONFIRMED", "0.01"),
+                new BigDecimal("0.0010"),
+                null,
+                EvidenceQuality.HEALTHY,
+                Instant.parse("2026-08-07T20:00:00Z"));
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.DO_NOT_ADD);
+    }
+
+    @Test
+    void partialOrMissingRiskQualityFailsClosed() {
+        for (var qualityStatus : List.of(EvidenceQuality.PARTIAL, EvidenceQuality.MISSING)) {
+            var evidence = withRisk(
+                    qualityEvidence("STRONG", "ATTRACTIVE", "POSITIVE", "REVERSAL_CONFIRMED", "0.01"),
+                    new BigDecimal("0.0010"),
+                    new BigDecimal("0.0100"),
+                    qualityStatus,
+                    Instant.parse("2026-08-07T20:00:00Z"));
+
+            assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                    .isEqualTo(RecommendationAction.DO_NOT_ADD);
+        }
+    }
+
+    @Test
+    void brokenThesisExitStillWinsWhenRiskIsMissing() {
+        var evidence = withRisk(
+                qualityEvidence("BROKEN", "ATTRACTIVE", "POSITIVE", "REVERSAL_CONFIRMED", "0.01"),
+                null,
+                null,
+                EvidenceQuality.MISSING,
+                null);
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.EXIT);
+    }
+
+    @Test
+    void extremeEventOversizedTrimStillWinsWhenRiskIsMissing() {
+        var evidence = withRisk(
+                withEventRisk(
+                        qualityEvidence("STRONG", "FAIR", "POSITIVE", "UPTREND", "0.15"), "EXTREME", "REDUCE_HALF"),
+                null,
+                null,
+                EvidenceQuality.MISSING,
+                null);
+
+        assertThat(resolve(evidence, context(evidence), quality.evaluate(context(evidence))))
+                .isEqualTo(RecommendationAction.TRIM);
+    }
+
+    @Test
     void extremeEventRiskAndReducePolicyProduceTacticalReduction() {
         var evidence = withEventRisk(
                 HoldingEvidenceFixtures.evidence("NOK", "EQUITY", HoldingClassification.TACTICAL_STOCK),
@@ -583,6 +651,44 @@ class AssetDecisionEngineV2Test {
                 value.capitalQuality(),
                 value.riskQuality(),
                 value.riskDataAsOf(),
+                value.providerHardError(),
+                value.quality(),
+                value.strategy(),
+                value.dataAsOf());
+    }
+
+    private static HoldingEvidence withRisk(
+            HoldingEvidence value,
+            BigDecimal clusterRisk,
+            BigDecimal totalRisk,
+            EvidenceQuality riskQuality,
+            Instant riskDataAsOf) {
+        return new HoldingEvidence(
+                value.position(),
+                value.instrument(),
+                value.portfolioEquity(),
+                value.trackedCash(),
+                value.emergencyCash(),
+                value.tacticalReserve(),
+                value.currentWeight(),
+                value.clusterWeight(),
+                clusterRisk,
+                totalRisk,
+                value.quote(),
+                value.completedBars(),
+                value.indicators(),
+                value.fundamentals(),
+                value.valuation(),
+                value.nextEvent(),
+                value.catalyst(),
+                value.thesis(),
+                value.regime(),
+                value.drawdown(),
+                value.stop(),
+                value.profile(),
+                value.capitalQuality(),
+                riskQuality,
+                riskDataAsOf,
                 value.providerHardError(),
                 value.quality(),
                 value.strategy(),

@@ -5,6 +5,7 @@ import static com.example.portfolio.analysis.decision.DecisionCandidates.of;
 import com.example.portfolio.analysis.domain.AnalysisReadiness;
 import com.example.portfolio.analysis.domain.RecommendationAction;
 import com.example.portfolio.analysis.domain.RecommendationCandidate;
+import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,6 +70,11 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
                 || e.fundamentals().estimateQuality()
                         == com.example.portfolio.strategy.market.EvidenceQuality.MISSING) {
             values.add(block("QUALITY.NEW_CAPITAL.DATA", "Evidence confidence is insufficient for new capital."));
+        }
+        if (!hasCompleteRiskEvidence(context)) {
+            values.add(block(
+                    "QUALITY.NEW_CAPITAL.RISK",
+                    "Complete, current portfolio and cluster risk evidence is required for new capital."));
         }
         if (healthy(health)
                 && e.strategy().deepDiscountStarterEnabled()
@@ -175,8 +181,20 @@ public final class QualityStockDecisionEngine implements AssetDecisionEngine {
     }
 
     private static boolean hasRiskCapacity(DecisionContext context) {
+        if (!hasCompleteRiskEvidence(context)) return false;
         var evidence = context.evidence();
         return evidence.clusterOpenRisk().compareTo(evidence.strategy().clusterOpenRiskMax()) < 0
                 && evidence.totalOpenRisk().compareTo(evidence.strategy().totalOpenRiskMax()) < 0;
+    }
+
+    private static boolean hasCompleteRiskEvidence(DecisionContext context) {
+        var evidence = context.evidence();
+        if (evidence.clusterOpenRisk() == null
+                || evidence.totalOpenRisk() == null
+                || evidence.riskQuality() != EvidenceQuality.HEALTHY
+                || evidence.riskDataAsOf() == null) {
+            return false;
+        }
+        return true;
     }
 }

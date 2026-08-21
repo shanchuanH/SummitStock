@@ -91,6 +91,12 @@ public final class HoldingEvidenceReadiness {
 
     private static AnalysisReadiness qualityReadiness(
             HoldingEvidence evidence, Instant now, AnalysisFreshnessPolicy freshness) {
+        if (evidence.riskQuality() != EvidenceQuality.HEALTHY
+                || evidence.clusterOpenRisk() == null
+                || evidence.totalOpenRisk() == null
+                || evidence.riskDataAsOf() == null) {
+            return AnalysisReadiness.PARTIAL;
+        }
         var policy = evidence.strategy().freshness();
         if (freshness.staleDays(evidence.fundamentals().dataAsOf(), now, policy.financialQuarterDays())
                 || freshness.staleDays(evidence.valuation().dataAsOf(), now, policy.financialQuarterDays())

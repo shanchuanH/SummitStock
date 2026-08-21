@@ -173,11 +173,11 @@ public final class HoldingEvidenceAssembler {
                         """
                         SELECT COALESCE((SELECT SUM(current_amount) FROM cash_bucket
                                          WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='TACTICAL_RESERVE'),0) tactical,
-                               COALESCE((SELECT SUM(r.open_risk_fraction) FROM position_risk_snapshot r
+                               (SELECT SUM(r.open_risk_fraction) FROM position_risk_snapshot r
                                          JOIN position x ON x.id=r.position_id JOIN investment_account z ON z.id=x.account_id
                                          WHERE z.user_id=UUID_TO_BIN(:userId)
                                            AND r.data_as_of=(SELECT MAX(q.data_as_of) FROM position_risk_snapshot q
-                                                             WHERE q.position_id=r.position_id)),0) openRisk
+                                                             WHERE q.position_id=r.position_id)) openRisk
                         FROM app_user u WHERE u.id=UUID_TO_BIN(:userId)
                         """)
                 .param("userId", userId.toString())
@@ -207,7 +207,7 @@ public final class HoldingEvidenceAssembler {
     private RiskEvidence riskEvidence(UUID userId) {
         var value = jdbc.sql(
                         """
-                        SELECT COUNT(latest.id) snapshotCount,
+                        SELECT COUNT(p.id) positionCount, COUNT(latest.id) snapshotCount,
                                COALESCE(SUM(latest.quality_status<>'HEALTHY'),0) impairedCount,
                                MAX(latest.data_as_of) dataAsOf
                         FROM position p
@@ -222,7 +222,9 @@ public final class HoldingEvidenceAssembler {
                 .single();
         var quality = value.snapshotCount() == 0
                 ? EvidenceQuality.MISSING
-                : value.impairedCount() == 0 ? EvidenceQuality.HEALTHY : EvidenceQuality.PARTIAL;
+                : value.snapshotCount() == value.positionCount() && value.impairedCount() == 0
+                        ? EvidenceQuality.HEALTHY
+                        : EvidenceQuality.PARTIAL;
         return new RiskEvidence(quality, instant(value.dataAsOf()));
     }
 
@@ -657,7 +659,7 @@ public final class HoldingEvidenceAssembler {
 
     record ClusterEvidence(BigDecimal weight) {}
 
-    record RiskRow(long snapshotCount, long impairedCount, LocalDateTime dataAsOf) {}
+    record RiskRow(long positionCount, long snapshotCount, long impairedCount, LocalDateTime dataAsOf) {}
 
     record RiskEvidence(EvidenceQuality quality, Instant dataAsOf) {}
 

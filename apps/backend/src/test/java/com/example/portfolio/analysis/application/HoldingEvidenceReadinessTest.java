@@ -72,6 +72,15 @@ class HoldingEvidenceReadinessTest {
     }
 
     @Test
+    void qualityRiskMissingIsPartialRatherThanReadyOrUnknownAsZero() {
+        var current = HoldingEvidenceFixtures.evidence("GOOGL", "EQUITY", HoldingClassification.QUALITY_STOCK);
+        var evidence = withRisk(current, null, null, EvidenceQuality.MISSING, null);
+
+        assertThat(HoldingEvidenceReadiness.assess(evidence, current.dataAsOf(), freshness))
+                .isEqualTo(AnalysisReadiness.PARTIAL);
+    }
+
+    @Test
     void tacticalReadinessRequiresCatalystStopEventRiskThesisAndCapacity() {
         var ready = HoldingEvidenceFixtures.evidence("NOK", "EQUITY", HoldingClassification.TACTICAL_STOCK);
         var missingCatalyst =
@@ -124,6 +133,44 @@ class HoldingEvidenceReadinessTest {
                 value.profile(),
                 value.capitalQuality(),
                 value.riskQuality(),
+                riskDataAsOf,
+                value.providerHardError(),
+                value.quality(),
+                value.strategy(),
+                value.dataAsOf());
+    }
+
+    private static HoldingEvidence withRisk(
+            HoldingEvidence value,
+            java.math.BigDecimal clusterRisk,
+            java.math.BigDecimal totalRisk,
+            EvidenceQuality riskQuality,
+            Instant riskDataAsOf) {
+        return new HoldingEvidence(
+                value.position(),
+                value.instrument(),
+                value.portfolioEquity(),
+                value.trackedCash(),
+                value.emergencyCash(),
+                value.tacticalReserve(),
+                value.currentWeight(),
+                value.clusterWeight(),
+                clusterRisk,
+                totalRisk,
+                value.quote(),
+                value.completedBars(),
+                value.indicators(),
+                value.fundamentals(),
+                value.valuation(),
+                value.nextEvent(),
+                value.catalyst(),
+                value.thesis(),
+                value.regime(),
+                value.drawdown(),
+                value.stop(),
+                value.profile(),
+                value.capitalQuality(),
+                riskQuality,
                 riskDataAsOf,
                 value.providerHardError(),
                 value.quality(),
