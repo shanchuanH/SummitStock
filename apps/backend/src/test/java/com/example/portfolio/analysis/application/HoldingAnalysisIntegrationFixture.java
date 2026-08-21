@@ -259,7 +259,9 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
         update("DELETE FROM investment_account WHERE id=UUID_TO_BIN('92000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM instrument WHERE id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
-        update("DELETE FROM audit_log WHERE user_id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001')");
+        update("DELETE a FROM audit_log a JOIN app_user u ON u.id=a.user_id "
+                + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
+                + "OR u.email='admin@example.local'");
         update("DELETE FROM app_user WHERE id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
                 + "OR email='admin@example.local'");
     }
