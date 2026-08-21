@@ -348,29 +348,14 @@ public class PortfolioReconciliationService {
             PortfolioImportConfirmationService.CashSetup setup) {
         var target = strategies.current().emergencyCashFloor();
         var fidelityAvailable = importedCash.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        var confirmed = setup.amount();
-        BigDecimal fidelityEmergency;
-        BigDecimal externalEmergency;
-        switch (setup.location()) {
-            case IN_FIDELITY -> {
-                if (confirmed.compareTo(fidelityAvailable) > 0) {
-                    throw new ResponseStatusException(
-                            HttpStatus.UNPROCESSABLE_ENTITY,
-                            "Confirmed Fidelity safety cash exceeds imported Fidelity cash");
-                }
-                fidelityEmergency = confirmed;
-                externalEmergency = BigDecimal.ZERO;
-            }
-            case EXTERNAL_BANK -> {
-                fidelityEmergency = BigDecimal.ZERO;
-                externalEmergency = confirmed;
-            }
-            case SPLIT, BELOW_TARGET -> {
-                fidelityEmergency = confirmed.min(fidelityAvailable);
-                externalEmergency = confirmed.subtract(fidelityEmergency);
-            }
-            default -> throw new IllegalStateException("Unsupported safety-cash location");
+        var fidelityEmergency = setup.fidelityAmount();
+        var externalEmergency = setup.externalAmount();
+        try {
+            setup.validateAgainst(fidelityAvailable, target);
+        } catch (IllegalArgumentException exception) {
+            throw invalidCashSetup(exception.getMessage());
         }
+        var confirmed = setup.totalAmount();
         protectFidelityCash(userId, fidelityEmergency);
         jdbc.sql("DELETE FROM cash_bucket WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='EMERGENCY'")
                 .param("userId", userId.toString())
@@ -409,6 +394,10 @@ public class PortfolioReconciliationService {
                 .param("confirmed", confirmed)
                 .param("now", clock.instant())
                 .update();
+    }
+
+    private static ResponseStatusException invalidCashSetup(String reason) {
+        return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, reason);
     }
 
     private void protectFidelityCash(UUID userId, BigDecimal amount) {

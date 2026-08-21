@@ -74,7 +74,7 @@ class PortfolioImportConfirmationIntegrationTest extends PortfolioImportIntegrat
                                 .content(
                                         """
                                 {"expectedVersion":0,"accountMappings":[],"rowOverrides":[],
-                                 "cashSetup":{"location":"IN_FIDELITY","amount":"0"}}
+                                 "cashSetup":{"location":"IN_FIDELITY","fidelityAmount":"0","externalAmount":"0"}}
                                 """))
                 .andExpect(status().isUnprocessableContent());
 

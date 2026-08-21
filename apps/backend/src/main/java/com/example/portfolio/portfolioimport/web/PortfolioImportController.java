@@ -183,12 +183,14 @@ public class PortfolioImportController {
         }
     }
 
-    public record CashSetupRequest(@NotNull String location, @NotNull String amount) {
+    public record CashSetupRequest(
+            @NotNull String location, @NotNull String fidelityAmount, @NotNull String externalAmount) {
         PortfolioImportConfirmationService.CashSetup toCommand() {
             try {
                 return new PortfolioImportConfirmationService.CashSetup(
                         PortfolioImportConfirmationService.CashLocation.valueOf(location),
-                        amount.isBlank() ? null : new BigDecimal(amount));
+                        fidelityAmount.isBlank() ? null : new BigDecimal(fidelityAmount),
+                        externalAmount.isBlank() ? null : new BigDecimal(externalAmount));
             } catch (IllegalArgumentException exception) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid safety-cash setup", exception);
             }

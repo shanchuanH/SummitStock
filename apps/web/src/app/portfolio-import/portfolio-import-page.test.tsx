@@ -151,9 +151,9 @@ describe("PortfolioImportPageTest", () => {
     await user.click(screen.getByRole("button", { name: /继续确认角色/i }));
     await user.click(screen.getByRole("checkbox", { name: /我确认这个角色/i }));
     await user.click(screen.getByRole("button", { name: /继续设置备用金/i }));
-    await user.click(screen.getByRole("radio", { name: /^全部在外部银行$/i }));
-    expect(screen.getByLabelText("确认生活备用金金额")).toHaveValue(null);
-    await user.type(screen.getByLabelText("确认生活备用金金额"), "14000");
+    await user.click(screen.getByRole("radio", { name: /^全部在外部银行中$/i }));
+    expect(screen.getByLabelText("外部银行中的备用金")).toHaveValue(null);
+    await user.type(screen.getByLabelText("外部银行中的备用金"), "14000");
     await user.click(screen.getByRole("button", { name: /继续最终确认/i }));
     const confirm = screen.getByRole("button", { name: /确认并开始分析/i });
     await user.click(confirm);

@@ -146,10 +146,12 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         var merged = new java.util.ArrayList<String>();
         if (!supplied.isBlank()) merged.add(supplied);
         merged.addAll(additions);
+        var fidelityAmount = "EXTERNAL_BANK".equals(cashLocation) ? "0" : confirmedAmount;
+        var externalAmount = "EXTERNAL_BANK".equals(cashLocation) ? confirmedAmount : "0";
         var body = "{\"expectedVersion\":" + version + ",\"accountMappings\":[],\"rowOverrides\":["
                 + String.join(",", merged)
-                + "],\"cashSetup\":{\"location\":\"" + cashLocation + "\",\"amount\":\""
-                + confirmedAmount + "\"}}";
+                + "],\"cashSetup\":{\"location\":\"" + cashLocation + "\",\"fidelityAmount\":\""
+                + fidelityAmount + "\",\"externalAmount\":\"" + externalAmount + "\"}}";
         var result = mockMvc.perform(post("/api/v1/portfolio-imports/{batchId}/confirm", batchId)
                         .with(httpBasic(EMAIL, PASSWORD))
                         .with(csrf())

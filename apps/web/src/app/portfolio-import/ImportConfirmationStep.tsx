@@ -40,8 +40,12 @@ export function ImportConfirmationStep({
           <dd>{formatMoney(preview.summary.estimatedCashValue)}</dd>
         </div>
         <div>
-          <dt>生活备用金确认额</dt>
-          <dd>{formatMoney(cashSetup.amount)}</dd>
+          <dt>Fidelity 中保护的备用金</dt>
+          <dd>{formatMoney(cashSetup.fidelityAmount)}</dd>
+        </div>
+        <div>
+          <dt>外部银行中的备用金</dt>
+          <dd>{formatMoney(cashSetup.externalAmount)}</dd>
         </div>
       </dl>
       <p>

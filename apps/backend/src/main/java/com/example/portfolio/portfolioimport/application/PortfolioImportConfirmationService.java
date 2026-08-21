@@ -274,12 +274,48 @@ public class PortfolioImportConfirmationService {
         BELOW_TARGET
     }
 
-    public record CashSetup(CashLocation location, java.math.BigDecimal amount) {
+    public record CashSetup(
+            CashLocation location, java.math.BigDecimal fidelityAmount, java.math.BigDecimal externalAmount) {
         public CashSetup {
             if (location == null) throw new IllegalArgumentException("Safety-cash location is required");
-            if (amount == null) throw new IllegalArgumentException("Safety-cash amount is required");
-            if (amount.signum() < 0) {
-                throw new IllegalArgumentException("Safety-cash amount cannot be negative");
+            if (fidelityAmount == null || externalAmount == null) {
+                throw new IllegalArgumentException("Both Fidelity and external safety-cash amounts are required");
+            }
+            if (fidelityAmount.signum() < 0 || externalAmount.signum() < 0) {
+                throw new IllegalArgumentException("Safety-cash amounts cannot be negative");
+            }
+        }
+
+        public java.math.BigDecimal totalAmount() {
+            return fidelityAmount.add(externalAmount);
+        }
+
+        public void validateAgainst(java.math.BigDecimal importedBrokerCash, java.math.BigDecimal emergencyCashFloor) {
+            if (fidelityAmount.compareTo(importedBrokerCash) > 0) {
+                throw new IllegalArgumentException("Fidelity safety cash exceeds imported Fidelity cash");
+            }
+            switch (location) {
+                case IN_FIDELITY -> {
+                    if (externalAmount.signum() != 0) {
+                        throw new IllegalArgumentException("IN_FIDELITY requires external amount to be zero");
+                    }
+                }
+                case EXTERNAL_BANK -> {
+                    if (fidelityAmount.signum() != 0) {
+                        throw new IllegalArgumentException("EXTERNAL_BANK requires Fidelity amount to be zero");
+                    }
+                }
+                case SPLIT -> {
+                    if (fidelityAmount.signum() <= 0 || externalAmount.signum() <= 0) {
+                        throw new IllegalArgumentException("SPLIT requires positive Fidelity and external amounts");
+                    }
+                }
+                case BELOW_TARGET -> {
+                    if (totalAmount().compareTo(emergencyCashFloor) >= 0) {
+                        throw new IllegalArgumentException(
+                                "BELOW_TARGET total must remain below the emergency-cash target");
+                    }
+                }
             }
         }
     }

@@ -132,9 +132,12 @@ export function PortfolioImportPage() {
     }) ?? false;
   const cashReady =
     cashSetup !== undefined &&
-    cashSetup.amount.trim() !== "" &&
-    Number.isFinite(Number(cashSetup.amount)) &&
-    Number(cashSetup.amount) >= 0;
+    cashSetup.fidelityAmount.trim() !== "" &&
+    cashSetup.externalAmount.trim() !== "" &&
+    Number.isFinite(Number(cashSetup.fidelityAmount)) &&
+    Number.isFinite(Number(cashSetup.externalAmount)) &&
+    Number(cashSetup.fidelityAmount) >= 0 &&
+    Number(cashSetup.externalAmount) >= 0;
 
   async function confirm() {
     if (!preview) return;
