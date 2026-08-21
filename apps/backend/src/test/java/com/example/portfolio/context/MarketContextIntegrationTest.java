@@ -13,6 +13,8 @@ import com.example.portfolio.strategy.market.MarketRegimeEngine;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,7 +22,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = "portfolio.security.dev-user=market-context@example.local")
 @AutoConfigureMockMvc
 class MarketContextIntegrationTest extends MySqlIntegrationTest {
     @Autowired
@@ -35,6 +37,16 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @BeforeEach
+    void isolateMarketContext() {
+        cleanMarketContext();
+    }
+
+    @AfterEach
+    void cleanUpMarketContext() {
+        cleanMarketContext();
+    }
+
     @Test
     void v3SnapshotsAreVersionedIdempotentAndExposedWithoutDecimalLoss() throws Exception {
         var tables = jdbc.sql("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()")
@@ -47,14 +59,14 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
                         INSERT IGNORE INTO app_user (
                             id,email,password_hash,status,timezone,created_at,updated_at,version
                         ) VALUES (
-                            UUID_TO_BIN('11111111-1111-1111-1111-111111111111'), 'admin@example.local',
+                            UUID_TO_BIN('11111111-1111-1111-1111-111111111111'), 'market-context@example.local',
                             'unused','ACTIVE','UTC',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0
                         )
                         """)
                 .update();
 
         var dataAsOf = Instant.parse("2026-08-04T21:00:00Z");
-        var userId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email='admin@example.local'")
+        var userId = jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email='market-context@example.local'")
                 .query(UUID.class)
                 .single();
         var regimeInput = new MarketRegimeEngine.Input(
@@ -95,7 +107,7 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
                 .get()
                 .extracting(MarketContextStore.RegimeView::strategyVersion)
                 .isEqualTo("3.0.0-draft");
-        assertThat(store.latestDrawdown("admin@example.local")).get().satisfies(value -> {
+        assertThat(store.latestDrawdown("market-context@example.local")).get().satisfies(value -> {
             assertThat(value.marketDriven()).isTrue();
             assertThat(value.sourceClassification()).isEqualTo("MARKET_DRIVEN");
         });
@@ -104,7 +116,8 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("READY"))
                 .andExpect(jsonPath("$.snapshot.strategyVersion").value("3.0.0-draft"));
-        mockMvc.perform(get("/api/v1/portfolio/drawdown").with(httpBasic("admin@example.local", "change-before-use")))
+        mockMvc.perform(get("/api/v1/portfolio/drawdown")
+                        .with(httpBasic("market-context@example.local", "change-before-use")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.snapshot.drawdownFraction").value("0.15"))
                 .andExpect(jsonPath("$.snapshot.drawdownPercent").value("15"))
@@ -120,5 +133,14 @@ class MarketContextIntegrationTest extends MySqlIntegrationTest {
 
     private long count(String table) {
         return jdbc.sql("SELECT COUNT(*) FROM " + table).query(Long.class).single();
+    }
+
+    private void cleanMarketContext() {
+        jdbc.sql(
+                        "DELETE FROM portfolio_drawdown_snapshot WHERE user_id=UUID_TO_BIN('11111111-1111-1111-1111-111111111111')")
+                .update();
+        jdbc.sql("DELETE FROM market_regime_snapshot").update();
+        jdbc.sql("DELETE FROM app_user WHERE id=UUID_TO_BIN('11111111-1111-1111-1111-111111111111')")
+                .update();
     }
 }

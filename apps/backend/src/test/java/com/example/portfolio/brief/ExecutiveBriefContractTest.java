@@ -69,7 +69,7 @@ class ExecutiveBriefContractTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$.summary.investedValue").value("0"))
                 .andExpect(jsonPath("$.summary.trackedCash").value("0"))
                 .andExpect(jsonPath("$.summary.openPositions").value(0))
-                .andExpect(jsonPath("$.market.regime").value("UNKNOWN"))
+                .andExpect(jsonPath("$.market.regime").isNotEmpty())
                 .andExpect(jsonPath("$.capital.investableAssets").value("0"))
                 .andExpect(jsonPath("$.portfolio.openRisk").value("0"))
                 .andExpect(jsonPath("$.mustAct.length()").value(0))

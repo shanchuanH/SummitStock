@@ -259,7 +259,8 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
         update("DELETE FROM investment_account WHERE id=UUID_TO_BIN('92000000-0000-0000-0000-000000000001')");
         update(
                 "DELETE FROM instrument WHERE id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
-        update("DELETE FROM app_user WHERE id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001')");
+        update("DELETE FROM app_user WHERE id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
+                + "OR email='admin@example.local'");
     }
 
     private void update(String sql) {

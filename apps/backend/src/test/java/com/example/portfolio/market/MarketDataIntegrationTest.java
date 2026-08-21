@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +32,16 @@ class MarketDataIntegrationTest extends MySqlIntegrationTest {
 
     @Autowired
     private JdbcClient jdbc;
+
+    @BeforeEach
+    void isolateMarketData() {
+        cleanMarketData();
+    }
+
+    @AfterEach
+    void cleanUpMarketData() {
+        cleanMarketData();
+    }
 
     @Test
     void migrationAndPipelineAreTraceableBatchSafeAndIdempotent() {
@@ -113,5 +125,21 @@ class MarketDataIntegrationTest extends MySqlIntegrationTest {
 
     private long count(String table) {
         return jdbc.sql("SELECT COUNT(*) FROM " + table).query(Long.class).single();
+    }
+
+    private void cleanMarketData() {
+        jdbc.sql("DELETE e FROM data_quality_event e JOIN instrument i ON i.id=e.instrument_id WHERE i.symbol='SPY'")
+                .update();
+        jdbc.sql("DELETE s FROM indicator_snapshot s JOIN instrument i ON i.id=s.instrument_id WHERE i.symbol='SPY'")
+                .update();
+        jdbc.sql("DELETE a FROM corporate_action a JOIN instrument i ON i.id=a.instrument_id WHERE i.symbol='SPY'")
+                .update();
+        jdbc.sql("DELETE q FROM quote q JOIN instrument i ON i.id=q.instrument_id WHERE i.symbol='SPY'")
+                .update();
+        jdbc.sql("DELETE b FROM price_bar b JOIN instrument i ON i.id=b.instrument_id WHERE i.symbol='SPY'")
+                .update();
+        jdbc.sql("DELETE FROM provider_request WHERE operation='daily-bars'").update();
+        jdbc.sql("DELETE FROM provider_usage_daily WHERE operation='daily-bars'")
+                .update();
     }
 }
