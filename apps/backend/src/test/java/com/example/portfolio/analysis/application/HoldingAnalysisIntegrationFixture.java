@@ -254,6 +254,18 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
                 "DELETE FROM price_bar WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
         update(
                 "DELETE FROM quote WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
+        update("DELETE pns FROM portfolio_nav_snapshot pns JOIN app_user u ON u.id=pns.user_id "
+                + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
+                + "OR u.email='admin@example.local'");
+        update("DELETE pec FROM portfolio_external_cashflow_event pec JOIN app_user u ON u.id=pec.user_id "
+                + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
+                + "OR u.email='admin@example.local'");
+        update("DELETE pas FROM portfolio_allocation_snapshot pas JOIN app_user u ON u.id=pas.user_id "
+                + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
+                + "OR u.email='admin@example.local'");
+        update("DELETE pds FROM portfolio_drawdown_snapshot pds JOIN app_user u ON u.id=pds.user_id "
+                + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
+                + "OR u.email='admin@example.local'");
         update("DELETE pcs FROM portfolio_capital_snapshot pcs JOIN app_user u ON u.id=pcs.user_id "
                 + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
                 + "OR u.email='admin@example.local'");
