@@ -36,20 +36,28 @@ public class PortfolioCashflowReconciliationService {
         var reliableTradeValue = reliableTradeValue(userId, before.capturedAt(), after.capturedAt());
         var assessment = assess(before, after, reliableTradeValue);
         var cashChange = assessment.cashChange();
+        var emergencyChange = after.protectedEmergency().subtract(before.protectedEmergency());
+        var boundaryTransfer = emergencyChange.negate();
         if (!"REQUIRED".equals(assessment.status())) {
+            if (before.rawCashEstablished() && boundaryTransfer.signum() != 0) {
+                recordBoundaryTransfer(userId, batchId, effectiveDate(batchId), boundaryTransfer);
+            }
             return new Result(null, assessment.status(), cashChange);
         }
+        var strategyCapitalFlow = cashChange.subtract(emergencyChange);
         var id = UUID.randomUUID();
         jdbc.sql(
                         """
                         INSERT INTO portfolio_cashflow_reconciliation (
                           id,user_id,import_batch_id,prior_cash,current_cash,cash_change,net_position_trade_value,
-                          broker_value,status,created_at,updated_at)
+                          broker_value,prior_emergency,current_emergency,strategy_capital_flow,status,created_at,updated_at)
                         VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:batchId),:priorCash,:currentCash,
-                          :change,:tradeValue,:brokerValue,'REQUIRED',:now,:now)
+                          :change,:tradeValue,:brokerValue,:priorEmergency,:currentEmergency,:strategyFlow,'REQUIRED',:now,:now)
                         ON DUPLICATE KEY UPDATE prior_cash=VALUES(prior_cash),current_cash=VALUES(current_cash),
                           cash_change=VALUES(cash_change),net_position_trade_value=VALUES(net_position_trade_value),
-                          broker_value=VALUES(broker_value),status='REQUIRED',confirmation_type=NULL,updated_at=VALUES(updated_at)
+                          broker_value=VALUES(broker_value),prior_emergency=VALUES(prior_emergency),
+                          current_emergency=VALUES(current_emergency),strategy_capital_flow=VALUES(strategy_capital_flow),
+                          status='REQUIRED',confirmation_type=NULL,updated_at=VALUES(updated_at)
                         """)
                 .param("id", id.toString())
                 .param("userId", userId.toString())
@@ -59,6 +67,9 @@ public class PortfolioCashflowReconciliationService {
                 .param("change", cashChange)
                 .param("tradeValue", reliableTradeValue == null ? BigDecimal.ZERO : reliableTradeValue)
                 .param("brokerValue", after.brokerValue())
+                .param("priorEmergency", before.protectedEmergency())
+                .param("currentEmergency", after.protectedEmergency())
+                .param("strategyFlow", strategyCapitalFlow)
                 .param("now", clock.instant())
                 .update();
         auditRequired(userId, batchId, cashChange, reliableTradeValue == null ? BigDecimal.ZERO : reliableTradeValue);
@@ -86,6 +97,8 @@ public class PortfolioCashflowReconciliationService {
         var row = jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(c.id) id,BIN_TO_UUID(c.user_id) userId,c.cash_change cashChange,c.status,
+                               c.prior_emergency priorEmergency,c.current_emergency currentEmergency,
+                               c.strategy_capital_flow strategyCapitalFlow,
                                DATE(COALESCE(b.data_as_of,b.created_at)) effectiveDate
                         FROM portfolio_cashflow_reconciliation c JOIN app_user u ON u.id=c.user_id
                         JOIN portfolio_import_batch b ON b.id=c.import_batch_id
@@ -110,6 +123,23 @@ public class PortfolioCashflowReconciliationService {
                     row.cashChange(),
                     "USER_CONFIRMED_BROKER_CASHFLOW",
                     batchId.toString());
+            if (row.strategyCapitalFlow().signum() != 0) {
+                nav.recordStrategyCapitalFlow(
+                        row.userId(),
+                        row.effectiveDate(),
+                        row.strategyCapitalFlow(),
+                        row.strategyCapitalFlow().signum() > 0
+                                ? PortfolioNavService.StrategyCapitalFlowType.EXTERNAL_TO_STRATEGY
+                                : PortfolioNavService.StrategyCapitalFlowType.STRATEGY_TO_EXTERNAL,
+                        "USER_CONFIRMED_BROKER_CASHFLOW",
+                        batchId.toString());
+            }
+        } else if (type == ConfirmationType.INTERNAL_TRADE) {
+            var boundaryTransfer =
+                    row.currentEmergency().subtract(row.priorEmergency()).negate();
+            if (boundaryTransfer.signum() != 0) {
+                recordBoundaryTransfer(row.userId(), batchId, row.effectiveDate(), boundaryTransfer);
+            }
         }
         jdbc.sql(
                         """
@@ -181,12 +211,38 @@ public class PortfolioCashflowReconciliationService {
                 .map(PositionBalance::marketValue)
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        var protectedEmergency = jdbc.sql(
+                        "SELECT COALESCE(SUM(current_amount),0) FROM cash_bucket WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='EMERGENCY'")
+                .param("userId", userId.toString())
+                .query(BigDecimal.class)
+                .single();
         return new Snapshot(
                 rawCash.brokerCash(),
                 rawCash.brokerCash().add(holdings),
                 rawCash.evidenceCount() > 0,
                 positions,
+                protectedEmergency,
                 clock.instant());
+    }
+
+    private LocalDate effectiveDate(UUID batchId) {
+        return jdbc.sql(
+                        "SELECT DATE(COALESCE(data_as_of,created_at)) FROM portfolio_import_batch WHERE id=UUID_TO_BIN(:batchId)")
+                .param("batchId", batchId.toString())
+                .query(LocalDate.class)
+                .single();
+    }
+
+    private void recordBoundaryTransfer(UUID userId, UUID batchId, LocalDate effectiveDate, BigDecimal amount) {
+        nav.recordStrategyCapitalFlow(
+                userId,
+                effectiveDate,
+                amount,
+                amount.signum() > 0
+                        ? PortfolioNavService.StrategyCapitalFlowType.EMERGENCY_TO_STRATEGY
+                        : PortfolioNavService.StrategyCapitalFlowType.STRATEGY_TO_EMERGENCY,
+                "USER_CONFIRMED_EMERGENCY_ALLOCATION",
+                batchId.toString());
     }
 
     private void auditRequired(UUID userId, UUID batchId, BigDecimal cashChange, BigDecimal tradeValue) {
@@ -217,13 +273,23 @@ public class PortfolioCashflowReconciliationService {
             BigDecimal brokerValue,
             boolean rawCashEstablished,
             List<PositionBalance> positions,
+            BigDecimal protectedEmergency,
             java.time.Instant capturedAt) {
         public Snapshot(
                 BigDecimal brokerCash,
                 BigDecimal brokerValue,
                 boolean rawCashEstablished,
                 List<PositionBalance> positions) {
-            this(brokerCash, brokerValue, rawCashEstablished, positions, java.time.Instant.EPOCH);
+            this(brokerCash, brokerValue, rawCashEstablished, positions, BigDecimal.ZERO, java.time.Instant.EPOCH);
+        }
+
+        public Snapshot(
+                BigDecimal brokerCash,
+                BigDecimal brokerValue,
+                boolean rawCashEstablished,
+                List<PositionBalance> positions,
+                java.time.Instant capturedAt) {
+            this(brokerCash, brokerValue, rawCashEstablished, positions, BigDecimal.ZERO, capturedAt);
         }
     }
 
@@ -241,7 +307,15 @@ public class PortfolioCashflowReconciliationService {
 
     record Assessment(String status, BigDecimal cashChange) {}
 
-    private record PendingRow(UUID id, UUID userId, BigDecimal cashChange, String status, LocalDate effectiveDate) {}
+    private record PendingRow(
+            UUID id,
+            UUID userId,
+            BigDecimal cashChange,
+            String status,
+            BigDecimal priorEmergency,
+            BigDecimal currentEmergency,
+            BigDecimal strategyCapitalFlow,
+            LocalDate effectiveDate) {}
 
     private record RawCashTotal(long evidenceCount, BigDecimal brokerCash) {}
 

@@ -36,6 +36,9 @@ class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImp
         assertThat(count("SELECT COUNT(*) FROM portfolio_external_cashflow_event WHERE amount=7000 "
                         + "AND source='USER_CONFIRMED_BROKER_CASHFLOW'"))
                 .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_strategy_capital_flow_event WHERE amount=7000 "
+                        + "AND flow_type='EXTERNAL_TO_STRATEGY' AND source='USER_CONFIRMED_BROKER_CASHFLOW'"))
+                .isEqualTo(1);
         assertThat(jdbc.sql(
                                 "SELECT effective_date FROM portfolio_external_cashflow_event WHERE amount=7000 AND source='USER_CONFIRMED_BROKER_CASHFLOW'")
                         .query(java.time.LocalDate.class)

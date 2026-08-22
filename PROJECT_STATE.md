@@ -680,3 +680,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Later position, mark, capital, and risk changes cannot rewrite an earlier report. A current quote remains separately labeled `CURRENT_STATE_NOT_USED_IN_RECOMMENDATION` and is never used by the recommendation layers.
 - Missing run-bound position evidence fails closed instead of silently falling back to current portfolio state.
 - Verification: `PositionReportContractTest` passed 5/5, including a T0/T1 mutation regression; Maven Spotless and the dependent-module compile/test reactor passed.
+
+## Final Audit Minimum Usable Financial Correctness - F2 - 2026-08-21
+
+- Portfolio unitization now consumes a dedicated Strategy Capital Flow ledger rather than treating every broker-level external cash movement as investable capital. Emergency-only changes never change Strategy NAV units.
+- External deployable deposits/withdrawals and Emergency-to-Strategy boundary transfers create signed unit flows at the prior unit NAV, so they create zero investment return and zero artificial drawdown. Market movement without a capital flow remains the only source of unit-NAV return.
+- Import cashflow confirmation persists both the broker audit event and the Strategy NAV impact after subtracting the change in protected Emergency Cash; confirmed internal trades never become Strategy capital flow.
+- Verification: 13/13 focused NAV and cashflow reconciliation tests passed, including deposit-to-emergency, Emergency-to-deployable, deployable-to-Emergency, deposit-to-deployable, deployable withdrawal, and market-only movement; Flyway applied migration V53 successfully.
