@@ -982,6 +982,9 @@ export interface components {
       techCore?: string;
     };
     CashflowReconciliationResponse: {
+      /** Format: uuid */
+      analysisRunId?: string;
+      analysisState?: string;
       cashChange?: string;
       /** Format: uuid */
       reconciliationId?: string;

@@ -506,6 +506,13 @@
       },
       "CashflowReconciliationResponse": {
         "properties": {
+          "analysisRunId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "analysisState": {
+            "type": "string"
+          },
           "cashChange": {
             "type": "string"
           },
