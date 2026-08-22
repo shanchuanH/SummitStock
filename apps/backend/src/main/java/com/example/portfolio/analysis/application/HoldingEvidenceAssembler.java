@@ -45,7 +45,9 @@ public final class HoldingEvidenceAssembler {
     public List<HoldingEvidence> assembleAll(UUID userId) {
         var strategy = strategies.current();
         var context = new DecisionAsOfContext(LocalDate.now(clock), clock.instant(), strategy.version());
-        return assembleAll(userId, context);
+        return positions(userId).stream()
+                .map(position -> assemble(position, context))
+                .toList();
     }
 
     StrategyDefinition currentStrategy() {

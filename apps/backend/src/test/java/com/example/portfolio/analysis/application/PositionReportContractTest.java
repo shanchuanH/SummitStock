@@ -215,6 +215,29 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
                   UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'test:position-report',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0)
                 """)
                 .update();
+        jdbc.sql(
+                        """
+                INSERT INTO position_classification_snapshot (
+                  id,position_id,classification,classification_confirmed,classification_source,
+                  evidence_checksum,data_as_of,created_at)
+                SELECT UUID_TO_BIN(UUID()),p.id,p.classification,p.classification_confirmed,p.classification_source,
+                       SHA2(CONCAT('report-run-classification:',BIN_TO_UUID(p.id)),256),
+                       UTC_TIMESTAMP(6),UTC_TIMESTAMP(6)
+                FROM position p JOIN investment_account a ON a.id=p.account_id
+                WHERE a.user_id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001')
+                """)
+                .update();
+        jdbc.sql(
+                        """
+                INSERT INTO analysis_run_position_classification (
+                  id,analysis_run_id,position_id,classification_snapshot_id,created_at)
+                SELECT UUID_TO_BIN(UUID()),UUID_TO_BIN('90000000-0000-0000-0000-000000000099'),p.id,
+                       (SELECT s.id FROM position_classification_snapshot s WHERE s.position_id=p.id
+                        ORDER BY s.created_at DESC,s.id DESC LIMIT 1),UTC_TIMESTAMP(6)
+                FROM position p JOIN investment_account a ON a.id=p.account_id
+                WHERE a.user_id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001')
+                """)
+                .update();
         analysis.analyzeAll(USER_ID, REPORT_RUN);
         recommendations.generateForRun(USER_ID, REPORT_RUN);
     }
