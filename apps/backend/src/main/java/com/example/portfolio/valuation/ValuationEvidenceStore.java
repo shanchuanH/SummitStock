@@ -1,5 +1,6 @@
 package com.example.portfolio.valuation;
 
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.financialaggregation.CanonicalFinancialAggregationService;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -26,60 +27,86 @@ public class ValuationEvidenceStore {
         this.financialAggregation = financialAggregation;
     }
 
-    public List<InputRow> inputs() {
-        var rows = jdbc.sql(
-                        """
-                        SELECT BIN_TO_UUID(i.id) instrumentId, i.symbol,
-                          (SELECT q.decision_market_date FROM quote q WHERE q.instrument_id=i.id AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1) marketDate,
-                          (SELECT q.last_price FROM quote q WHERE q.instrument_id=i.id AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1) price,
-                          NULL trailingEps,
-                          (SELECT e.mean_value FROM estimate_observation e WHERE e.instrument_id=i.id
-                             AND e.estimate_type='EPS' AND e.period_type='ANNUAL'
-                             AND e.period_end>=(SELECT q.decision_market_date FROM quote q WHERE q.instrument_id=i.id
-                                                AND q.decision_quality_status='HEALTHY' ORDER BY q.data_as_of DESC LIMIT 1)
-                           ORDER BY e.period_end,e.data_as_of DESC LIMIT 1) forwardEps,
-                          NULL revenue,
-                          NULL freeCashFlow,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='CASH' ORDER BY m.data_as_of DESC LIMIT 1) cash,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='TOTAL_DEBT' ORDER BY m.data_as_of DESC LIMIT 1) totalDebt,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m
-                             JOIN financial_period mp ON mp.id=m.period_id
-                           WHERE m.instrument_id=i.id AND m.metric_code='COMMON_SHARES_OUTSTANDING'
-                           ORDER BY mp.end_date DESC,m.data_as_of DESC LIMIT 1) shares,
-                          (SELECT m.value_decimal FROM financial_metric_snapshot m WHERE m.instrument_id=i.id AND m.metric_code='REVENUE_YOY' ORDER BY m.data_as_of DESC LIMIT 1) revenueGrowth,
-                          (SELECT h.overall_status FROM financial_health_snapshot h WHERE h.instrument_id=i.id ORDER BY h.data_as_of DESC LIMIT 1) health,
-                          (SELECT r.overall_revision FROM estimate_revision_snapshot r WHERE r.instrument_id=i.id ORDER BY r.data_as_of DESC LIMIT 1) revision
-                        FROM instrument i
-                        WHERE i.active=TRUE AND i.asset_type='EQUITY'
-                        """)
-                .query(InputRow.class)
-                .list();
-        return rows.stream()
-                .map(row -> {
-                    if (row.marketDate() == null) return row;
-                    var cutoff = row.marketDate()
-                            .plusDays(1)
-                            .atStartOfDay()
-                            .toInstant(java.time.ZoneOffset.UTC)
-                            .minusNanos(1);
-                    var ttm = financialAggregation.ttm(row.instrumentId(), cutoff);
-                    return new InputRow(
-                            row.instrumentId(),
-                            row.symbol(),
-                            row.marketDate(),
-                            row.price(),
-                            value(ttm.eps()),
-                            row.forwardEps(),
-                            value(ttm.revenue()),
-                            value(ttm.freeCashFlow()),
-                            row.cash(),
-                            row.totalDebt(),
-                            row.shares(),
-                            row.revenueGrowth(),
-                            row.health(),
-                            row.revision());
-                })
+    public List<InputRow> inputs(DecisionAsOfContext context) {
+        return valuationInstruments().stream()
+                .map(instrument -> input(instrument, context))
                 .toList();
+    }
+
+    private InputRow input(ValuationInstrument instrument, DecisionAsOfContext context) {
+        var price = jdbc.sql(
+                        """
+                        SELECT decision_market_date marketDate,last_price price
+                        FROM quote WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          AND decision_quality_status='HEALTHY' AND decision_market_date<=:marketDate
+                          AND data_as_of<=:cutoff
+                        ORDER BY decision_market_date DESC,data_as_of DESC,created_at DESC LIMIT 1
+                        """)
+                .param("instrumentId", instrument.id().toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .query(PriceInput.class)
+                .optional()
+                .orElse(null);
+        if (price == null) {
+            return new InputRow(
+                    instrument.id(),
+                    instrument.symbol(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+        var assembled = new PointInTimeValuationAssembler()
+                .assemble(
+                        price.marketDate(),
+                        context.dataCutoff(),
+                        context.dataCutoff(),
+                        pointInTimeMetrics(instrument.id()),
+                        pointInTimeEstimates(instrument.id()))
+                .inputs();
+        var ttm = financialAggregation.ttm(instrument.id(), context.dataCutoff());
+        var support = jdbc.sql(
+                        """
+                        SELECT
+                          (SELECT m.value_decimal FROM financial_metric_snapshot m
+                           WHERE m.instrument_id=UUID_TO_BIN(:instrumentId) AND m.metric_code='REVENUE_YOY'
+                             AND m.data_as_of<=:cutoff ORDER BY m.data_as_of DESC,m.created_at DESC LIMIT 1) revenueGrowth,
+                          (SELECT h.overall_status FROM financial_health_snapshot h
+                           WHERE h.instrument_id=UUID_TO_BIN(:instrumentId) AND h.strategy_version=:strategyVersion
+                             AND h.data_as_of<=:cutoff ORDER BY h.data_as_of DESC,h.created_at DESC LIMIT 1) health,
+                          (SELECT r.overall_revision FROM estimate_revision_snapshot r
+                           WHERE r.instrument_id=UUID_TO_BIN(:instrumentId) AND r.data_as_of<=:cutoff
+                           ORDER BY r.data_as_of DESC,r.created_at DESC LIMIT 1) revision
+                        """)
+                .param("instrumentId", instrument.id().toString())
+                .param("strategyVersion", context.strategyVersion())
+                .param("cutoff", context.dataCutoff())
+                .query(SupportInput.class)
+                .single();
+        return new InputRow(
+                instrument.id(),
+                instrument.symbol(),
+                price.marketDate(),
+                price.price(),
+                value(ttm.eps()),
+                assembled.forwardEps(),
+                value(ttm.revenue()),
+                value(ttm.freeCashFlow()),
+                assembled.cash(),
+                assembled.totalDebt(),
+                assembled.commonShares(),
+                support.revenueGrowth(),
+                support.health(),
+                support.revision());
     }
 
     private static BigDecimal value(
@@ -93,14 +120,15 @@ public class ValuationEvidenceStore {
                 .list();
     }
 
-    public List<WeeklyPrice> weeklyPrices(UUID instrumentId, LocalDate from, LocalDate to) {
+    public List<WeeklyPrice> weeklyPrices(
+            UUID instrumentId, LocalDate from, LocalDate to, java.time.Instant decisionCutoff) {
         return jdbc.sql(
                         """
                         WITH ranked AS (
                           SELECT market_date,close_price,data_as_of,
                                  ROW_NUMBER() OVER (PARTITION BY YEARWEEK(market_date,3) ORDER BY market_date DESC,data_as_of DESC) rn
                           FROM price_bar WHERE instrument_id=UUID_TO_BIN(:instrumentId) AND adjusted=TRUE
-                            AND market_date BETWEEN :fromDate AND :toDate
+                            AND market_date BETWEEN :fromDate AND :toDate AND data_as_of<=:cutoff
                         )
                         SELECT market_date marketDate,close_price price,data_as_of dataAsOf
                         FROM ranked WHERE rn=1 ORDER BY market_date
@@ -108,6 +136,7 @@ public class ValuationEvidenceStore {
                 .param("instrumentId", instrumentId.toString())
                 .param("fromDate", from)
                 .param("toDate", to)
+                .param("cutoff", decisionCutoff)
                 .query((result, rowNumber) -> new WeeklyPrice(
                         result.getObject("marketDate", LocalDate.class),
                         result.getBigDecimal("price"),
@@ -189,7 +218,12 @@ public class ValuationEvidenceStore {
                 .update();
     }
 
-    public int saveMetrics(UUID instrumentId, LocalDate marketDate, ValuationEngineV2.Metrics value, String quality) {
+    public int saveMetrics(
+            UUID instrumentId,
+            LocalDate marketDate,
+            ValuationEngineV2.Metrics value,
+            String quality,
+            java.time.Instant dataAsOf) {
         var checksum = sha256(instrumentId + "|" + marketDate + "|" + value);
         return jdbc.sql(
                         """
@@ -198,7 +232,7 @@ public class ValuationEvidenceStore {
                           market_cap,source,quality,evidence_checksum,data_as_of,created_at
                         ) VALUES (
                           UUID_TO_BIN(:id),UUID_TO_BIN(:instrumentId),:marketDate,:trailingPe,:forwardPe,:evSales,:fcfYield,:priceSales,
-                          :marketCap,'canonical-financials-v2',:quality,:checksum,:now,:now
+                          :marketCap,'canonical-financials-v2',:quality,:checksum,:dataAsOf,:now
                         )
                         """)
                 .param("id", UUID.randomUUID().toString())
@@ -212,20 +246,25 @@ public class ValuationEvidenceStore {
                 .param("marketCap", value.marketCap())
                 .param("quality", quality)
                 .param("checksum", checksum)
+                .param("dataAsOf", dataAsOf)
                 .param("now", clock.instant())
                 .update();
     }
 
-    public List<ValuationEngineV2.Metrics> history(UUID instrumentId, LocalDate from) {
+    public List<ValuationEngineV2.Metrics> history(
+            UUID instrumentId, LocalDate from, LocalDate through, java.time.Instant decisionCutoff) {
         return jdbc.sql(
                         """
                         SELECT trailing_pe trailingPe,forward_pe forwardPe,ev_sales evSales,fcf_yield fcfYield,
                                price_sales priceSales,market_cap marketCap
-                        FROM valuation_metric_history WHERE instrument_id=UUID_TO_BIN(:instrumentId) AND market_date>=:from
+                        FROM valuation_metric_history WHERE instrument_id=UUID_TO_BIN(:instrumentId)
+                          AND market_date BETWEEN :from AND :through AND data_as_of<=:cutoff
                         ORDER BY market_date
                         """)
                 .param("instrumentId", instrumentId.toString())
                 .param("from", from)
+                .param("through", through)
+                .param("cutoff", decisionCutoff)
                 .query(ValuationEngineV2.Metrics.class)
                 .list();
     }
@@ -235,7 +274,8 @@ public class ValuationEvidenceStore {
             ValuationEngineV2.Assessment assessment,
             BigDecimal growthAdjusted,
             String strategyVersion,
-            String configHash) {
+            String configHash,
+            java.time.Instant dataAsOf) {
         var checksum = sha256(instrumentId + "|" + assessment + "|" + growthAdjusted);
         return jdbc.sql(
                         """
@@ -245,7 +285,7 @@ public class ValuationEvidenceStore {
                           quality,strategy_version,config_hash,evidence_checksum,data_as_of,created_at
                         ) VALUES (
                           UUID_TO_BIN(:id),UUID_TO_BIN(:instrumentId),:state,:confidence,:percentile3,
-                          :percentile5,NULL,:growthAdjusted,:count,:quality,:strategyVersion,:configHash,:checksum,:now,:now
+                           :percentile5,NULL,:growthAdjusted,:count,:quality,:strategyVersion,:configHash,:checksum,:dataAsOf,:now
                         )
                         """)
                 .param("id", UUID.randomUUID().toString())
@@ -260,6 +300,7 @@ public class ValuationEvidenceStore {
                 .param("strategyVersion", strategyVersion)
                 .param("configHash", configHash)
                 .param("checksum", checksum)
+                .param("dataAsOf", dataAsOf)
                 .param("now", clock.instant())
                 .update();
     }
@@ -270,6 +311,27 @@ public class ValuationEvidenceStore {
                 .query(String.class)
                 .optional()
                 .orElse("0".repeat(64));
+    }
+
+    public DecisionAsOfContext analysisContext(UUID analysisRunId) {
+        return jdbc.sql(
+                        """
+                        SELECT market_date marketDate,decision_cutoff decisionCutoff,strategy_version strategyVersion
+                        FROM portfolio_analysis_run WHERE id=UUID_TO_BIN(:runId)
+                        """)
+                .param("runId", analysisRunId.toString())
+                .query(RunContext.class)
+                .optional()
+                .map(value -> {
+                    if (value.decisionCutoff() == null) {
+                        throw new IllegalStateException("Analysis run decision cutoff is unavailable");
+                    }
+                    return new DecisionAsOfContext(
+                            value.marketDate(),
+                            value.decisionCutoff().toInstant(java.time.ZoneOffset.UTC),
+                            value.strategyVersion());
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Analysis run is unavailable"));
     }
 
     private static String sha256(String value) {
@@ -284,6 +346,12 @@ public class ValuationEvidenceStore {
     public record ValuationInstrument(UUID id, String symbol) {}
 
     public record WeeklyPrice(LocalDate marketDate, BigDecimal price, java.time.Instant dataAsOf) {}
+
+    record PriceInput(LocalDate marketDate, BigDecimal price) {}
+
+    record SupportInput(BigDecimal revenueGrowth, String health, String revision) {}
+
+    record RunContext(LocalDate marketDate, java.time.LocalDateTime decisionCutoff, String strategyVersion) {}
 
     public record InputRow(
             UUID instrumentId,

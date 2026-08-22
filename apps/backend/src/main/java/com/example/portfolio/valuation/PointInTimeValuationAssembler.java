@@ -4,24 +4,23 @@ import com.example.portfolio.financialaggregation.CanonicalFinancialAggregation;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 
 public final class PointInTimeValuationAssembler {
     public PointInTimeInputs assemble(
             LocalDate marketDate,
+            Instant decisionCutoff,
             Instant priceCompletedSessionAvailability,
             List<MetricPoint> metrics,
             List<EstimatePoint> estimates) {
-        var cutoff = marketDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
-        var trailingEps = ttm("DILUTED_EPS", cutoff, metrics);
-        var forwardEps = forwardEps(marketDate, cutoff, estimates);
-        var revenue = ttm("REVENUE", cutoff, metrics);
-        var freeCashFlow = ttm("FREE_CASH_FLOW", cutoff, metrics);
-        var cash = latest("CASH", cutoff, metrics);
-        var totalDebt = latest("TOTAL_DEBT", cutoff, metrics);
-        var commonShares = latest("COMMON_SHARES_OUTSTANDING", cutoff, metrics);
+        var trailingEps = ttm("DILUTED_EPS", decisionCutoff, metrics);
+        var forwardEps = forwardEps(marketDate, decisionCutoff, estimates);
+        var revenue = ttm("REVENUE", decisionCutoff, metrics);
+        var freeCashFlow = ttm("FREE_CASH_FLOW", decisionCutoff, metrics);
+        var cash = latest("CASH", decisionCutoff, metrics);
+        var totalDebt = latest("TOTAL_DEBT", decisionCutoff, metrics);
+        var commonShares = latest("COMMON_SHARES_OUTSTANDING", decisionCutoff, metrics);
         var evidenceDataAsOf = java.util.stream.Stream.of(
                         trailingEps, forwardEps, revenue, freeCashFlow, cash, totalDebt, commonShares)
                 .filter(java.util.Objects::nonNull)
@@ -61,7 +60,7 @@ public final class PointInTimeValuationAssembler {
     private static SelectedValue latest(String metric, Instant cutoff, List<MetricPoint> values) {
         return values.stream()
                 .filter(value -> value.metricCode().equals(metric))
-                .filter(value -> value.dataAsOf().isBefore(cutoff))
+                .filter(value -> !value.dataAsOf().isAfter(cutoff))
                 .max(Comparator.comparing(MetricPoint::periodEnd).thenComparing(MetricPoint::dataAsOf))
                 .map(value -> new SelectedValue(value.value(), value.dataAsOf()))
                 .orElse(null);
@@ -70,14 +69,14 @@ public final class PointInTimeValuationAssembler {
     private static SelectedValue forwardEps(LocalDate marketDate, Instant cutoff, List<EstimatePoint> values) {
         var earliestPeriod = values.stream()
                 .filter(value -> value.periodEnd().compareTo(marketDate) >= 0)
-                .filter(value -> value.dataAsOf().isBefore(cutoff))
+                .filter(value -> !value.dataAsOf().isAfter(cutoff))
                 .map(EstimatePoint::periodEnd)
                 .min(LocalDate::compareTo)
                 .orElse(null);
         if (earliestPeriod == null) return null;
         return values.stream()
                 .filter(value -> value.periodEnd().equals(earliestPeriod))
-                .filter(value -> value.dataAsOf().isBefore(cutoff))
+                .filter(value -> !value.dataAsOf().isAfter(cutoff))
                 .max(Comparator.comparing(EstimatePoint::dataAsOf))
                 .map(value -> new SelectedValue(value.meanValue(), value.dataAsOf()))
                 .orElse(null);

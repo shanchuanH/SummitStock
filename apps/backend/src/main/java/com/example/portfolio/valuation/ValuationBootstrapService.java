@@ -1,7 +1,7 @@
 package com.example.portfolio.valuation;
 
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.market.provider.TradingCalendar;
-import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,16 +15,20 @@ public class ValuationBootstrapService {
         this.tradingCalendar = tradingCalendar;
     }
 
-    public int bootstrap(LocalDate marketDate) {
+    public int bootstrap(DecisionAsOfContext context) {
         int affected = 0;
         for (var instrument : store.valuationInstruments()) {
             var metrics = store.pointInTimeMetrics(instrument.id());
             var estimates = store.pointInTimeEstimates(instrument.id());
-            for (var price : store.weeklyPrices(instrument.id(), marketDate.minusYears(5), marketDate)) {
+            for (var price : store.weeklyPrices(
+                    instrument.id(), context.marketDate().minusYears(5), context.marketDate(), context.dataCutoff())) {
                 if (!tradingCalendar.isSession(price.marketDate())) continue;
                 var completedClose = tradingCalendar.sessionClose(price.marketDate());
                 var priceAvailability = price.dataAsOf().isAfter(completedClose) ? price.dataAsOf() : completedClose;
-                var pointInTime = assembler.assemble(price.marketDate(), priceAvailability, metrics, estimates);
+                var cutoff = price.marketDate().equals(context.marketDate())
+                        ? context.dataCutoff()
+                        : tradingCalendar.sessionClose(price.marketDate());
+                var pointInTime = assembler.assemble(price.marketDate(), cutoff, priceAvailability, metrics, estimates);
                 var inputs = pointInTime.inputs();
                 if (inputs.commonShares() == null) continue;
                 var row = new ValuationEvidenceStore.InputRow(

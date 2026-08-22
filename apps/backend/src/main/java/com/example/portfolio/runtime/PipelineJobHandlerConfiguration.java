@@ -139,7 +139,12 @@ class PipelineJobHandlerConfiguration {
 
     @Bean
     JobHandler computeValuationJobHandler(ValuationApplicationService valuation, Clock clock) {
-        return handler("COMPUTE_VALUATION", context -> success(valuation.computeAll(), clock.instant()));
+        return handler("COMPUTE_VALUATION", context -> {
+            if (context.analysisRunId() == null) {
+                throw new IllegalStateException("COMPUTE_VALUATION requires an analysis run");
+            }
+            return success(valuation.computeAll(context.analysisRunId()), clock.instant());
+        });
     }
 
     @Bean

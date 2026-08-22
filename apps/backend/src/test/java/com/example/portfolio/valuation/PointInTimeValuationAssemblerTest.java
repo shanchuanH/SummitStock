@@ -25,7 +25,12 @@ class PointInTimeValuationAssemblerTest {
                 estimate("2024-12-31", "12", "2026-01-01T00:00:00Z"));
 
         var result = new PointInTimeValuationAssembler()
-                .assemble(LocalDate.parse("2023-08-01"), Instant.parse("2023-08-01T20:00:00Z"), metrics, estimates)
+                .assemble(
+                        LocalDate.parse("2023-08-01"),
+                        Instant.parse("2023-08-01T20:00:00Z"),
+                        Instant.parse("2023-08-01T20:00:00Z"),
+                        metrics,
+                        estimates)
                 .inputs();
 
         assertThat(result.trailingEps()).isEqualByComparingTo("10");
@@ -36,7 +41,12 @@ class PointInTimeValuationAssemblerTest {
     @Test
     void missingEvidenceRemainsMissing() {
         var result = new PointInTimeValuationAssembler()
-                .assemble(LocalDate.parse("2023-08-01"), Instant.parse("2023-08-01T20:00:00Z"), List.of(), List.of())
+                .assemble(
+                        LocalDate.parse("2023-08-01"),
+                        Instant.parse("2023-08-01T20:00:00Z"),
+                        Instant.parse("2023-08-01T20:00:00Z"),
+                        List.of(),
+                        List.of())
                 .inputs();
 
         assertThat(result.trailingEps()).isNull();
@@ -51,7 +61,8 @@ class PointInTimeValuationAssemblerTest {
         var metrics =
                 List.of(metric("QUARTERLY", "2023-06-30", "COMMON_SHARES_OUTSTANDING", "98", "2023-07-31T12:00:00Z"));
 
-        var result = new PointInTimeValuationAssembler().assemble(marketDate, completedClose, metrics, List.of());
+        var result = new PointInTimeValuationAssembler()
+                .assemble(marketDate, completedClose, completedClose, metrics, List.of());
 
         assertThat(result.evidenceDataAsOf()).isEqualTo(completedClose);
         assertThat(result.evidenceDataAsOf()).isAfter(Instant.parse("2023-08-01T19:59:59Z"));
@@ -65,10 +76,29 @@ class PointInTimeValuationAssemblerTest {
                 metric("QUARTERLY", "2023-06-30", "COMMON_SHARES_OUTSTANDING", "120", "2026-02-01T00:00:00Z"));
 
         var result = new PointInTimeValuationAssembler()
-                .assemble(marketDate, Instant.parse("2023-08-01T20:00:00Z"), metrics, List.of());
+                .assemble(
+                        marketDate,
+                        Instant.parse("2023-08-01T22:00:00Z"),
+                        Instant.parse("2023-08-01T20:00:00Z"),
+                        metrics,
+                        List.of());
 
         assertThat(result.inputs().commonShares()).isEqualByComparingTo("98");
         assertThat(result.evidenceDataAsOf()).isEqualTo(Instant.parse("2023-08-01T21:00:00Z"));
+    }
+
+    @Test
+    void excludesEvidenceOneMinuteAfterPersistedDecisionCutoff() {
+        var marketDate = LocalDate.parse("2026-08-21");
+        var cutoff = Instant.parse("2026-08-21T20:00:00Z");
+        var metrics = List.of(
+                metric("QUARTERLY", "2026-06-30", "COMMON_SHARES_OUTSTANDING", "98", "2026-08-21T19:59:00Z"),
+                metric("QUARTERLY", "2026-06-30", "COMMON_SHARES_OUTSTANDING", "120", "2026-08-21T20:01:00Z"));
+
+        var result = new PointInTimeValuationAssembler().assemble(marketDate, cutoff, cutoff, metrics, List.of());
+
+        assertThat(result.inputs().commonShares()).isEqualByComparingTo("98");
+        assertThat(result.evidenceDataAsOf()).isEqualTo(cutoff);
     }
 
     private static PointInTimeValuationAssembler.MetricPoint metric(
