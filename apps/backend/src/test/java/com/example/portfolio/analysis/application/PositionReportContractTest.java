@@ -116,8 +116,91 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.layers.market.price").value("200"))
                 .andExpect(jsonPath("$.currentChange.price").value("250"))
-                .andExpect(jsonPath("$.currentChange.label").value("CURRENT_CHANGE_NOT_USED_IN_RECOMMENDATION"))
+                .andExpect(jsonPath("$.currentChange.label").value("CURRENT_STATE_NOT_USED_IN_RECOMMENDATION"))
                 .andExpect(jsonPath("$.analysisAsOf.analysisRunId").value(REPORT_RUN.toString()));
+    }
+
+    @Test
+    void historicalReportKeepsRunBoundPositionCapitalAndRiskAfterCurrentStateChanges() throws Exception {
+        generateReportRun();
+
+        jdbc.sql("UPDATE position SET quantity=5,average_cost=999,market_value=5000 WHERE id=UUID_TO_BIN(:id)")
+                .param("id", GOOGL_POSITION.toString())
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT INTO position_snapshot
+                          (id,position_id,import_batch_id,quantity,average_cost,market_value,data_as_of,source,evidence_checksum,created_at)
+                        VALUES (UUID_TO_BIN('97010000-0000-0000-0000-000000000099'),UUID_TO_BIN(:positionId),NULL,
+                          5,999,5000,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),'TEST',SHA2('future-position',256),
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE))
+                        """)
+                .param("positionId", GOOGL_POSITION.toString())
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT INTO position_mark_snapshot
+                          (id,position_id,instrument_id,quantity,decision_price,marked_market_value,market_date,
+                           source_provider,quality_status,price_data_as_of,strategy_version,strategy_config_hash,
+                           evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN('97020000-0000-0000-0000-000000000099'),UUID_TO_BIN(:positionId),
+                          UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),5,1000,5000,CURRENT_DATE,'TEST','HEALTHY',
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),'3.0.0-draft',SHA2('config',256),
+                          SHA2('future-mark',256),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE))
+                        """)
+                .param("positionId", GOOGL_POSITION.toString())
+                .update();
+        updateFutureCapitalAndRisk();
+
+        mockMvc.perform(get("/api/v1/holdings/{positionId}/analyst-report", GOOGL_POSITION)
+                        .with(httpBasic(USER_EMAIL, "change-before-use")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.layers.market.price").value("200"))
+                .andExpect(jsonPath("$.layers.market.averageCost").value("150"))
+                .andExpect(jsonPath("$.layers.market.unrealizedPnlDollar").value("5000"))
+                .andExpect(jsonPath("$.layers.risk.currentWeight").value("0.625"))
+                .andExpect(jsonPath("$.layers.risk.clusterRisk").value("0.0003"))
+                .andExpect(jsonPath("$.layers.risk.totalPortfolioPlannedRisk").value("0.0003"))
+                .andExpect(jsonPath("$.analysisAsOf.analysisRunId").value(REPORT_RUN.toString()));
+    }
+
+    private void updateFutureCapitalAndRisk() {
+        jdbc.sql(
+                        """
+                        INSERT INTO portfolio_capital_snapshot
+                          (id,user_id,strategy_version,strategy_config_hash,invested_tradable_assets,tracked_cash,
+                           required_emergency_floor,emergency_reserve,deployable_cash,investable_assets,total_liquid_assets,
+                           unvested_compensation_value,quality_status,evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN('97030000-0000-0000-0000-000000000099'),UUID_TO_BIN(:userId),'3.0.0-draft',
+                          SHA2('config',256),5000,50000,20000,20000,30000,35000,55000,0,'HEALTHY',SHA2('future-capital',256),
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE))
+                        """)
+                .param("userId", USER_ID.toString())
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT INTO position_risk_snapshot
+                          (id,position_id,strategy_version,current_weight,open_risk_fraction,cluster_risk_fraction,risk_amount,
+                           quality_status,evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN('97040000-0000-0000-0000-000000000099'),UUID_TO_BIN(:positionId),
+                          '3.0.0-draft',0.9,0.4,0,14000,'HEALTHY',SHA2('future-risk',256),
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE))
+                        """)
+                .param("positionId", GOOGL_POSITION.toString())
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT INTO risk_cluster_snapshot
+                          (id,risk_cluster_id,user_id,open_risk_amount,open_risk_fraction,member_count,quality,data_as_of,
+                           strategy_version,strategy_config_hash,evidence_checksum,created_at)
+                        VALUES (UUID_TO_BIN('97050000-0000-0000-0000-000000000099'),
+                          UUID_TO_BIN('99410000-0000-0000-0000-000000000001'),UUID_TO_BIN(:userId),14000,0.4,3,'HEALTHY',
+                          DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE),'3.0.0-draft',SHA2('config',256),
+                          SHA2('future-cluster',256),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 MINUTE))
+                        """)
+                .param("userId", USER_ID.toString())
+                .update();
     }
 
     private void generateReportRun() {

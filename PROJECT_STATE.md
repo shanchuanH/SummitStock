@@ -673,3 +673,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Dashboard active/speculative exposure uses the canonical classifications and Strategy NAV denominator.
 - Local verification: Maven reactor `verify` passed all 301 backend tests; frontend lint, typecheck, 49 tests, and production build passed. GitHub CI remains the authoritative desktop/mobile, supply-chain, gitleaks, and Docker gate.
 - Follow-up runtime audit: stalled recovery now uses the latest durable step progress timestamp, matching the status endpoint. A long-running analysis with recent progress is reused instead of being falsely abandoned; only a genuinely stale run is replaced.
+
+## Final Audit Minimum Usable Financial Correctness - F1 - 2026-08-21
+
+- Historical Position Reports now reconstruct position quantity/value, Strategy NAV, tactical reserve, total planned risk, cluster exposure, and cluster planned risk only from snapshots at or before the report's analysis-run cutoff and for the exact strategy version.
+- Later position, mark, capital, and risk changes cannot rewrite an earlier report. A current quote remains separately labeled `CURRENT_STATE_NOT_USED_IN_RECOMMENDATION` and is never used by the recommendation layers.
+- Missing run-bound position evidence fails closed instead of silently falling back to current portfolio state.
+- Verification: `PositionReportContractTest` passed 5/5, including a T0/T1 mutation regression; Maven Spotless and the dependent-module compile/test reactor passed.

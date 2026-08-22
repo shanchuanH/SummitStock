@@ -1,6 +1,8 @@
 package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.MySqlIntegrationTest;
+import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
+import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
 import com.example.portfolio.market.provider.TradingCalendar;
 import java.time.Clock;
@@ -35,6 +37,12 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
 
     @Autowired
     protected PositionMarkService positionMarks;
+
+    @Autowired
+    protected CapitalBaseService capitalBases;
+
+    @Autowired
+    protected PortfolioAllocationService allocations;
 
     @Autowired
     protected TradingCalendar tradingCalendar;
@@ -104,6 +112,18 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
                 .param("marketDate", tradingCalendar.latestCompletedSession(clock.instant()))
                 .update();
         positionMarks.captureForUser(USER_ID, clock.instant());
+        update(
+                """
+                INSERT INTO position_snapshot
+                  (id,position_id,import_batch_id,quantity,average_cost,market_value,data_as_of,source,evidence_checksum,created_at)
+                VALUES
+                  (UUID_TO_BIN('97010000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),NULL,100,150,20000,UTC_TIMESTAMP(6),'TEST',SHA2('ps1',256),UTC_TIMESTAMP(6)),
+                  (UUID_TO_BIN('97010000-0000-0000-0000-000000000002'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),NULL,100,25,3000,UTC_TIMESTAMP(6),'TEST',SHA2('ps2',256),UTC_TIMESTAMP(6)),
+                  (UUID_TO_BIN('97010000-0000-0000-0000-000000000003'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'),NULL,50,18,1000,UTC_TIMESTAMP(6),'TEST',SHA2('ps3',256),UTC_TIMESTAMP(6))
+                """);
+        var capitalAsOf = clock.instant();
+        capitalBases.capture(USER_ID, capitalAsOf);
+        allocations.capture(USER_ID, capitalAsOf);
         update(
                 """
                 INSERT INTO fundamental_observation (id,instrument_id,metric_code,period_type,period_end,value_decimal,unit,currency,provider,source_timestamp,checksum,quality_status,data_as_of,created_at)
@@ -272,6 +292,8 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
                 "DELETE FROM indicator_snapshot WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
         update(
                 "DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'))");
+        update(
+                "DELETE FROM position_snapshot WHERE position_id IN (UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),UUID_TO_BIN('94000000-0000-0000-0000-000000000002'),UUID_TO_BIN('94000000-0000-0000-0000-000000000003'))");
         update(
                 "DELETE FROM price_bar WHERE instrument_id IN (UUID_TO_BIN('93000000-0000-0000-0000-000000000001'),UUID_TO_BIN('93000000-0000-0000-0000-000000000002'),UUID_TO_BIN('93000000-0000-0000-0000-000000000003'))");
         update(

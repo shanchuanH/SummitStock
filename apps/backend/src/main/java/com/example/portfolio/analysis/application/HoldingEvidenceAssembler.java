@@ -1,9 +1,11 @@
 package com.example.portfolio.analysis.application;
 
+import com.example.portfolio.analysis.capital.CapitalBase;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.domain.HoldingEvidence;
 import com.example.portfolio.analysis.domain.StrategyDefinition;
 import com.example.portfolio.analysis.replay.DecisionAsOfContext;
+import com.example.portfolio.analysis.risk.ClusterRisk;
 import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
@@ -51,8 +53,9 @@ public final class HoldingEvidenceAssembler {
     }
 
     public List<HoldingEvidence> assembleAll(UUID userId, DecisionAsOfContext context) {
-        return positions(userId).stream()
-                .map(position -> assemble(position, context))
+        return positionIds(userId, context).stream()
+                .map(positionId -> positionAsOf(userId, positionId, context))
+                .map(position -> assemble(position, context, true))
                 .toList();
     }
 
@@ -67,23 +70,27 @@ public final class HoldingEvidenceAssembler {
     }
 
     public HoldingEvidence assemble(UUID userId, UUID positionId, DecisionAsOfContext context) {
-        return positions(userId).stream()
-                .filter(value -> value.positionId().equals(positionId))
-                .findFirst()
-                .map(position -> assemble(position, context))
-                .orElseThrow(() -> new IllegalArgumentException("Position is not owned by user"));
+        return assemble(positionAsOf(userId, positionId, context), context, true);
     }
 
     private HoldingEvidence assemble(PositionRow position, DecisionAsOfContext context) {
-        var totals = totals(position.userId());
-        var capital = capitalBases.calculate(position.userId());
-        var risk = riskEvidence(position.userId());
+        return assemble(position, context, false);
+    }
+
+    private HoldingEvidence assemble(PositionRow position, DecisionAsOfContext context, boolean historical) {
+        var totals = historical ? totals(position.userId(), context) : totals(position.userId());
+        var capital = historical ? capital(position.userId(), context) : capitalBases.calculate(position.userId());
+        var risk = historical ? riskEvidence(position.userId(), context) : riskEvidence(position.userId());
         var investable = capital.investableAssets();
         var currentWeight = investable.signum() == 0
                 ? BigDecimal.ZERO
                 : position.marketValue().divide(investable, MathContext.DECIMAL64);
-        var cluster = cluster(position.positionId(), investable);
-        var clusterRisk = clusterRisks.forPosition(position.positionId());
+        var cluster = historical
+                ? cluster(position.positionId(), investable, context)
+                : cluster(position.positionId(), investable);
+        var clusterRisk = historical
+                ? clusterRisk(position.positionId(), context)
+                : clusterRisks.forPosition(position.positionId());
         var quote = quote(position.instrumentId(), context);
         var bars = bars(position.instrumentId(), context);
         var indicators = indicators(position.instrumentId(), bars, context);
@@ -151,7 +158,7 @@ public final class HoldingEvidenceAssembler {
                 capital.quality(),
                 risk.quality(),
                 risk.dataAsOf(),
-                providerHardError(position.instrumentId()),
+                providerHardError(position.instrumentId(), context),
                 quality,
                 strategies.current(),
                 dataAsOf);
@@ -176,6 +183,85 @@ public final class HoldingEvidenceAssembler {
                 .list();
     }
 
+    private List<UUID> positionIds(UUID userId, DecisionAsOfContext context) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(p.id)
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        WHERE a.user_id=UUID_TO_BIN(:userId)
+                          AND EXISTS (SELECT 1 FROM position_mark_snapshot m
+                                      WHERE m.position_id=p.id AND m.market_date<=:marketDate
+                                        AND m.data_as_of<=:cutoff AND m.strategy_version=:strategyVersion)
+                        ORDER BY p.id
+                        """)
+                .param("userId", userId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
+                .query(UUID.class)
+                .list();
+    }
+
+    private PositionRow positionAsOf(UUID userId, UUID positionId, DecisionAsOfContext context) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(p.id) positionId, BIN_TO_UUID(a.user_id) userId,
+                               BIN_TO_UUID(i.id) instrumentId, i.symbol, i.asset_type assetType, i.active,
+                               p.classification, p.classification_confirmed classificationConfirmed,
+                               m.quantity, s.average_cost averageCost, m.marked_market_value marketValue
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        JOIN instrument i ON i.id=p.instrument_id
+                        JOIN position_mark_snapshot m ON m.id=(
+                          SELECT x.id FROM position_mark_snapshot x
+                          WHERE x.position_id=p.id AND x.market_date<=:marketDate
+                            AND x.data_as_of<=:cutoff AND x.strategy_version=:strategyVersion
+                          ORDER BY x.market_date DESC,x.data_as_of DESC,x.created_at DESC,x.id DESC LIMIT 1)
+                        LEFT JOIN position_snapshot s ON s.id=(
+                          SELECT y.id FROM position_snapshot y WHERE y.position_id=p.id AND y.data_as_of<=:cutoff
+                          ORDER BY y.data_as_of DESC,y.created_at DESC,y.id DESC LIMIT 1)
+                        WHERE p.id=UUID_TO_BIN(:positionId) AND a.user_id=UUID_TO_BIN(:userId)
+                        """)
+                .param("positionId", positionId.toString())
+                .param("userId", userId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
+                .query(PositionRow.class)
+                .optional()
+                .orElseThrow(() -> new IllegalArgumentException("Position has no run-bound evidence for user"));
+    }
+
+    private CapitalBase capital(UUID userId, DecisionAsOfContext context) {
+        return jdbc.sql(
+                        """
+                        SELECT invested_tradable_assets investedTradableAssets,tracked_cash,
+                               required_emergency_floor requiredEmergencyFloor,emergency_reserve emergencyReserve,
+                               deployable_cash deployableCash,investable_assets investableAssets,
+                               total_liquid_assets totalLiquidAssets,
+                               unvested_compensation_value unvestedCompensationValue,quality_status quality
+                        FROM portfolio_capital_snapshot
+                        WHERE user_id=UUID_TO_BIN(:userId) AND strategy_version=:strategyVersion
+                          AND data_as_of<=:cutoff
+                        ORDER BY data_as_of DESC,created_at DESC,id DESC LIMIT 1
+                        """)
+                .param("userId", userId.toString())
+                .param("strategyVersion", context.strategyVersion())
+                .param("cutoff", context.dataCutoff())
+                .query(CapitalSnapshotRow.class)
+                .optional()
+                .map(value -> new CapitalBase(
+                        value.investedTradableAssets(),
+                        value.trackedCash(),
+                        value.requiredEmergencyFloor(),
+                        value.emergencyReserve(),
+                        value.deployableCash(),
+                        value.investableAssets(),
+                        value.totalLiquidAssets(),
+                        value.unvestedCompensationValue(),
+                        quality(value.quality())))
+                .orElseGet(capitalBases::empty);
+    }
+
     private PortfolioTotals totals(UUID userId) {
         return jdbc.sql(
                         """
@@ -189,6 +275,28 @@ public final class HoldingEvidenceAssembler {
                         FROM app_user u WHERE u.id=UUID_TO_BIN(:userId)
                         """)
                 .param("userId", userId.toString())
+                .query(PortfolioTotals.class)
+                .single();
+    }
+
+    private PortfolioTotals totals(UUID userId, DecisionAsOfContext context) {
+        return jdbc.sql(
+                        """
+                        SELECT COALESCE((SELECT marked_market_value FROM portfolio_allocation_snapshot a
+                                         WHERE a.user_id=UUID_TO_BIN(:userId) AND a.sleeve_code='TACTICAL_RESERVE'
+                                           AND a.strategy_version=:strategyVersion AND a.data_as_of<=:cutoff
+                                         ORDER BY a.data_as_of DESC,a.created_at DESC,a.id DESC LIMIT 1),0) tactical,
+                               (SELECT SUM(r.open_risk_fraction) FROM position_risk_snapshot r
+                                JOIN position p ON p.id=r.position_id JOIN investment_account a ON a.id=p.account_id
+                                WHERE a.user_id=UUID_TO_BIN(:userId) AND r.strategy_version=:strategyVersion
+                                  AND r.data_as_of<=:cutoff AND r.id=(SELECT x.id FROM position_risk_snapshot x
+                                    WHERE x.position_id=r.position_id AND x.strategy_version=:strategyVersion
+                                      AND x.data_as_of<=:cutoff
+                                    ORDER BY x.data_as_of DESC,x.created_at DESC,x.id DESC LIMIT 1)) openRisk
+                        """)
+                .param("userId", userId.toString())
+                .param("strategyVersion", context.strategyVersion())
+                .param("cutoff", context.dataCutoff())
                 .query(PortfolioTotals.class)
                 .single();
     }
@@ -210,6 +318,55 @@ public final class HoldingEvidenceAssembler {
         var weight =
                 liquid.signum() == 0 ? BigDecimal.ZERO : value.clusterValue().divide(liquid, MathContext.DECIMAL64);
         return new ClusterEvidence(weight);
+    }
+
+    private ClusterEvidence cluster(UUID positionId, BigDecimal liquid, DecisionAsOfContext context) {
+        var value = jdbc.sql(
+                        """
+                        SELECT COALESCE(SUM(marked.marked_market_value*m.contribution_weight),0) clusterValue
+                        FROM risk_cluster_membership own
+                        JOIN risk_cluster_membership m ON m.risk_cluster_id=own.risk_cluster_id
+                        JOIN position_mark_snapshot marked ON marked.id=(
+                          SELECT x.id FROM position_mark_snapshot x
+                          WHERE x.position_id=m.position_id AND x.market_date<=:marketDate
+                            AND x.data_as_of<=:cutoff AND x.strategy_version=:strategyVersion
+                          ORDER BY x.market_date DESC,x.data_as_of DESC,x.created_at DESC,x.id DESC LIMIT 1)
+                        WHERE own.position_id=UUID_TO_BIN(:positionId)
+                        """)
+                .param("positionId", positionId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
+                .query(ClusterRow.class)
+                .single();
+        var weight =
+                liquid.signum() == 0 ? BigDecimal.ZERO : value.clusterValue().divide(liquid, MathContext.DECIMAL64);
+        return new ClusterEvidence(weight);
+    }
+
+    private ClusterRisk clusterRisk(UUID positionId, DecisionAsOfContext context) {
+        return jdbc.sql(
+                        """
+                        SELECT s.open_risk_amount openRiskAmount,s.open_risk_fraction openRiskFraction,
+                               s.quality,s.data_as_of dataAsOf
+                        FROM risk_cluster_membership m JOIN risk_cluster_snapshot s ON s.risk_cluster_id=m.risk_cluster_id
+                        WHERE m.position_id=UUID_TO_BIN(:positionId) AND s.strategy_version=:strategyVersion
+                          AND s.data_as_of<=:cutoff
+                        ORDER BY s.data_as_of DESC,s.created_at DESC,s.id DESC LIMIT 1
+                        """)
+                .param("positionId", positionId.toString())
+                .param("strategyVersion", context.strategyVersion())
+                .param("cutoff", context.dataCutoff())
+                .query(ClusterRiskRow.class)
+                .optional()
+                .map(value -> new ClusterRisk(
+                        null,
+                        value.openRiskAmount(),
+                        value.openRiskFraction(),
+                        0,
+                        quality(value.quality()),
+                        instant(value.dataAsOf())))
+                .orElseGet(ClusterRisk::none);
     }
 
     private RiskEvidence riskEvidence(UUID userId) {
@@ -236,14 +393,46 @@ public final class HoldingEvidenceAssembler {
         return new RiskEvidence(quality, instant(value.dataAsOf()));
     }
 
-    private boolean providerHardError(UUID instrumentId) {
+    private RiskEvidence riskEvidence(UUID userId, DecisionAsOfContext context) {
+        var value = jdbc.sql(
+                        """
+                        SELECT COUNT(marked.id) positionCount,COUNT(latest.id) snapshotCount,
+                               COALESCE(SUM(latest.quality_status<>'HEALTHY'),0) impairedCount,
+                               MAX(latest.data_as_of) dataAsOf
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        JOIN position_mark_snapshot marked ON marked.id=(SELECT m.id FROM position_mark_snapshot m
+                          WHERE m.position_id=p.id AND m.market_date<=:marketDate AND m.data_as_of<=:cutoff
+                            AND m.strategy_version=:strategyVersion
+                          ORDER BY m.market_date DESC,m.data_as_of DESC,m.created_at DESC,m.id DESC LIMIT 1)
+                        LEFT JOIN position_risk_snapshot latest ON latest.id=(SELECT r.id FROM position_risk_snapshot r
+                          WHERE r.position_id=p.id AND r.strategy_version=:strategyVersion AND r.data_as_of<=:cutoff
+                          ORDER BY r.data_as_of DESC,r.created_at DESC,r.id DESC LIMIT 1)
+                        WHERE a.user_id=UUID_TO_BIN(:userId)
+                        """)
+                .param("userId", userId.toString())
+                .param("marketDate", context.marketDate())
+                .param("strategyVersion", context.strategyVersion())
+                .param("cutoff", context.dataCutoff())
+                .query(RiskRow.class)
+                .single();
+        var quality = value.snapshotCount() == 0
+                ? EvidenceQuality.MISSING
+                : value.snapshotCount() == value.positionCount() && value.impairedCount() == 0
+                        ? EvidenceQuality.HEALTHY
+                        : EvidenceQuality.PARTIAL;
+        return new RiskEvidence(quality, instant(value.dataAsOf()));
+    }
+
+    private boolean providerHardError(UUID instrumentId, DecisionAsOfContext context) {
         return jdbc.sql(
                                 """
                         SELECT COUNT(*) FROM data_quality_event
                         WHERE instrument_id=UUID_TO_BIN(:instrumentId) AND status='OPEN'
                           AND severity IN ('ERROR','CRITICAL')
+                          AND data_as_of<=:cutoff
                         """)
                         .param("instrumentId", instrumentId.toString())
+                        .param("cutoff", context.dataCutoff())
                         .query(Long.class)
                         .single()
                 > 0;
@@ -670,6 +859,20 @@ public final class HoldingEvidenceAssembler {
     record RiskRow(long positionCount, long snapshotCount, long impairedCount, LocalDateTime dataAsOf) {}
 
     record RiskEvidence(EvidenceQuality quality, Instant dataAsOf) {}
+
+    record CapitalSnapshotRow(
+            BigDecimal investedTradableAssets,
+            BigDecimal trackedCash,
+            BigDecimal requiredEmergencyFloor,
+            BigDecimal emergencyReserve,
+            BigDecimal deployableCash,
+            BigDecimal investableAssets,
+            BigDecimal totalLiquidAssets,
+            BigDecimal unvestedCompensationValue,
+            String quality) {}
+
+    record ClusterRiskRow(
+            BigDecimal openRiskAmount, BigDecimal openRiskFraction, String quality, LocalDateTime dataAsOf) {}
 
     record QuoteRow(
             BigDecimal last, LocalDateTime dataAsOf, LocalDate marketDate, String quality, String executionQuality) {}

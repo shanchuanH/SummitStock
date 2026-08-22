@@ -107,7 +107,7 @@ public final class PositionReportController {
                                 decimal(currentChange.price()),
                                 decimal(currentChange.changeSinceAnalysis()),
                                 instant(currentChange.dataAsOf()),
-                                "CURRENT_CHANGE_NOT_USED_IN_RECOMMENDATION"),
+                                "CURRENT_STATE_NOT_USED_IN_RECOMMENDATION"),
                 instant(value.dataAsOf()));
     }
 
