@@ -229,8 +229,8 @@ public class HoldingAnalysisStore {
     public Optional<PositionReportRow> latestReport(UUID userId, UUID positionId) {
         return jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(p.id) positionId, i.symbol, p.classification,
-                               p.classification_source classificationSource,
+                        SELECT BIN_TO_UUID(p.id) positionId, i.symbol, c.classification,
+                               c.classification_source classificationSource,
                                h.analysis_status analysisStatus, h.readiness, h.confidence,
                                h.current_weight currentWeight, h.target_weight_min targetWeightMin,
                                h.target_weight_max targetWeightMax, h.exact_quantity_allowed exactQuantityAllowed,
@@ -268,6 +268,9 @@ public class HoldingAnalysisStore {
                             ORDER BY (y.status='ACTIVE') DESC, y.data_as_of DESC, y.created_at DESC LIMIT 1)
                         LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
                         LEFT JOIN portfolio_analysis_run ar ON ar.id=h.analysis_run_id
+                        LEFT JOIN analysis_run_position_classification rc
+                          ON rc.analysis_run_id=h.analysis_run_id AND rc.position_id=p.id
+                        LEFT JOIN position_classification_snapshot c ON c.id=rc.classification_snapshot_id
                         LEFT JOIN decision_narrative n ON n.recommendation_id=r.id
                         WHERE p.id=UUID_TO_BIN(:positionId) AND a.user_id=UUID_TO_BIN(:userId)
                         """)

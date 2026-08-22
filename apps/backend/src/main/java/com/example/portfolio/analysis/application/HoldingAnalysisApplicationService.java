@@ -79,7 +79,7 @@ public final class HoldingAnalysisApplicationService {
 
     public List<AnalyzedHolding> analyzeAll(UUID userId, UUID analysisRunId) {
         var context = analysisRunId == null ? liveContext() : replayContext(userId, analysisRunId);
-        var assembled = evidenceAssembler.assembleAll(userId, context);
+        var assembled = evidenceAssembler.assembleAll(userId, context, analysisRunId);
         return assembled.stream()
                 .map(evidence -> analyzeAndPersist(evidence, analysisRunId, context))
                 .toList();

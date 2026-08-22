@@ -61,7 +61,7 @@ public final class PositionReportController {
         }
         var context = new DecisionAsOfContext(
                 value.marketDate(), value.runDecisionCutoff().toInstant(ZoneOffset.UTC), value.runStrategyVersion());
-        var evidence = evidenceAssembler.assemble(userId, positionId, context);
+        var evidence = evidenceAssembler.assemble(userId, positionId, context, value.analysisRunId());
         var analytics = analystData.load(evidence, context);
         var currentChange = analystData.currentPriceChange(
                 evidence.instrument().id(), analytics.market().price(), context.dataCutoff());

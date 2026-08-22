@@ -251,6 +251,8 @@ public class PortfolioStore {
                 .param("version", expectedVersion)
                 .update();
         if (updated != 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Position version changed");
+        var snapshotId = UUID.randomUUID();
+        var occurredAt = clock.instant();
         jdbc.sql(
                         """
                         INSERT IGNORE INTO position_classification_snapshot (
@@ -259,11 +261,24 @@ public class PortfolioStore {
                         VALUES (UUID_TO_BIN(:snapshotId),UUID_TO_BIN(:positionId),:classification,TRUE,:source,
                           SHA2(CONCAT(:positionId,':',:classification,':',:source,':',:occurredAt),256),:occurredAt,:occurredAt)
                         """)
-                .param("snapshotId", UUID.randomUUID().toString())
+                .param("snapshotId", snapshotId.toString())
                 .param("positionId", id.toString())
                 .param("classification", classification)
                 .param("source", source)
-                .param("occurredAt", clock.instant())
+                .param("occurredAt", occurredAt)
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO analysis_run_position_classification (
+                          id,analysis_run_id,position_id,classification_snapshot_id,created_at)
+                        SELECT UUID_TO_BIN(UUID()),r.id,UUID_TO_BIN(:positionId),UUID_TO_BIN(:snapshotId),:occurredAt
+                        FROM portfolio_analysis_run r JOIN app_user u ON u.id=r.user_id
+                        WHERE u.email=:email AND r.status IN ('QUEUED','RUNNING','WAITING')
+                        """)
+                .param("positionId", id.toString())
+                .param("snapshotId", snapshotId.toString())
+                .param("occurredAt", occurredAt)
+                .param("email", email)
                 .update();
         jdbc.sql(
                         """

@@ -130,6 +130,19 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
         assertThat(googl.at("/auditEvidence/exactQuantityAllowed").asBoolean()).isFalse();
         assertThat(googl.at("/recommendation/quantityMax").isNull()).isTrue();
 
+        var changedClassification = mockMvc.perform(post(
+                                "/api/v1/positions/{id}/classify",
+                                googl.at("/position/id").asString())
+                        .with(httpBasic(EMAIL, PASSWORD))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"classification\":\"SPECULATIVE\",\"expectedVersion\":1}"))
+                .andReturn();
+        assertThat(changedClassification.getResponse().getStatus()).isEqualTo(200);
+        assertThat(report("GOOGL").at("/position/classification").asString())
+                .as("completed reports keep the classification bound to their analysis run")
+                .isEqualTo("QUALITY_STOCK");
+
         var dram = report("DRAM");
         assertThat(dram.at("/assetEvidence/etf/etfModelApplied").asBoolean()).isTrue();
         assertThat(dram.at("/assetEvidence/etf/companyEarningsModelApplied").asBoolean())

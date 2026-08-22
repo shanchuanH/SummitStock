@@ -188,6 +188,7 @@ public class AnalysisRunOrchestrator {
                 .param("runKey", runKey)
                 .query(UUID.class)
                 .single();
+        bindCurrentClassifications(runId, userId);
         initialize(runId);
         var payload =
                 "{\"runId\":\"" + runId + "\",\"userId\":\"" + userId + "\",\"marketDate\":\"" + marketDate + "\"}";
@@ -202,6 +203,25 @@ public class AnalysisRunOrchestrator {
             throw new IllegalStateException("Analysis root job could not be enqueued");
         }
         return new ScheduleResult(runId, created == 0);
+    }
+
+    private void bindCurrentClassifications(UUID runId, UUID userId) {
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO analysis_run_position_classification (
+                          id,analysis_run_id,position_id,classification_snapshot_id,created_at)
+                        SELECT UUID_TO_BIN(UUID()),UUID_TO_BIN(:runId),p.id,
+                               (SELECT s.id FROM position_classification_snapshot s
+                                WHERE s.position_id=p.id
+                                ORDER BY s.created_at DESC,s.id DESC LIMIT 1),:now
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        WHERE a.user_id=UUID_TO_BIN(:userId)
+                          AND EXISTS (SELECT 1 FROM position_classification_snapshot s WHERE s.position_id=p.id)
+                        """)
+                .param("runId", runId.toString())
+                .param("userId", userId.toString())
+                .param("now", clock.instant())
+                .update();
     }
 
     private LocalDate completedSession(LocalDate requested) {

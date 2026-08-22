@@ -53,8 +53,12 @@ public final class HoldingEvidenceAssembler {
     }
 
     public List<HoldingEvidence> assembleAll(UUID userId, DecisionAsOfContext context) {
+        return assembleAll(userId, context, null);
+    }
+
+    public List<HoldingEvidence> assembleAll(UUID userId, DecisionAsOfContext context, UUID analysisRunId) {
         return positionIds(userId, context).stream()
-                .map(positionId -> positionAsOf(userId, positionId, context))
+                .map(positionId -> positionAsOf(userId, positionId, context, analysisRunId))
                 .map(position -> assemble(position, context, true))
                 .toList();
     }
@@ -70,7 +74,11 @@ public final class HoldingEvidenceAssembler {
     }
 
     public HoldingEvidence assemble(UUID userId, UUID positionId, DecisionAsOfContext context) {
-        return assemble(positionAsOf(userId, positionId, context), context, true);
+        return assemble(positionAsOf(userId, positionId, context, null), context, true);
+    }
+
+    public HoldingEvidence assemble(UUID userId, UUID positionId, DecisionAsOfContext context, UUID analysisRunId) {
+        return assemble(positionAsOf(userId, positionId, context, analysisRunId), context, true);
     }
 
     private HoldingEvidence assemble(PositionRow position, DecisionAsOfContext context) {
@@ -200,7 +208,10 @@ public final class HoldingEvidenceAssembler {
                 .list();
     }
 
-    private PositionRow positionAsOf(UUID userId, UUID positionId, DecisionAsOfContext context) {
+    private PositionRow positionAsOf(UUID userId, UUID positionId, DecisionAsOfContext context, UUID analysisRunId) {
+        if (analysisRunId != null) {
+            return runBoundPosition(userId, positionId, context, analysisRunId);
+        }
         return jdbc.sql(
                         """
                         SELECT BIN_TO_UUID(p.id) positionId, BIN_TO_UUID(a.user_id) userId,
@@ -231,6 +242,41 @@ public final class HoldingEvidenceAssembler {
                 .query(PositionRow.class)
                 .optional()
                 .orElseThrow(() -> new IllegalArgumentException("Position has no run-bound evidence for user"));
+    }
+
+    private PositionRow runBoundPosition(
+            UUID userId, UUID positionId, DecisionAsOfContext context, UUID analysisRunId) {
+        return jdbc.sql(
+                        """
+                        SELECT BIN_TO_UUID(p.id) positionId, BIN_TO_UUID(a.user_id) userId,
+                               BIN_TO_UUID(i.id) instrumentId, i.symbol, i.asset_type assetType, i.active,
+                               c.classification, c.classification_confirmed classificationConfirmed,
+                               m.quantity, s.average_cost averageCost, m.marked_market_value marketValue
+                        FROM position p JOIN investment_account a ON a.id=p.account_id
+                        JOIN instrument i ON i.id=p.instrument_id
+                        JOIN analysis_run_position_classification rc
+                          ON rc.analysis_run_id=UUID_TO_BIN(:runId) AND rc.position_id=p.id
+                        JOIN position_classification_snapshot c ON c.id=rc.classification_snapshot_id
+                        JOIN position_mark_snapshot m ON m.id=(
+                          SELECT x.id FROM position_mark_snapshot x
+                          WHERE x.position_id=p.id AND x.market_date<=:marketDate
+                            AND x.data_as_of<=:cutoff AND x.strategy_version=:strategyVersion
+                          ORDER BY x.market_date DESC,x.data_as_of DESC,x.created_at DESC,x.id DESC LIMIT 1)
+                        LEFT JOIN position_snapshot s ON s.id=(
+                          SELECT y.id FROM position_snapshot y WHERE y.position_id=p.id AND y.data_as_of<=:cutoff
+                          ORDER BY y.data_as_of DESC,y.created_at DESC,y.id DESC LIMIT 1)
+                        WHERE p.id=UUID_TO_BIN(:positionId) AND a.user_id=UUID_TO_BIN(:userId)
+                        """)
+                .param("runId", analysisRunId.toString())
+                .param("positionId", positionId.toString())
+                .param("userId", userId.toString())
+                .param("marketDate", context.marketDate())
+                .param("cutoff", context.dataCutoff())
+                .param("strategyVersion", context.strategyVersion())
+                .query(PositionRow.class)
+                .optional()
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Position has no classification bound to analysis run"));
     }
 
     private CapitalBase capital(UUID userId, DecisionAsOfContext context) {
