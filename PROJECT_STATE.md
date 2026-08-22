@@ -2,6 +2,8 @@
 
 ## Current Phase
 
+Production Readiness final audit completed locally on 2026-08-22. Analysis runs now freeze allocation, position classification, strategy definition, valuation inputs, and earnings timing to one persisted as-of context. Ambiguous broker cashflow remains `WAITING_FOR_CASHFLOW_CONFIRMATION` and cannot start Strategy NAV, drawdown, or recommendation work until an idempotent owner confirmation records the capital flow. Classification evidence is explicitly bound once per analysis run, so an after-close import can complete while later owner edits cannot rewrite an old report. Fresh MySQL migration and V52-to-V57 upgrade validation, the full Fidelity owner journey, runtime/provider/security gates, 322 backend tests, 49 frontend tests, desktop/mobile E2E, OpenAPI, Compose, backend image, dependency audit, and full-history Gitleaks all pass locally. Remote GitHub Actions remains the final release gate and this Draft PR must not be merged before `ci / required` succeeds.
+
 Hardening Gate 0 completed on 2026-08-10 in commit `449977b`: the reproducible merge gates now include current pinned GitHub Actions, executable Maven wrapper metadata, Spotless UNIX line endings, dependency review, Gitleaks, pnpm audit, Docker build, frontend type/lint/unit/build/API/E2E gates, and a documented branch-protection contract. Local verification passed; remote GitHub branch-protection enforcement remains explicitly unverified because no authenticated GitHub session or CLI credential is available in this environment.
 
 Hardening A1 implements canonical mark-to-market as an append-only `position_mark_snapshot` plus deterministic latest-mark view. Completed adjusted daily closes now drive capital, weights, cluster contribution, drawdown/equity, holding evidence, earnings weights, portfolio APIs, and executive brief metrics; imported broker `market_value` remains provenance evidence only. Missing/stale marks propagate non-healthy capital quality and block exact sizing or drawdown rather than silently falling back. The analysis pipeline captures marks before portfolio-dependent computation. Regression coverage proves price revaluation without re-import, preservation of broker evidence, missing-mark fail-closed behavior, current-weight movement across a hard-cap boundary, and marked portfolio equity.
@@ -124,7 +126,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 
 ## Database
 
-- Flyway head: `V21__strategy_release_governance.sql`
+- Flyway head: `V57__bind_classification_to_analysis_run.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
