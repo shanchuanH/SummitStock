@@ -339,6 +339,21 @@ public class PortfolioReconciliationService {
                 .param("checksum", evidence)
                 .param("now", clock.instant())
                 .update();
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO position_classification_snapshot (
+                          id,position_id,classification,classification_confirmed,classification_source,
+                          evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:positionId),:classification,TRUE,'IMPORTED_MAPPING',
+                          SHA2(CONCAT(:positionId,':',:classification,':',:batchId),256),:dataAsOf,:now)
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("positionId", positionId.toString())
+                .param("classification", classification.name())
+                .param("batchId", batchId.toString())
+                .param("dataAsOf", clock.instant())
+                .param("now", clock.instant())
+                .update();
         return positionId;
     }
 

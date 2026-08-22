@@ -253,6 +253,20 @@ public class PortfolioStore {
         if (updated != 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Position version changed");
         jdbc.sql(
                         """
+                        INSERT IGNORE INTO position_classification_snapshot (
+                          id,position_id,classification,classification_confirmed,classification_source,
+                          evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN(:snapshotId),UUID_TO_BIN(:positionId),:classification,TRUE,:source,
+                          SHA2(CONCAT(:positionId,':',:classification,':',:source,':',:occurredAt),256),:occurredAt,:occurredAt)
+                        """)
+                .param("snapshotId", UUID.randomUUID().toString())
+                .param("positionId", id.toString())
+                .param("classification", classification)
+                .param("source", source)
+                .param("occurredAt", clock.instant())
+                .update();
+        jdbc.sql(
+                        """
                         INSERT INTO audit_log (
                             id, user_id, event_type, entity_type, entity_id,
                             strategy_version, rule_ids, details, occurred_at

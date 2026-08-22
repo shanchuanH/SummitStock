@@ -228,7 +228,8 @@ public final class HoldingAnalysisApplicationService {
                 allocations.forPosition(
                         evidence.position().userId(),
                         evidence.position().classification(),
-                        evidence.instrument().symbol()),
+                        evidence.instrument().symbol(),
+                        decisionContext),
                 dipEvents
                         .latest(
                                 evidence.position().userId(),
@@ -325,7 +326,8 @@ public final class HoldingAnalysisApplicationService {
         var sleeve = allocations.forPosition(
                 evidence.position().userId(),
                 evidence.position().classification(),
-                evidence.instrument().symbol());
+                evidence.instrument().symbol(),
+                decisionContext);
         if (event == null
                 || !event.readyForNextTranche()
                 || sleeve == null

@@ -78,6 +78,7 @@ public final class HoldingEvidenceAssembler {
     }
 
     private HoldingEvidence assemble(PositionRow position, DecisionAsOfContext context, boolean historical) {
+        var strategy = strategies.requireVersion(context.strategyVersion());
         var totals = historical ? totals(position.userId(), context) : totals(position.userId());
         var capital = historical ? capital(position.userId(), context) : capitalBases.calculate(position.userId());
         var risk = historical ? riskEvidence(position.userId(), context) : riskEvidence(position.userId());
@@ -148,10 +149,7 @@ public final class HoldingEvidenceAssembler {
                         drawdown.available(),
                         drawdown.fraction(),
                         drawdown.state(),
-                        drawdown.available()
-                                && drawdown.fraction()
-                                                .compareTo(strategies.current().painLine())
-                                        >= 0,
+                        drawdown.available() && drawdown.fraction().compareTo(strategy.painLine()) >= 0,
                         instant(drawdown.dataAsOf())),
                 stop,
                 profile,
@@ -160,7 +158,7 @@ public final class HoldingEvidenceAssembler {
                 risk.dataAsOf(),
                 providerHardError(position.instrumentId(), context),
                 quality,
-                strategies.current(),
+                strategy,
                 dataAsOf);
     }
 
@@ -207,10 +205,14 @@ public final class HoldingEvidenceAssembler {
                         """
                         SELECT BIN_TO_UUID(p.id) positionId, BIN_TO_UUID(a.user_id) userId,
                                BIN_TO_UUID(i.id) instrumentId, i.symbol, i.asset_type assetType, i.active,
-                               p.classification, p.classification_confirmed classificationConfirmed,
+                               c.classification, c.classification_confirmed classificationConfirmed,
                                m.quantity, s.average_cost averageCost, m.marked_market_value marketValue
                         FROM position p JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
+                        JOIN position_classification_snapshot c ON c.id=(
+                          SELECT z.id FROM position_classification_snapshot z
+                          WHERE z.position_id=p.id AND z.data_as_of<=:cutoff
+                          ORDER BY z.data_as_of DESC,z.created_at DESC,z.id DESC LIMIT 1)
                         JOIN position_mark_snapshot m ON m.id=(
                           SELECT x.id FROM position_mark_snapshot x
                           WHERE x.position_id=p.id AND x.market_date<=:marketDate
