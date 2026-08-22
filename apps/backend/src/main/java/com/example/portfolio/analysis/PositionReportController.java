@@ -10,7 +10,6 @@ import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.security.Principal;
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -33,19 +32,16 @@ public final class PositionReportController {
     private final HoldingAnalysisStore store;
     private final HoldingEvidenceAssembler evidenceAssembler;
     private final PositionAnalystDataStore analystData;
-    private final Clock clock;
     private final ObjectMapper json;
 
     public PositionReportController(
             HoldingAnalysisStore store,
             HoldingEvidenceAssembler evidenceAssembler,
             PositionAnalystDataStore analystData,
-            Clock clock,
             ObjectMapper json) {
         this.store = store;
         this.evidenceAssembler = evidenceAssembler;
         this.analystData = analystData;
-        this.clock = clock;
         this.json = json;
     }
 
@@ -98,7 +94,7 @@ public final class PositionReportController {
                         value.strategyVersion(),
                         value.configHash()),
                 assetEvidence(evidence),
-                analystLayers(value, evidence, analytics),
+                analystLayers(value, evidence, analytics, context),
                 new AnalysisAsOf(
                         value.analysisRunId(), value.marketDate(), context.dataCutoff(), context.strategyVersion()),
                 currentChange == null
@@ -114,7 +110,8 @@ public final class PositionReportController {
     private AnalystLayers analystLayers(
             HoldingAnalysisStore.PositionReportRow value,
             com.example.portfolio.analysis.domain.HoldingEvidence evidence,
-            PositionAnalystDataStore.AnalystData analytics) {
+            PositionAnalystDataStore.AnalystData analytics,
+            DecisionAsOfContext context) {
         var action = value.recommendationAction() == null ? value.recommendedAction() : value.recommendationAction();
         var policy = positionPolicy(evidence);
         var atCapacity = value.currentWeight() != null
@@ -183,7 +180,7 @@ public final class PositionReportController {
                         isAttractive(evidence.valuation().state()) && atCapacity),
                 estimates(analytics.estimates()),
                 technical(analytics.technical()),
-                earnings(analytics.earnings()),
+                earnings(analytics.earnings(), context.dataCutoff()),
                 risk(value, evidence, policy, analytics.risk()),
                 new PriceRiskEarnings(
                         evidence.indicators().priceState(),
@@ -281,11 +278,11 @@ public final class PositionReportController {
                 instant(value.dataAsOf()));
     }
 
-    private Earnings earnings(PositionAnalystDataStore.EarningsData value) {
+    static Earnings earnings(PositionAnalystDataStore.EarningsData value, Instant decisionCutoff) {
         var next = instant(value.nextEarningsAt());
         return new Earnings(
                 next,
-                next == null ? null : Math.max(0, ChronoUnit.DAYS.between(clock.instant(), next)),
+                next == null ? null : Math.max(0, ChronoUnit.DAYS.between(decisionCutoff, next)),
                 value.sessionType(),
                 value.eventRisk(),
                 decimal(value.historicalMedianAbsMove()),
