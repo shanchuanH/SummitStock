@@ -304,6 +304,9 @@ abstract class HoldingAnalysisIntegrationFixture extends MySqlIntegrationTest {
         update("DELETE pec FROM portfolio_external_cashflow_event pec JOIN app_user u ON u.id=pec.user_id "
                 + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
                 + "OR u.email='admin@example.local'");
+        update("DELETE psc FROM portfolio_strategy_capital_flow_event psc JOIN app_user u ON u.id=psc.user_id "
+                + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
+                + "OR u.email='admin@example.local'");
         update("DELETE pas FROM portfolio_allocation_snapshot pas JOIN app_user u ON u.id=pas.user_id "
                 + "WHERE u.id=UUID_TO_BIN('91000000-0000-0000-0000-000000000001') "
                 + "OR u.email='admin@example.local'");
