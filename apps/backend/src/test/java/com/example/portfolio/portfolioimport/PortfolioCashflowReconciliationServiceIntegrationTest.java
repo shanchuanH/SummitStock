@@ -1,11 +1,15 @@
 package com.example.portfolio.portfolioimport;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import com.example.portfolio.portfolioimport.application.PortfolioCashflowReconciliationService;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 
 class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImportIntegrationSupport {
     @Autowired
@@ -62,5 +66,48 @@ class PortfolioCashflowReconciliationServiceIntegrationTest extends PortfolioImp
         assertThat(internal.status()).isEqualTo("REQUIRED");
         assertThat(count("SELECT COUNT(*) FROM portfolio_external_cashflow_event WHERE amount=-120"))
                 .isZero();
+    }
+
+    @Test
+    void ambiguousImportWaitsForConfirmationThenSchedulesExactlyOneRun() throws Exception {
+        confirm(uuid(preview("fidelity-positions.csv"), "batchId"), 0, "[{\"rowNumber\":7,\"ignored\":true}]");
+        var nextBatch = uuid(preview("fidelity-positions-cash-increase.csv"), "batchId");
+
+        var waiting = confirm(nextBatch, 0, "[{\"rowNumber\":7,\"ignored\":true}]");
+
+        assertThat(waiting.path("status").asString()).isEqualTo("WAITING_FOR_CASHFLOW_CONFIRMATION");
+        assertThat(waiting.path("analysisState").asString()).isEqualTo("WAITING_FOR_CASHFLOW_CONFIRMATION");
+        assertThat(waiting.path("analysisRunId").isMissingNode()
+                        || waiting.path("analysisRunId").isNull())
+                .isTrue();
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run WHERE import_batch_id=UUID_TO_BIN('" + nextBatch
+                        + "')"))
+                .isZero();
+
+        var first = confirmExternalCashflow(nextBatch);
+        var second = confirmExternalCashflow(nextBatch);
+
+        assertThat(first.path("analysisRunId").asText()).isNotBlank();
+        assertThat(second.path("analysisRunId").asText())
+                .isEqualTo(first.path("analysisRunId").asText());
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run WHERE import_batch_id=UUID_TO_BIN('" + nextBatch
+                        + "')"))
+                .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_strategy_capital_flow_event " + "WHERE external_reference='"
+                        + nextBatch + "' AND flow_type='EXTERNAL_TO_STRATEGY'"))
+                .isEqualTo(1);
+    }
+
+    private tools.jackson.databind.JsonNode confirmExternalCashflow(UUID batchId) throws Exception {
+        var result = mockMvc.perform(post("/api/v1/portfolio-imports/{batchId}/cashflow-confirmation", batchId)
+                        .with(httpBasic(EMAIL, PASSWORD))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"EXTERNAL_CASHFLOW\"}"))
+                .andReturn();
+        if (result.getResponse().getStatus() >= 300) {
+            throw new AssertionError(result.getResponse().getContentAsString());
+        }
+        return json.readTree(result.getResponse().getContentAsString());
     }
 }

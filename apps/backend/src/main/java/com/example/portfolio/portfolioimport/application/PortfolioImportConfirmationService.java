@@ -70,21 +70,25 @@ public class PortfolioImportConfirmationService {
         var reconciled = reconciliation.reconcile(email, batch.userId(), batchId, imports.rows(batchId), command);
         var cashflow = cashflowReconciliation.reconcile(batch.userId(), batchId, priorCash);
         refreshCounts(batchId);
-        var runId = analysisRuns
-                .createAndSchedule(
-                        batch.userId(),
-                        LocalDate.now(clock),
-                        properties.strategyVersion(),
-                        batchId,
-                        "import:" + batchId)
-                .runId();
+        var waitingForCashflow = "REQUIRED".equals(cashflow.status());
+        UUID runId = waitingForCashflow
+                ? null
+                : analysisRuns
+                        .createAndSchedule(
+                                batch.userId(),
+                                LocalDate.now(clock),
+                                properties.strategyVersion(),
+                                batchId,
+                                "import:" + batchId)
+                        .runId();
         jdbc.sql(
                         """
                         UPDATE portfolio_import_batch
-                        SET status='CONFIRMED', confirmed_at=:now, updated_at=:now, version=version+1
+                        SET status=:status, confirmed_at=:now, updated_at=:now, version=version+1
                         WHERE id=UUID_TO_BIN(:batchId) AND status='IMPORTING'
                         """)
                 .param("now", clock.instant())
+                .param("status", waitingForCashflow ? "WAITING_FOR_CASHFLOW_CONFIRMATION" : "CONFIRMED")
                 .param("batchId", batchId.toString())
                 .update();
         audit(batch.userId(), batchId, runId, reconciled);
@@ -94,7 +98,7 @@ public class PortfolioImportConfirmationService {
                 confirmed.status(),
                 confirmed.version(),
                 runId,
-                "ANALYSIS_QUEUED",
+                waitingForCashflow ? "WAITING_FOR_CASHFLOW_CONFIRMATION" : "ANALYSIS_QUEUED",
                 reconciled.openPositionCount(),
                 reconciled.closedPositionCount(),
                 reconciled.cashRowCount(),
@@ -126,7 +130,9 @@ public class PortfolioImportConfirmationService {
                 value.status(),
                 value.version(),
                 value.analysisRunId(),
-                analysisState(value.analysisStatus()),
+                "WAITING_FOR_CASHFLOW_CONFIRMATION".equals(value.status())
+                        ? "WAITING_FOR_CASHFLOW_CONFIRMATION"
+                        : analysisState(value.analysisStatus()),
                 value.openPositionCount(),
                 closedCount,
                 value.cashRowCount(),
@@ -136,6 +142,7 @@ public class PortfolioImportConfirmationService {
     }
 
     private static String analysisState(String status) {
+        if (status == null) return "PORTFOLIO_READY";
         return switch (status) {
             case "QUEUED", "RUNNING" -> "ANALYSIS_QUEUED";
             case "WAITING" -> "WAIT_FOR_MARKET_DATA";
@@ -179,7 +186,7 @@ public class PortfolioImportConfirmationService {
                 .param("userId", userId.toString())
                 .param("batchId", batchId.toString())
                 .param("strategyVersion", properties.strategyVersion())
-                .param("runId", runId.toString())
+                .param("runId", runId == null ? null : runId.toString())
                 .param("openPositions", result.openPositionCount())
                 .param("closedPositions", result.closedPositionCount())
                 .param("now", clock.instant())

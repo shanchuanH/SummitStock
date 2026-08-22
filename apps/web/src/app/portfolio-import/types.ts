@@ -58,7 +58,7 @@ export type ImportConfirmation = {
   batchId: string;
   status: string;
   version: number;
-  analysisRunId: string;
+  analysisRunId?: string;
   analysisState: string;
   openPositionCount: number;
   closedPositionCount: number;
@@ -72,6 +72,8 @@ export type CashflowReconciliation = {
   reconciliationId?: string;
   status: string;
   cashChange: string;
+  analysisRunId?: string;
+  analysisState?: string;
 };
 
 export type AnalysisStatus = {

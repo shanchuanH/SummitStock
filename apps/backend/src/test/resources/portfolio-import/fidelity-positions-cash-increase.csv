@@ -1,0 +1,8 @@
+Account Number,Account Name,Symbol,Description,Quantity,Last Price,Current Value,Average Cost Basis,Cost Basis Total,Type
+Z12345678,Primary Brokerage,SPY,SPDR S&P 500 ETF,10.5,$514.29,"$5,400.05",$500.00,"$5,250.00",ETF
+Z12345678,Primary Brokerage,AMZN,Amazon.com Common Stock,3.125,$200.00,$625.00,--,--,Equity
+Z12345678,Primary Brokerage,SPAXX,Fidelity Government Money Market,21000,$1.00,"$21,000.00",$1.00,"$21,000.00",Money Market
+Z12345678,Primary Brokerage,AMZN,Amazon RSU Unvested Award,20,$200.00,"$4,000.00",N/A,N/A,Restricted Stock
+R87654321,Roth IRA,AMZN,Amazon.com Common Stock,2,$200.00,$400.00,$150.00,$300.00,Equity
+R87654321,Roth IRA,,Unrecognized private asset,1,$12.00,$12.00,N/A,N/A,Other
+,,,,,,,,,Account Total

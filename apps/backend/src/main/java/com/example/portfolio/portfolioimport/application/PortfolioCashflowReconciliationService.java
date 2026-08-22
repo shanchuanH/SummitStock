@@ -1,6 +1,8 @@
 package com.example.portfolio.portfolioimport.application;
 
 import com.example.portfolio.analysis.risk.PortfolioNavService;
+import com.example.portfolio.configuration.PortfolioProperties;
+import com.example.portfolio.runtime.AnalysisRunOrchestrator;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -20,11 +22,20 @@ public class PortfolioCashflowReconciliationService {
     private final JdbcClient jdbc;
     private final PortfolioNavService nav;
     private final Clock clock;
+    private final AnalysisRunOrchestrator analysisRuns;
+    private final PortfolioProperties properties;
 
-    public PortfolioCashflowReconciliationService(JdbcClient jdbc, PortfolioNavService nav, Clock clock) {
+    public PortfolioCashflowReconciliationService(
+            JdbcClient jdbc,
+            PortfolioNavService nav,
+            Clock clock,
+            AnalysisRunOrchestrator analysisRuns,
+            PortfolioProperties properties) {
         this.jdbc = jdbc;
         this.nav = nav;
         this.clock = clock;
+        this.analysisRuns = analysisRuns;
+        this.properties = properties;
     }
 
     public Snapshot before(UUID userId) {
@@ -42,7 +53,7 @@ public class PortfolioCashflowReconciliationService {
             if (before.rawCashEstablished() && boundaryTransfer.signum() != 0) {
                 recordBoundaryTransfer(userId, batchId, effectiveDate(batchId), boundaryTransfer);
             }
-            return new Result(null, assessment.status(), cashChange);
+            return new Result(null, assessment.status(), cashChange, null, "PORTFOLIO_READY");
         }
         var strategyCapitalFlow = cashChange.subtract(emergencyChange);
         var id = UUID.randomUUID();
@@ -109,7 +120,7 @@ public class PortfolioCashflowReconciliationService {
                 .query(PendingRow.class)
                 .optional()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (!"REQUIRED".equals(row.status())) return new Result(row.id(), row.status(), row.cashChange());
+        if (!"REQUIRED".equals(row.status())) return completedResult(row, batchId);
         var status =
                 switch (type) {
                     case EXTERNAL_CASHFLOW -> "RECORDED_EXTERNAL_CASHFLOW";
@@ -152,7 +163,20 @@ public class PortfolioCashflowReconciliationService {
                 .param("confirmedAt", clock.instant())
                 .param("id", row.id().toString())
                 .update();
-        return new Result(row.id(), status, row.cashChange());
+        if (type == ConfirmationType.OTHER) {
+            return new Result(row.id(), status, row.cashChange(), null, "WAITING_FOR_CASHFLOW_CONFIRMATION");
+        }
+        jdbc.sql(
+                        """
+                        UPDATE portfolio_import_batch SET status='CONFIRMED',updated_at=:now,version=version+1
+                        WHERE id=UUID_TO_BIN(:batchId) AND status='WAITING_FOR_CASHFLOW_CONFIRMATION'
+                        """)
+                .param("now", clock.instant())
+                .param("batchId", batchId.toString())
+                .update();
+        var run = analysisRuns.createAndSchedule(
+                row.userId(), row.effectiveDate(), properties.strategyVersion(), batchId, "import:" + batchId);
+        return new Result(row.id(), status, row.cashChange(), run.runId(), "ANALYSIS_QUEUED");
     }
 
     public Result pending(UUID batchId) {
@@ -162,9 +186,27 @@ public class PortfolioCashflowReconciliationService {
                         FROM portfolio_cashflow_reconciliation WHERE import_batch_id=UUID_TO_BIN(:batchId)
                         """)
                 .param("batchId", batchId.toString())
-                .query(Result.class)
+                .query((rs, rowNumber) -> new Result(
+                        UUID.fromString(rs.getString("reconciliationId")),
+                        rs.getString("status"),
+                        rs.getBigDecimal("cashChange"),
+                        null,
+                        "REQUIRED".equals(rs.getString("status"))
+                                ? "WAITING_FOR_CASHFLOW_CONFIRMATION"
+                                : "PORTFOLIO_READY"))
                 .optional()
-                .orElse(new Result(null, "NONE", BigDecimal.ZERO));
+                .orElse(new Result(null, "NONE", BigDecimal.ZERO, null, "PORTFOLIO_READY"));
+    }
+
+    private Result completedResult(PendingRow row, UUID batchId) {
+        var runId = jdbc.sql(
+                        "SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run WHERE import_batch_id=UUID_TO_BIN(:batchId)")
+                .param("batchId", batchId.toString())
+                .query(UUID.class)
+                .optional()
+                .orElse(null);
+        return new Result(
+                row.id(), row.status(), row.cashChange(), runId, runId == null ? "PORTFOLIO_READY" : "ANALYSIS_QUEUED");
     }
 
     private BigDecimal reliableTradeValue(UUID userId, java.time.Instant afterExclusive, java.time.Instant through) {
@@ -319,5 +361,6 @@ public class PortfolioCashflowReconciliationService {
 
     private record RawCashTotal(long evidenceCount, BigDecimal brokerCash) {}
 
-    public record Result(UUID reconciliationId, String status, BigDecimal cashChange) {}
+    public record Result(
+            UUID reconciliationId, String status, BigDecimal cashChange, UUID analysisRunId, String analysisState) {}
 }

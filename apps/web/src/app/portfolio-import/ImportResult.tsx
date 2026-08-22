@@ -62,12 +62,15 @@ export function ImportResult({
   async function confirmCashflow() {
     setCashflowBusy(true);
     try {
-      setCashflow(
-        await postJson<CashflowReconciliation>(
-          `/api/v1/portfolio-imports/${result.batchId}/cashflow-confirmation`,
-          { type: cashflowType },
-        ),
+      const confirmed = await postJson<CashflowReconciliation>(
+        `/api/v1/portfolio-imports/${result.batchId}/cashflow-confirmation`,
+        { type: cashflowType },
       );
+      setCashflow(confirmed);
+      if (confirmed.analysisRunId) {
+        setStatus(undefined);
+        setPolledRunId(confirmed.analysisRunId);
+      }
     } finally {
       setCashflowBusy(false);
     }
@@ -87,6 +90,7 @@ export function ImportResult({
   }
 
   const refresh = useCallback(async () => {
+    if (!polledRunId) return;
     try {
       const response = await fetch(`/api/v1/analysis/status/${polledRunId}`, {
         cache: "no-store",
@@ -103,12 +107,13 @@ export function ImportResult({
   }, [polledRunId]);
 
   useEffect(() => {
+    if (!polledRunId) return;
     void refresh();
     const timer = window.setInterval(() => void refresh(), 3000);
     return () => {
       window.clearInterval(timer);
     };
-  }, [refresh]);
+  }, [polledRunId, refresh]);
 
   const message = status ? stateMessage[status.state] : undefined;
   return (

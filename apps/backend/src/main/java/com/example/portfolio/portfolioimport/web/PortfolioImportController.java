@@ -336,10 +336,15 @@ public class PortfolioImportController {
         }
     }
 
-    public record CashflowReconciliationResponse(UUID reconciliationId, String status, String cashChange) {
+    public record CashflowReconciliationResponse(
+            UUID reconciliationId, String status, String cashChange, UUID analysisRunId, String analysisState) {
         static CashflowReconciliationResponse from(PortfolioCashflowReconciliationService.Result value) {
             return new CashflowReconciliationResponse(
-                    value.reconciliationId(), value.status(), decimal(value.cashChange()));
+                    value.reconciliationId(),
+                    value.status(),
+                    decimal(value.cashChange()),
+                    value.analysisRunId(),
+                    value.analysisState());
         }
     }
 
