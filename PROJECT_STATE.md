@@ -672,3 +672,4 @@ Configure production provider credentials, run the documented deployment smoke c
 - New-risk readiness gates Core ETF buying. Risk reductions bypass new-risk portfolio gates, and fractional exits preserve the exact holding quantity. Approximate active-sleeve performance is labeled and cannot reduce the budget multiplier.
 - Dashboard active/speculative exposure uses the canonical classifications and Strategy NAV denominator.
 - Local verification: Maven reactor `verify` passed all 301 backend tests; frontend lint, typecheck, 49 tests, and production build passed. GitHub CI remains the authoritative desktop/mobile, supply-chain, gitleaks, and Docker gate.
+- Follow-up runtime audit: stalled recovery now uses the latest durable step progress timestamp, matching the status endpoint. A long-running analysis with recent progress is reused instead of being falsely abandoned; only a genuinely stale run is replaced.

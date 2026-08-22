@@ -66,6 +66,31 @@ class ManualAnalysisRunIntegrationTest extends PortfolioImportIntegrationSupport
                 .isEqualTo(1);
     }
 
+    @Test
+    void activeStepProgressPreventsAHealthyRunFromBeingAbandoned() throws Exception {
+        var confirmation =
+                confirm(uuid(preview("fidelity-positions.csv"), "batchId"), 0, "[{\"rowNumber\":7,\"ignored\":true}]");
+        var activeRunId = uuid(confirmation, "analysisRunId");
+        update(
+                "UPDATE portfolio_analysis_run SET status='RUNNING',updated_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 5 MINUTE) "
+                        + "WHERE id=UUID_TO_BIN('" + activeRunId + "')");
+        update("UPDATE portfolio_analysis_step SET updated_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 5 MINUTE) "
+                + "WHERE run_id=UUID_TO_BIN('" + activeRunId + "')");
+        update("UPDATE portfolio_analysis_step SET updated_at=UTC_TIMESTAMP(6) " + "WHERE run_id=UUID_TO_BIN('"
+                + activeRunId + "') AND step_type='PORTFOLIO_ANALYSIS'");
+
+        var response = request();
+        var body = json.readTree(response.getResponse().getContentAsString());
+
+        assertThat(uuid(body, "runId")).isEqualTo(activeRunId);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run WHERE id=UUID_TO_BIN('" + activeRunId
+                        + "') AND status='RUNNING' AND error_code IS NULL"))
+                .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run r JOIN app_user u ON u.id=r.user_id "
+                        + "WHERE u.email='" + EMAIL + "' AND r.status IN ('QUEUED','RUNNING','WAITING')"))
+                .isEqualTo(1);
+    }
+
     private org.springframework.test.web.servlet.MvcResult request() throws Exception {
         return mockMvc.perform(post("/api/v1/analysis/runs")
                         .with(httpBasic(EMAIL, PASSWORD))

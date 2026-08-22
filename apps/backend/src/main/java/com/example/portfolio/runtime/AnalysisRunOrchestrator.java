@@ -131,9 +131,13 @@ public class AnalysisRunOrchestrator {
         if (userId.isEmpty()) return Optional.empty();
         var activeRun = jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(id) id,updated_at updatedAt FROM portfolio_analysis_run
-                        WHERE user_id=UUID_TO_BIN(:userId) AND status IN ('QUEUED','RUNNING','WAITING')
-                        ORDER BY created_at DESC LIMIT 1
+                        SELECT BIN_TO_UUID(r.id) id,
+                               GREATEST(r.updated_at,COALESCE((
+                                 SELECT MAX(s.updated_at) FROM portfolio_analysis_step s WHERE s.run_id=r.id
+                               ),r.updated_at)) updatedAt
+                        FROM portfolio_analysis_run r
+                        WHERE r.user_id=UUID_TO_BIN(:userId) AND r.status IN ('QUEUED','RUNNING','WAITING')
+                        ORDER BY r.created_at DESC LIMIT 1
                         """)
                 .param("userId", userId.orElseThrow().toString())
                 .query(ActiveRun.class)
