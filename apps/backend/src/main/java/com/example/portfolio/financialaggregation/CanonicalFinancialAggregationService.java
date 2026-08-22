@@ -16,8 +16,9 @@ public final class CanonicalFinancialAggregationService {
     public Ttm ttm(UUID instrumentId, Instant cutoff) {
         var observations = jdbc.sql(
                         """
-                        SELECT p.period_type periodType,p.end_date periodEnd,m.metric_code metricCode,
-                               m.value_decimal value,m.data_as_of dataAsOf
+                        SELECT p.period_type periodType,p.end_date periodEnd,p.fiscal_year fiscalYear,
+                               p.fiscal_quarter fiscalQuarter,p.quality periodQuality,m.metric_code metricCode,
+                               m.value_decimal value,m.quality metricQuality,m.data_as_of dataAsOf
                         FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id
                         WHERE m.instrument_id=UUID_TO_BIN(:instrumentId)
                           AND m.metric_code IN ('REVENUE','DILUTED_EPS','FREE_CASH_FLOW')
@@ -28,8 +29,12 @@ public final class CanonicalFinancialAggregationService {
                 .query((rs, row) -> new CanonicalFinancialAggregation.Observation(
                         rs.getString("periodType"),
                         rs.getObject("periodEnd", java.time.LocalDate.class),
+                        rs.getObject("fiscalYear", Integer.class),
+                        rs.getObject("fiscalQuarter", Integer.class),
                         rs.getString("metricCode"),
                         rs.getBigDecimal("value"),
+                        rs.getString("periodQuality"),
+                        rs.getString("metricQuality"),
                         rs.getTimestamp("dataAsOf").toInstant()))
                 .list();
         return new Ttm(

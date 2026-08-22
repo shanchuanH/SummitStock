@@ -693,3 +693,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - EXIT, REDUCE_HALF, and TRIM now determine the executable reduction quantity before attempting optional portfolio/cluster risk projections. Missing aggregate risk inputs leave the projections null with `RISK_PROJECTION_UNAVAILABLE` and never cancel the reduction.
 - Fractional reductions are preserved exactly: a 0.75-share EXIT remains 0.75, REDUCE_HALF remains 0.375, and TRIM can reduce exactly to a fractional target boundary. Integer-only BUY sizing is unchanged.
 - Verification: 9/9 focused risk sizing tests passed, covering null portfolio/cluster projection inputs and fractional EXIT/REDUCE_HALF/TRIM behavior; Spotless and the dependent-module reactor passed.
+
+## Final Audit Minimum Usable Financial Correctness - F4 - 2026-08-21
+
+- Revenue, diluted EPS, and free-cash-flow TTM now require four continuous fiscal quarters using canonical fiscal-year/fiscal-quarter metadata. The aggregator cannot bridge a missing middle quarter with an older observation.
+- Each fiscal slot selects the latest restatement whose data-as-of is at or before the decision cutoff. A future restatement is invisible, and a latest invalid/partial period or metric makes TTM unavailable rather than falling back to an older version.
+- The canonical aggregate data-as-of is the maximum availability timestamp of its four constituents, and both live reports and point-in-time valuation use this same implementation.
+- Verification: 15/15 focused aggregation, point-in-time valuation, and Position Report tests passed, including normal four-quarter, missing-quarter, restatement, future-restatement, invalid-quality, and non-calendar fiscal-year-boundary cases.

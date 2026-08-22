@@ -118,8 +118,9 @@ public class ValuationEvidenceStore {
     public List<PointInTimeValuationAssembler.MetricPoint> pointInTimeMetrics(UUID instrumentId) {
         return jdbc.sql(
                         """
-                        SELECT p.period_type periodType,p.end_date periodEnd,m.metric_code metricCode,
-                               m.value_decimal value,m.data_as_of dataAsOf
+                        SELECT p.period_type periodType,p.end_date periodEnd,p.fiscal_year fiscalYear,
+                               p.fiscal_quarter fiscalQuarter,p.quality periodQuality,m.metric_code metricCode,
+                               m.value_decimal value,m.quality metricQuality,m.data_as_of dataAsOf
                         FROM financial_metric_snapshot m JOIN financial_period p ON p.id=m.period_id
                         WHERE m.instrument_id=UUID_TO_BIN(:instrumentId) AND m.metric_code IN
                           ('DILUTED_EPS','REVENUE','FREE_CASH_FLOW','CASH','TOTAL_DEBT','COMMON_SHARES_OUTSTANDING')
@@ -129,8 +130,12 @@ public class ValuationEvidenceStore {
                 .query((result, rowNumber) -> new PointInTimeValuationAssembler.MetricPoint(
                         result.getString("periodType"),
                         result.getObject("periodEnd", LocalDate.class),
+                        result.getObject("fiscalYear", Integer.class),
+                        result.getObject("fiscalQuarter", Integer.class),
                         result.getString("metricCode"),
                         result.getBigDecimal("value"),
+                        result.getString("periodQuality"),
+                        result.getString("metricQuality"),
                         result.getTimestamp("dataAsOf").toInstant()))
                 .list();
     }

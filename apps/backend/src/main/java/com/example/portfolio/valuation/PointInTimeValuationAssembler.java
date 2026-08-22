@@ -47,8 +47,12 @@ public final class PointInTimeValuationAssembler {
                         .map(value -> new CanonicalFinancialAggregation.Observation(
                                 value.periodType(),
                                 value.periodEnd(),
+                                value.fiscalYear(),
+                                value.fiscalQuarter(),
                                 value.metricCode(),
                                 value.value(),
+                                value.periodQuality(),
+                                value.metricQuality(),
                                 value.dataAsOf()))
                         .toList());
         return aggregate == null ? null : new SelectedValue(aggregate.value(), aggregate.dataAsOf());
@@ -90,7 +94,29 @@ public final class PointInTimeValuationAssembler {
     private record SelectedValue(BigDecimal value, Instant dataAsOf) {}
 
     public record MetricPoint(
-            String periodType, LocalDate periodEnd, String metricCode, BigDecimal value, Instant dataAsOf) {}
+            String periodType,
+            LocalDate periodEnd,
+            Integer fiscalYear,
+            Integer fiscalQuarter,
+            String metricCode,
+            BigDecimal value,
+            String periodQuality,
+            String metricQuality,
+            Instant dataAsOf) {
+        public MetricPoint(
+                String periodType, LocalDate periodEnd, String metricCode, BigDecimal value, Instant dataAsOf) {
+            this(
+                    periodType,
+                    periodEnd,
+                    periodEnd.getYear(),
+                    ((periodEnd.getMonthValue() - 1) / 3) + 1,
+                    metricCode,
+                    value,
+                    "HEALTHY",
+                    "HEALTHY",
+                    dataAsOf);
+        }
+    }
 
     public record EstimatePoint(LocalDate periodEnd, BigDecimal meanValue, Instant dataAsOf) {}
 
