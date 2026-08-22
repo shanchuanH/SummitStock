@@ -707,3 +707,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Every newly created analysis run persists its immutable `decision_cutoff`; holding replay and Position Report read that stored value. Legacy runs with no safely persisted cutoff fail closed instead of substituting UTC end-of-day.
 - Evidence after the exchange close is excluded from that session and becomes eligible only at a later session cutoff. Manual runs requested before a close or on a non-session are anchored to the latest completed session.
 - Verification: 19/19 focused calendar, replay-boundary, run-persistence, legacy fail-closed, holding-analysis, and Position Report tests passed; Flyway applied migration V54 successfully.
+
+## Final Audit Runtime Cutoff Integration Follow-up - 2026-08-21
+
+- Runtime-produced evidence now separates its immutable effective timestamp from its physical creation timestamp. Provider bars and quotes use the provider source timestamp; deterministic indicators, position marks, capital/allocation snapshots, Strategy NAV, drawdown, stops, position risk, and cluster risk use the persisted run's exchange-close cutoff.
+- Evidence genuinely published after the exchange close remains excluded, while calculations derived after close exclusively from eligible session evidence remain available to that same analysis run. This restores the real daily pipeline without weakening F5 point-in-time replay guarantees.
+- Drawdown evidence identity includes the owner and canonical Strategy NAV, so a same-session revaluation is persisted instead of being mistaken for an identical snapshot merely because the exchange-close cutoff is stable.
+- Verification: the Fidelity import EOD vertical pipeline passed end to end with three run-bound holding analyses and recommendations, including explicit mark/risk cutoff assertions; the 13-position real portfolio acceptance scenario also passed through all formal services and report contracts.

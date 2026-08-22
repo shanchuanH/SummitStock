@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 public class FakeEodMarketDataProvider implements MarketDataProvider {
     private final Clock clock;
     private final FailureMode failureMode;
+    private final TradingCalendar calendar = new UsEquityTradingCalendar();
 
     public FakeEodMarketDataProvider() {
         this(Clock.systemUTC(), FailureMode.NONE);
@@ -66,7 +67,8 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
             }
             date = date.plusDays(1);
         }
-        return new ProviderModels.DailyBarsResult(symbol, bars, provenance(symbol + from + to));
+        return new ProviderModels.DailyBarsResult(
+                symbol, bars, provenance(symbol + from + to, calendar.sessionClose(to)));
     }
 
     @Override
@@ -78,7 +80,7 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
                 new BigDecimal("100.10"),
                 new BigDecimal("100.00"),
                 "USD",
-                provenance(symbol + "quote"));
+                provenance(symbol + "quote", calendar.sessionClose(calendar.latestCompletedSession(clock.instant()))));
     }
 
     @Override
@@ -88,9 +90,19 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
     }
 
     private ProviderModels.Provenance provenance(String content) {
-        var now = clock.instant();
+        return provenance(content, clock.instant());
+    }
+
+    private ProviderModels.Provenance provenance(String content, java.time.Instant sourceTimestamp) {
+        var fetchedAt = clock.instant();
         return new ProviderModels.Provenance(
-                "fake-eod", now, now, sha256(content), "v1", ProviderModels.QualityStatus.HEALTHY, List.of());
+                "fake-eod",
+                sourceTimestamp,
+                fetchedAt,
+                sha256(content),
+                "v1",
+                ProviderModels.QualityStatus.HEALTHY,
+                List.of());
     }
 
     private void failIfConfigured() {

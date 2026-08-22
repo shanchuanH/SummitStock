@@ -156,10 +156,12 @@ public class PortfolioAnalysisPipelineService {
         return updated;
     }
 
-    public PositionMarkService.CaptureResult capturePositionMarks(UUID userId) {
-        var result = positionMarks.captureForUser(userId, clock.instant());
-        capitalBases.capture(userId, clock.instant());
-        allocations.capture(userId, clock.instant());
+    public PositionMarkService.CaptureResult capturePositionMarks(UUID userId, LocalDate marketDate) {
+        var dataCutoff = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion())
+                .dataCutoff();
+        var result = positionMarks.captureForUser(userId, dataCutoff);
+        capitalBases.capture(userId, dataCutoff);
+        allocations.capture(userId, dataCutoff);
         return result;
     }
 
@@ -171,7 +173,9 @@ public class PortfolioAnalysisPipelineService {
         var strategyNav = capital.strategyNav();
         if (strategyNav.signum() <= 0)
             throw new PermanentDataException("NO_STRATEGY_NAV", "Portfolio has no investable strategy capital");
-        var nav = portfolioNav.capture(userId, marketDate, strategyNav);
+        var dataCutoff = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion())
+                .dataCutoff();
+        var nav = portfolioNav.capture(userId, marketDate, strategyNav, dataCutoff);
         var attribution =
                 drawdownAttribution.calculate(userId, nav.peakMarketDate(), marketDate, nav.peakAccountEquity());
         var input = new DrawdownEngine.Input(
@@ -198,6 +202,8 @@ public class PortfolioAnalysisPipelineService {
     }
 
     public int recalculateStops(UUID userId, LocalDate marketDate) {
+        var dataCutoff = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion())
+                .dataCutoff();
         int affected = 0;
         for (var row : jdbc.sql(
                         """
@@ -252,7 +258,7 @@ public class PortfolioAnalysisPipelineService {
                             ) VALUES (
                                 UUID_TO_BIN(:id), UUID_TO_BIN(:positionId), :strategy, :entry, :atr, :structure,
                                 :volatility, :initial, :live, :soft, :catastrophic, :closeConfirmed,
-                                :rules, 'HEALTHY', :checksum, :now, :now
+                                :rules, 'HEALTHY', :checksum, :dataAsOf, :createdAt
                             )
                             """)
                     .param("id", UUID.randomUUID().toString())
@@ -269,7 +275,8 @@ public class PortfolioAnalysisPipelineService {
                     .param("closeConfirmed", result.closeConfirmed())
                     .param("rules", json(result.ruleIds()))
                     .param("checksum", checksum)
-                    .param("now", clock.instant())
+                    .param("dataAsOf", dataCutoff)
+                    .param("createdAt", clock.instant())
                     .update();
         }
         affected += jdbc.sql(
@@ -286,12 +293,12 @@ public class PortfolioAnalysisPipelineService {
                 .param("userId", userId.toString())
                 .param("now", clock.instant())
                 .update();
-        var positionRisks = snapshotPortfolioRisk(userId);
-        var clusterRiskSnapshots = clusterRisks.capture(userId, clock.instant());
+        var positionRisks = snapshotPortfolioRisk(userId, dataCutoff);
+        var clusterRiskSnapshots = clusterRisks.capture(userId, dataCutoff);
         return affected + positionRisks + clusterRiskSnapshots;
     }
 
-    private int snapshotPortfolioRisk(UUID userId) {
+    private int snapshotPortfolioRisk(UUID userId, java.time.Instant dataAsOf) {
         var investable = capitalBases.calculate(userId).investableAssets();
         return jdbc.sql(
                         """
@@ -329,7 +336,7 @@ public class PortfolioAnalysisPipelineService {
                                       OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
                                     THEN 'MISSING' ELSE 'HEALTHY' END,
                                SHA2(CONCAT(BIN_TO_UUID(c.id),':',COALESCE(c.market_value,''),':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',COALESCE(c.atr,''),':',:now),256),
-                               :now,:now
+                               :dataAsOf,:now
                         FROM calculated c WHERE c.equity>0
                         """)
                 .param("userId", userId.toString())
@@ -339,6 +346,7 @@ public class PortfolioAnalysisPipelineService {
                         strategies.current().executionRisk().thematicFallbackRiskFraction())
                 .param("investable", investable)
                 .param("strategy", properties.strategyVersion())
+                .param("dataAsOf", dataAsOf)
                 .param("now", clock.instant())
                 .update();
     }

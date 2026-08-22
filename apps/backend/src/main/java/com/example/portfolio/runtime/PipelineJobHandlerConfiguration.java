@@ -208,7 +208,8 @@ class PipelineJobHandlerConfiguration {
     JobHandler capturePositionMarksJobHandler(
             PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler("CAPTURE_POSITION_MARKS", context -> {
-            var result = portfolio.capturePositionMarks(requiredUser(payload(context, json)));
+            var jobPayload = payload(context, json);
+            var result = portfolio.capturePositionMarks(requiredUser(jobPayload), jobPayload.marketDate());
             var warnings = new java.util.ArrayList<String>();
             if (result.missing() > 0) warnings.add("POSITION_MARK_MISSING");
             if (result.stale() > 0) warnings.add("POSITION_MARK_STALE");

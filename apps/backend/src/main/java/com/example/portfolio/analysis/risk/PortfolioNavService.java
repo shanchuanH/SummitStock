@@ -28,6 +28,11 @@ public class PortfolioNavService {
 
     @Transactional
     public Snapshot capture(UUID userId, LocalDate marketDate, BigDecimal accountEquity) {
+        return capture(userId, marketDate, accountEquity, clock.instant());
+    }
+
+    @Transactional
+    public Snapshot capture(UUID userId, LocalDate marketDate, BigDecimal accountEquity, Instant dataAsOf) {
         if (accountEquity == null || accountEquity.signum() <= 0) {
             throw new IllegalArgumentException("Account equity must be positive");
         }
@@ -67,7 +72,7 @@ public class PortfolioNavService {
                           id,user_id,market_date,nav,units,external_cashflow,account_equity,high_water_nav,
                           drawdown_fraction,data_as_of,created_at)
                         VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),:marketDate,:nav,:units,:cashflow,:equity,
-                          :highWater,:drawdown,:now,:now)
+                          :highWater,:drawdown,:dataAsOf,:now)
                         ON DUPLICATE KEY UPDATE nav=VALUES(nav),units=VALUES(units),
                           external_cashflow=VALUES(external_cashflow),account_equity=VALUES(account_equity),
                           high_water_nav=VALUES(high_water_nav),drawdown_fraction=VALUES(drawdown_fraction),
@@ -82,6 +87,7 @@ public class PortfolioNavService {
                 .param("equity", accountEquity)
                 .param("highWater", highWaterNav)
                 .param("drawdown", drawdown)
+                .param("dataAsOf", dataAsOf)
                 .param("now", now)
                 .update();
         var peak = peak(userId, highWaterNav, marketDate);
@@ -95,7 +101,7 @@ public class PortfolioNavService {
                 drawdown,
                 peak.marketDate(),
                 peak.accountEquity(),
-                now);
+                dataAsOf);
     }
 
     @Transactional

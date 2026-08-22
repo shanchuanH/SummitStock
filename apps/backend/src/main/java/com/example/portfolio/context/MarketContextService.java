@@ -87,7 +87,8 @@ public class MarketContextService {
                         strategy.etfDipSetupAt().doubleValue(),
                         strategy.marketDrivenEtfDeploymentAt().doubleValue(),
                         strategy.painLine().doubleValue()));
-        var canonical = input.toString() + ":" + positionAttributionJson + ":" + clusterAttributionJson;
+        var canonical = userId + ":" + accountEquity + ":" + input + ":" + positionAttributionJson + ":"
+                + clusterAttributionJson;
         var checksum = sha256(properties.strategyVersion() + ":drawdown:" + dataAsOf + ":" + canonical);
         int inserted = store.appendDrawdown(new DrawdownWrite(
                 UUID.randomUUID(),
