@@ -700,3 +700,10 @@ Configure production provider credentials, run the documented deployment smoke c
 - Each fiscal slot selects the latest restatement whose data-as-of is at or before the decision cutoff. A future restatement is invisible, and a latest invalid/partial period or metric makes TTM unavailable rather than falling back to an older version.
 - The canonical aggregate data-as-of is the maximum availability timestamp of its four constituents, and both live reports and point-in-time valuation use this same implementation.
 - Verification: 15/15 focused aggregation, point-in-time valuation, and Position Report tests passed, including normal four-quarter, missing-quarter, restatement, future-restatement, invalid-quality, and non-calendar fiscal-year-boundary cases.
+
+## Final Audit Minimum Usable Financial Correctness - F5 - 2026-08-21
+
+- Replay cutoffs now use the existing XNYS/XNAS trading calendar: 16:00 America/New_York on regular sessions and 13:00 on actual early-close sessions, with timezone conversion following DST.
+- Every newly created analysis run persists its immutable `decision_cutoff`; holding replay and Position Report read that stored value. Legacy runs with no safely persisted cutoff fail closed instead of substituting UTC end-of-day.
+- Evidence after the exchange close is excluded from that session and becomes eligible only at a later session cutoff. Manual runs requested before a close or on a non-session are anchored to the latest completed session.
+- Verification: 19/19 focused calendar, replay-boundary, run-persistence, legacy fail-closed, holding-analysis, and Position Report tests passed; Flyway applied migration V54 successfully.

@@ -207,10 +207,11 @@ class PositionReportContractTest extends HoldingAnalysisIntegrationFixture {
         jdbc.sql(
                         """
                 INSERT INTO portfolio_analysis_run (
-                  id,user_id,market_date,strategy_version,status,started_at,completed_at,data_as_of,
+                  id,user_id,market_date,decision_cutoff,strategy_version,status,started_at,completed_at,data_as_of,
                   run_key,created_at,updated_at,version)
                 VALUES (UUID_TO_BIN('90000000-0000-0000-0000-000000000099'),
-                  UUID_TO_BIN('91000000-0000-0000-0000-000000000001'),CURRENT_DATE,'3.0.0-draft','SUCCEEDED',
+                  UUID_TO_BIN('91000000-0000-0000-0000-000000000001'),CURRENT_DATE,
+                  UTC_TIMESTAMP(6),'3.0.0-draft','SUCCEEDED',
                   UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'test:position-report',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0)
                 """)
                 .update();

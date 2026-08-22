@@ -5,11 +5,19 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import com.example.portfolio.market.provider.TradingCalendar;
 import com.example.portfolio.runtime.AnalysisRunOrchestrator;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 class ManualAnalysisRunIntegrationTest extends PortfolioImportIntegrationSupport {
+    @Autowired
+    TradingCalendar tradingCalendar;
+
     @Test
     void authenticatedOwnerCanQueueOneImmediateRerunWithoutConcurrentDuplicates() throws Exception {
         var preview = preview("fidelity-positions.csv");
@@ -31,6 +39,13 @@ class ManualAnalysisRunIntegrationTest extends PortfolioImportIntegrationSupport
         assertThat(count("SELECT COUNT(*) FROM job_run WHERE job_type='PORTFOLIO_ANALYSIS' "
                         + "AND analysis_run_id=UUID_TO_BIN('" + rerunId + "')"))
                 .isEqualTo(1);
+        var persisted = jdbc.sql(
+                        "SELECT market_date marketDate,decision_cutoff decisionCutoff FROM portfolio_analysis_run WHERE id=UUID_TO_BIN(:id)")
+                .param("id", rerunId.toString())
+                .query(RunCutoff.class)
+                .single();
+        assertThat(persisted.decisionCutoff().toInstant(ZoneOffset.UTC))
+                .isEqualTo(tradingCalendar.sessionClose(persisted.marketDate()));
 
         var repeatedResponse = request();
         assertThat(repeatedResponse.getResponse().getStatus()).isEqualTo(202);
@@ -99,4 +114,6 @@ class ManualAnalysisRunIntegrationTest extends PortfolioImportIntegrationSupport
                         .content("{\"reason\":\"USER_REFRESH\"}"))
                 .andReturn();
     }
+
+    private record RunCutoff(LocalDate marketDate, LocalDateTime decisionCutoff) {}
 }

@@ -57,14 +57,14 @@ public final class PositionReportController {
         if (value.readiness() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Holding analysis has not been generated");
         }
-        if (value.analysisRunId() == null || value.marketDate() == null || value.runDataAsOf() == null) {
+        if (value.analysisRunId() == null || value.marketDate() == null || value.runDecisionCutoff() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Analysis run as-of context is unavailable");
         }
         if (!value.strategyVersion().equals(value.runStrategyVersion())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Recommendation strategy version is inconsistent");
         }
         var context = new DecisionAsOfContext(
-                value.marketDate(), value.runDataAsOf().toInstant(ZoneOffset.UTC), value.runStrategyVersion());
+                value.marketDate(), value.runDecisionCutoff().toInstant(ZoneOffset.UTC), value.runStrategyVersion());
         var evidence = evidenceAssembler.assemble(userId, positionId, context);
         var analytics = analystData.load(evidence, context);
         var currentChange = analystData.currentPriceChange(

@@ -9,11 +9,27 @@ import org.junit.jupiter.api.Test;
 
 class DecisionAsOfContextTest {
     @Test
-    void marketCloseIncludesOnlyEvidenceKnownByTheEndOfThatUtcDate() {
-        var context = DecisionAsOfContext.marketClose(LocalDate.parse("2026-01-10"), "3.0.0-draft");
-        assertThat(context.marketDate()).isEqualTo("2026-01-10");
-        assertThat(context.dataCutoff()).isEqualTo(Instant.parse("2026-01-10T23:59:59.999999999Z"));
-        assertThat(context.strategyVersion()).isEqualTo("3.0.0-draft");
+    void regularMarketCloseUsesFourPmNewYorkAndTracksDst() {
+        var winter = DecisionAsOfContext.marketClose(LocalDate.parse("2026-03-06"), "3.0.0-draft");
+        var summer = DecisionAsOfContext.marketClose(LocalDate.parse("2026-03-09"), "3.0.0-draft");
+
+        assertThat(winter.dataCutoff()).isEqualTo(Instant.parse("2026-03-06T21:00:00Z"));
+        assertThat(summer.dataCutoff()).isEqualTo(Instant.parse("2026-03-09T20:00:00Z"));
+        assertThat(summer.strategyVersion()).isEqualTo("3.0.0-draft");
+    }
+
+    @Test
+    void earlyCloseUsesOnePmNewYorkAndLaterEvidenceWaitsForNextSession() {
+        var earlyClose = DecisionAsOfContext.marketClose(LocalDate.parse("2026-11-27"), "3.0.0-draft");
+        var afterClose = Instant.parse("2026-11-27T18:00:01Z");
+
+        assertThat(earlyClose.dataCutoff()).isEqualTo(Instant.parse("2026-11-27T18:00:00Z"));
+        assertThat(earlyClose.includes(LocalDate.parse("2026-11-27"), afterClose))
+                .isFalse();
+
+        var nextSession = DecisionAsOfContext.marketClose(LocalDate.parse("2026-11-30"), "3.0.0-draft");
+        assertThat(nextSession.includes(LocalDate.parse("2026-11-27"), afterClose))
+                .isTrue();
     }
 
     @Test

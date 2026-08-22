@@ -1,6 +1,7 @@
 package com.example.portfolio.runtime;
 
 import com.example.portfolio.configuration.PortfolioProperties;
+import com.example.portfolio.market.provider.TradingCalendar;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -48,11 +49,13 @@ public class AnalysisRunOrchestrator {
     private final JdbcClient jdbc;
     private final DurableJobStore jobs;
     private final Clock clock;
+    private final TradingCalendar calendar;
 
-    public AnalysisRunOrchestrator(JdbcClient jdbc, DurableJobStore jobs, Clock clock) {
+    public AnalysisRunOrchestrator(JdbcClient jdbc, DurableJobStore jobs, Clock clock, TradingCalendar calendar) {
         this.jdbc = jdbc;
         this.jobs = jobs;
         this.clock = clock;
+        this.calendar = calendar;
     }
 
     @Transactional
@@ -160,19 +163,22 @@ public class AnalysisRunOrchestrator {
     @Transactional
     public ScheduleResult createAndSchedule(
             UUID userId, LocalDate marketDate, String strategyVersion, UUID importBatchId, String runKey) {
+        marketDate = completedSession(marketDate);
+        var decisionCutoff = calendar.sessionClose(marketDate);
         var proposed = UUID.randomUUID();
         var created = jdbc.sql(
                         """
                         INSERT IGNORE INTO portfolio_analysis_run (
-                            id,user_id,import_batch_id,market_date,strategy_version,status,run_key,created_at,updated_at,version
+                            id,user_id,import_batch_id,market_date,decision_cutoff,strategy_version,status,run_key,created_at,updated_at,version
                         ) VALUES (
-                            UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:importBatchId),:marketDate,:strategyVersion,
+                            UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:importBatchId),:marketDate,:decisionCutoff,:strategyVersion,
                             'QUEUED',:runKey,:now,:now,0
                         )
                         """)
                 .param("id", proposed.toString())
                 .param("userId", userId.toString())
                 .param("marketDate", marketDate)
+                .param("decisionCutoff", decisionCutoff)
                 .param("strategyVersion", strategyVersion)
                 .param("importBatchId", importBatchId == null ? null : importBatchId.toString(), java.sql.Types.VARCHAR)
                 .param("runKey", runKey)
@@ -196,6 +202,14 @@ public class AnalysisRunOrchestrator {
             throw new IllegalStateException("Analysis root job could not be enqueued");
         }
         return new ScheduleResult(runId, created == 0);
+    }
+
+    private LocalDate completedSession(LocalDate requested) {
+        var candidate = requested;
+        while (!calendar.isSession(candidate)) candidate = candidate.minusDays(1);
+        if (calendar.sessionClose(candidate).isAfter(clock.instant()))
+            return calendar.latestCompletedSession(clock.instant());
+        return candidate;
     }
 
     private void abandonStalled(UUID runId) {

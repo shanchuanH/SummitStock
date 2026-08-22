@@ -1,6 +1,7 @@
 package com.example.portfolio.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.portfolio.analysis.domain.RecommendationAction;
 import com.example.portfolio.analysis.domain.RecommendationCandidate;
@@ -9,6 +10,26 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class HoldingAnalysisApplicationServiceIntegrationTest extends HoldingAnalysisIntegrationFixture {
+    @Test
+    void replayFailsClosedWhenLegacyRunHasNoPersistedDecisionCutoff() {
+        var runId = java.util.UUID.randomUUID();
+        jdbc.sql(
+                        """
+                        INSERT INTO portfolio_analysis_run
+                          (id,user_id,market_date,strategy_version,status,run_key,created_at,updated_at,version)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),CURRENT_DATE,'3.0.0-draft','SUCCEEDED',
+                          :runKey,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0)
+                        """)
+                .param("id", runId.toString())
+                .param("userId", USER_ID.toString())
+                .param("runKey", "legacy-no-cutoff:" + runId)
+                .update();
+
+        assertThatThrownBy(() -> analysis.analyzeAll(USER_ID, runId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Analysis run decision cutoff is unavailable");
+    }
+
     @Test
     void representativeHoldingsUseDifferentEvidencePoliciesAndTemplates() {
         var results = analysis.analyzeAll(USER_ID).stream()

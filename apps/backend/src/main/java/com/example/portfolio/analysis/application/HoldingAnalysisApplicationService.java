@@ -93,14 +93,22 @@ public final class HoldingAnalysisApplicationService {
     private DecisionAsOfContext replayContext(UUID userId, UUID analysisRunId) {
         return jdbc.sql(
                         """
-                        SELECT market_date marketDate,strategy_version strategyVersion
+                        SELECT market_date marketDate,decision_cutoff decisionCutoff,strategy_version strategyVersion
                         FROM portfolio_analysis_run WHERE id=UUID_TO_BIN(:runId) AND user_id=UUID_TO_BIN(:userId)
                         """)
                 .param("runId", analysisRunId.toString())
                 .param("userId", userId.toString())
                 .query(RunContext.class)
                 .optional()
-                .map(value -> DecisionAsOfContext.marketClose(value.marketDate(), value.strategyVersion()))
+                .map(value -> {
+                    if (value.decisionCutoff() == null) {
+                        throw new IllegalStateException("Analysis run decision cutoff is unavailable");
+                    }
+                    return new DecisionAsOfContext(
+                            value.marketDate(),
+                            value.decisionCutoff().toInstant(java.time.ZoneOffset.UTC),
+                            value.strategyVersion());
+                })
                 .orElseThrow(() -> new IllegalArgumentException("Analysis run is not owned by user"));
     }
 
@@ -520,5 +528,5 @@ public final class HoldingAnalysisApplicationService {
 
     public record RiskProjection(BigDecimal beforeFraction, BigDecimal afterFraction, String reason) {}
 
-    record RunContext(LocalDate marketDate, String strategyVersion) {}
+    record RunContext(LocalDate marketDate, java.time.LocalDateTime decisionCutoff, String strategyVersion) {}
 }
