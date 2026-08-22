@@ -687,3 +687,9 @@ Configure production provider credentials, run the documented deployment smoke c
 - External deployable deposits/withdrawals and Emergency-to-Strategy boundary transfers create signed unit flows at the prior unit NAV, so they create zero investment return and zero artificial drawdown. Market movement without a capital flow remains the only source of unit-NAV return.
 - Import cashflow confirmation persists both the broker audit event and the Strategy NAV impact after subtracting the change in protected Emergency Cash; confirmed internal trades never become Strategy capital flow.
 - Verification: 13/13 focused NAV and cashflow reconciliation tests passed, including deposit-to-emergency, Emergency-to-deployable, deployable-to-Emergency, deposit-to-deployable, deployable withdrawal, and market-only movement; Flyway applied migration V53 successfully.
+
+## Final Audit Minimum Usable Financial Correctness - F3 - 2026-08-21
+
+- EXIT, REDUCE_HALF, and TRIM now determine the executable reduction quantity before attempting optional portfolio/cluster risk projections. Missing aggregate risk inputs leave the projections null with `RISK_PROJECTION_UNAVAILABLE` and never cancel the reduction.
+- Fractional reductions are preserved exactly: a 0.75-share EXIT remains 0.75, REDUCE_HALF remains 0.375, and TRIM can reduce exactly to a fractional target boundary. Integer-only BUY sizing is unchanged.
+- Verification: 9/9 focused risk sizing tests passed, covering null portfolio/cluster projection inputs and fractional EXIT/REDUCE_HALF/TRIM behavior; Spotless and the dependent-module reactor passed.
