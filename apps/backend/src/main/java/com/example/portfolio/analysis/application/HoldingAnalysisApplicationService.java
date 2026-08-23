@@ -16,12 +16,13 @@ import com.example.portfolio.analysis.domain.StrategyDefinition;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
 import com.example.portfolio.analysis.narrative.NarrativeInput;
 import com.example.portfolio.analysis.replay.DecisionAsOfContext;
+import com.example.portfolio.market.provider.TradingCalendar;
 import com.example.portfolio.strategy.market.EvidenceQuality;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
-import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,8 +32,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 public final class HoldingAnalysisApplicationService {
-    private static final Duration VALIDITY = Duration.ofHours(24);
-
     private final HoldingEvidenceAssembler evidenceAssembler;
     private final AnalysisFreshnessPolicy freshness;
     private final com.example.portfolio.analysis.decision.RecommendationConflictResolver conflictResolver;
@@ -43,6 +42,7 @@ public final class HoldingAnalysisApplicationService {
     private final EtfDipEventService dipEvents;
     private final BehavioralEvidenceService behavioralEvidence;
     private final BehavioralFirewall behavioralFirewall;
+    private final TradingCalendar calendar;
     private final Clock clock;
     private final JdbcClient jdbc;
 
@@ -57,6 +57,7 @@ public final class HoldingAnalysisApplicationService {
             EtfDipEventService dipEvents,
             BehavioralEvidenceService behavioralEvidence,
             BehavioralFirewall behavioralFirewall,
+            TradingCalendar calendar,
             Clock clock,
             JdbcClient jdbc) {
         this.evidenceAssembler = evidenceAssembler;
@@ -69,6 +70,7 @@ public final class HoldingAnalysisApplicationService {
         this.dipEvents = dipEvents;
         this.behavioralEvidence = behavioralEvidence;
         this.behavioralFirewall = behavioralFirewall;
+        this.calendar = calendar;
         this.clock = clock;
         this.jdbc = jdbc;
     }
@@ -156,11 +158,15 @@ public final class HoldingAnalysisApplicationService {
                 evidence.strategy().version(),
                 evidence.strategy().configHash(),
                 evidence.dataAsOf(),
-                decisionAt.plus(VALIDITY),
+                validUntil(decisionContext, calendar),
                 AnalysisChecksum.sha256(evidence + ":" + state + ":" + resolution));
         var narrativeInput = narrativeInput(evidence, result, resolution);
         var snapshotId = store.append(analysisRunId, result, resolution, narrativeInput, riskProjection, sizing, now);
         return new AnalyzedHolding(snapshotId, evidence, result, resolution, narrativeInput, riskProjection);
+    }
+
+    static Instant validUntil(DecisionAsOfContext decisionContext, TradingCalendar calendar) {
+        return calendar.sessionClose(calendar.nextSession(decisionContext.marketDate()));
     }
 
     private static RiskProjection riskProjection(
