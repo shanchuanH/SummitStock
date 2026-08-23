@@ -28,6 +28,31 @@ class MacroFactorEngineTest {
         assertThat(result.quality()).isEqualTo(MacroFactorEngine.Quality.HEALTHY);
     }
 
+    @Test
+    void ratesAndCurveRemainContextAndDoNotChangeAggregateStress() {
+        var calmRates = evaluateRates("3.5", "3.5", "3.0", "3.0");
+        var stressedRates = evaluateRates("6.0", "3.0", "6.5", "5.5");
+
+        assertThat(stressedRates.rateStress()).isGreaterThan(calmRates.rateStress());
+        assertThat(stressedRates.curveState()).isEqualTo(MacroFactorEngine.CurveState.INVERTED);
+        assertThat(stressedRates.stressResilience()).isEqualByComparingTo(calmRates.stressResilience());
+    }
+
+    private static MacroFactorEngine.Result evaluateRates(
+            String tenYear, String priorTenYear, String twoYear, String fedFunds) {
+        return new MacroFactorEngine()
+                .evaluate(new MacroFactorEngine.Input(
+                        bd("20"),
+                        List.of(bd("15"), bd("20"), bd("25")),
+                        bd("4"),
+                        List.of(bd("3"), bd("4"), bd("5")),
+                        bd(tenYear),
+                        bd(priorTenYear),
+                        bd(twoYear),
+                        bd(fedFunds),
+                        bd("0.5")));
+    }
+
     static BigDecimal bd(String value) {
         return new BigDecimal(value);
     }

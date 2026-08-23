@@ -30,7 +30,9 @@ describe("DashboardNoFalseNoActionTest", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("无法加载分析");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "今天的分析暂时无法读取",
+    );
     expect(screen.queryByText("NO URGENT ACTION")).not.toBeInTheDocument();
   });
 
@@ -59,6 +61,7 @@ describe("DashboardNoFalseNoActionTest", () => {
         },
         capital: {
           totalLiquidAssets: "12000",
+          requiredEmergencyFloor: "1000",
           emergencyReserve: "1000",
           deployableCash: "1000",
           investableAssets: "11000",
@@ -93,13 +96,14 @@ describe("DashboardNoFalseNoActionTest", () => {
     );
 
     expect(
-      await screen.findAllByText("Some positions have not completed analysis."),
-    ).not.toHaveLength(0);
+      await screen.findByText("今天先不要根据 SummitStock 下新决定"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("NO URGENT ACTION")).not.toBeInTheDocument();
-    expect(screen.getByText("ANALYSIS PARTIAL")).toBeInTheDocument();
+    expect(screen.getByText("分析状态待确认")).toBeInTheDocument();
+    expect(screen.getAllByText(/数据不完整/)).not.toHaveLength(0);
   });
 
-  it("shows NO URGENT ACTION only for a ready empty action queue", async () => {
+  it("shows a calm owner-facing conclusion only for a ready empty action queue", async () => {
     get.mockResolvedValueOnce({
       data: {
         state: "ANALYSIS_READY",
@@ -124,6 +128,7 @@ describe("DashboardNoFalseNoActionTest", () => {
         },
         capital: {
           totalLiquidAssets: "12000",
+          requiredEmergencyFloor: "1000",
           emergencyReserve: "1000",
           deployableCash: "1000",
           investableAssets: "11000",
@@ -157,6 +162,6 @@ describe("DashboardNoFalseNoActionTest", () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText("当前无需紧急操作")).toBeInTheDocument();
+    expect(await screen.findByText("今天不需要做交易")).toBeInTheDocument();
   });
 });

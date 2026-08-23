@@ -1,10 +1,14 @@
 package com.example.portfolio.valuation;
 
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.estimates.EstimateRevisionEngine;
 import com.example.portfolio.market.provider.ProviderModels;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,32 +16,53 @@ public class ValuationApplicationService {
     private static final MathContext MATH = MathContext.DECIMAL128;
     private final ValuationEvidenceStore store;
     private final PortfolioProperties properties;
+    private final ValuationBootstrapService bootstrap;
+    private final Clock clock;
     private final ValuationEngineV2 engine = new ValuationEngineV2();
 
-    public ValuationApplicationService(ValuationEvidenceStore store, PortfolioProperties properties) {
+    public ValuationApplicationService(
+            ValuationEvidenceStore store,
+            PortfolioProperties properties,
+            ValuationBootstrapService bootstrap,
+            Clock clock) {
         this.store = store;
         this.properties = properties;
+        this.bootstrap = bootstrap;
+        this.clock = clock;
     }
 
     public int computeAll() {
-        int affected = 0;
-        var configHash = store.configHash(properties.strategyVersion());
-        for (var input : store.inputs()) {
+        return computeAll(new DecisionAsOfContext(LocalDate.now(clock), clock.instant(), properties.strategyVersion()));
+    }
+
+    public int computeAll(UUID analysisRunId) {
+        return computeAll(store.analysisContext(analysisRunId));
+    }
+
+    public int computeAll(DecisionAsOfContext context) {
+        int affected = bootstrap.bootstrap(context);
+        var configHash = store.configHash(context.strategyVersion());
+        for (var input : store.inputs(context)) {
             if (input.marketDate() == null || input.price() == null || input.shares() == null) continue;
             var metrics = metrics(input);
-            var quality = metricCount(metrics) >= 2
+            var quality = ValuationEngineV2.availableFamilyCount(metrics) >= 2
                     ? ProviderModels.QualityStatus.HEALTHY
                     : ProviderModels.QualityStatus.PARTIAL;
-            store.saveMetrics(input.instrumentId(), input.marketDate(), metrics, quality.name());
-            var history3y =
-                    store.history(input.instrumentId(), input.marketDate().minusYears(3));
-            var history5y =
-                    store.history(input.instrumentId(), input.marketDate().minusYears(5));
+            store.saveMetrics(input.instrumentId(), input.marketDate(), metrics, quality.name(), context.dataCutoff());
+            var history3y = store.history(
+                    input.instrumentId(), input.marketDate().minusYears(3), context.marketDate(), context.dataCutoff());
+            var history5y = store.history(
+                    input.instrumentId(), input.marketDate().minusYears(5), context.marketDate(), context.dataCutoff());
             var assessment = engine.assess(new ValuationEngineV2.Input(
                     metrics, history3y, history5y, health(input.health()), revision(input.revision()), quality));
             var growthAdjusted = ratio(metrics.forwardPe(), input.revenueGrowth());
             affected += store.saveAssessment(
-                    input.instrumentId(), assessment, growthAdjusted, properties.strategyVersion(), configHash);
+                    input.instrumentId(),
+                    assessment,
+                    growthAdjusted,
+                    context.strategyVersion(),
+                    configHash,
+                    context.dataCutoff());
         }
         return affected;
     }
@@ -52,16 +77,6 @@ public class ValuationApplicationService {
                 ratio(input.freeCashFlow(), marketCap),
                 ratio(marketCap, input.revenue()),
                 marketCap);
-    }
-
-    private static int metricCount(ValuationEngineV2.Metrics value) {
-        int count = 0;
-        if (value.trailingPe() != null) count++;
-        if (value.forwardPe() != null) count++;
-        if (value.evSales() != null) count++;
-        if (value.fcfYield() != null) count++;
-        if (value.priceSales() != null) count++;
-        return count;
     }
 
     private static BigDecimal ratio(BigDecimal numerator, BigDecimal denominator) {

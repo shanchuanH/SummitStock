@@ -1,0 +1,15 @@
+portfolio:
+  allow-draft-strategy: false
+  fixture-data: false
+  providers:
+    allow-partial-production: true
+    market:
+      type: ${PORTFOLIO_MARKET_PROVIDER:disabled}
+    fundamentals:
+      type: ${PORTFOLIO_FUNDAMENTALS_PROVIDER:sec}
+    estimates:
+      type: ${PORTFOLIO_ESTIMATES_PROVIDER:unavailable}
+    earnings-calendar:
+      type: ${PORTFOLIO_EARNINGS_CALENDAR_PROVIDER:unavailable}
+    macro:
+      type: ${PORTFOLIO_MACRO_PROVIDER:unavailable}

@@ -2,6 +2,8 @@
 
 ## Current Phase
 
+Production Readiness final audit completed locally on 2026-08-23. Analysis runs now freeze allocation, position classification, strategy definition, valuation inputs, and earnings timing to one persisted as-of context. Ambiguous broker cashflow remains `WAITING_FOR_CASHFLOW_CONFIRMATION` and cannot start Strategy NAV, drawdown, or recommendation work until an idempotent owner confirmation records the capital flow. Classification evidence is explicitly bound once per analysis run, so an after-close import can complete while later owner edits cannot rewrite an old report. Holding-analysis validity now ends at the next trading-session close instead of 24 wall-clock hours after the evidence cutoff, so Friday evidence remains truthfully current through weekends and exchange holidays without relaxing stale-data gates. The deterministic test/local fixture provider likewise timestamps weekend-ended requests at the latest requested trading-session close instead of treating a weekend as a session. Fresh MySQL migration and V52-to-V57 upgrade validation, the full Fidelity owner journey, runtime/provider/security gates, 325 backend tests, 49 frontend tests, desktop/mobile E2E, OpenAPI, Compose, backend image, dependency audit, and full-history Gitleaks all pass locally. Remote GitHub Actions remains the final release gate before merge.
+
 Hardening Gate 0 completed on 2026-08-10 in commit `449977b`: the reproducible merge gates now include current pinned GitHub Actions, executable Maven wrapper metadata, Spotless UNIX line endings, dependency review, Gitleaks, pnpm audit, Docker build, frontend type/lint/unit/build/API/E2E gates, and a documented branch-protection contract. Local verification passed; remote GitHub branch-protection enforcement remains explicitly unverified because no authenticated GitHub session or CLI credential is available in this environment.
 
 Hardening A1 implements canonical mark-to-market as an append-only `position_mark_snapshot` plus deterministic latest-mark view. Completed adjusted daily closes now drive capital, weights, cluster contribution, drawdown/equity, holding evidence, earnings weights, portfolio APIs, and executive brief metrics; imported broker `market_value` remains provenance evidence only. Missing/stale marks propagate non-healthy capital quality and block exact sizing or drawdown rather than silently falling back. The analysis pipeline captures marks before portfolio-dependent computation. Regression coverage proves price revaluation without re-import, preservation of broker evidence, missing-mark fail-closed behavior, current-weight movement across a hard-cap boundary, and marked portfolio equity.
@@ -124,7 +126,7 @@ Phase 7 added the complete target-portfolio acceptance fixture, including thirte
 
 ## Database
 
-- Flyway head: `V21__strategy_release_governance.sql`
+- Flyway head: `V57__bind_classification_to_analysis_run.sql`
 - Foundation tables: app user, strategy version, investment policy, cash bucket, audit log, Spring Session
 - Market tables: instrument, price bar, quote, corporate action, provider request, data quality event, fundamental observation, company event, indicator snapshot
 - Raw and adjusted bars have separate identities; indicator snapshots are append-only and provenance-keyed
@@ -460,3 +462,258 @@ Configure production provider credentials, run the documented deployment smoke c
 - Final browser acceptance covers Fidelity preview recognition of a stock, ETF, and cash; explicit classification and Emergency Cash confirmation; all eight analysis stages; no more than three priority actions; and a holding report that answers sizing, valuation, earnings-risk, evidence, uncertainty, and change-condition questions.
 - The OpenAPI artifact is normalized by the locked generator with no semantic contract change, eliminating formatting-only drift in the required contract gate.
 - Verification: Maven reactor passes 9 quant, 35 strategy, 10 backtest, and 218 backend tests; frontend ESLint, typecheck, 15 Vitest files / 30 tests, generated-client and production builds pass; Playwright passes 6/6 desktop and mobile journeys; local Docker Compose configuration and whitespace checks pass.
+
+## Full Review Modification Manual V3 — Phase R0 — 2026-08-20
+
+- Baseline remote `main` is `26bbb0bc28d7eeafb1f7e8beac7abc89cd015685`. The unmodified backend integration baseline had 66 Testcontainers errors because Docker was unavailable; frontend lint/typecheck, 15 Vitest files / 30 tests, and production build passed, while OpenAPI export inherited the same Docker blocker. Desktop/mobile Playwright passed 6/6. Compose validation failed because the Makefile referenced missing `infra/compose.yaml`. Dependency audit found one high-severity transitive `nanoid` advisory; `gitleaks` was not installed.
+- `make dev` now uses the real local Compose model and starts MySQL, API, Worker, and the local frontend command. `local-fixture` and `local-live` are explicit: fixture mode alone permits the draft strategy and supplies deterministic market, fundamentals, estimates, earnings-calendar, and macro evidence; live mode never falls back to fixture data.
+- Flyway V40 adds durable Worker runtime heartbeat and multi-parent pipeline dependency records. Workers heartbeat every 20 seconds; `GET /api/v1/analysis/runtime` reports liveness and queue diagnostics, and owner-scoped analysis status exposes actual progress, current/failed stage, actionable failure details, stalled/offline states, and grouped progress.
+- `POST /api/v1/analysis/runs` accepts only `USER_REFRESH`, reuses an active owner run, and otherwise creates an immutable durable run. The 27-step strict chain is now a MySQL-backed DAG with independent market, fundamentals, estimates/earnings, and macro branches joined before portfolio decisions.
+- Import progress no longer invents a WAITING list or silently discards polling failures. It identifies Worker offline, stalled, partial, blocked, failed, and ready states. Dashboard exposes last-analysis time and a CSRF-protected manual reanalysis control; no automatic execution path was added.
+- Verification so far: backend `-DskipTests package` passes; 6 focused R0 tests pass (DAG, state semantics, deterministic estimate/macro fixtures); OpenAPI JSON parses; Docker-backed integration and generated-contract drift verification remain blocked by the local Docker service permission state and are not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R1 — 2026-08-20
+
+- A single frontend presentation layer owns exhaustive owner-facing action, priority, classification, confidence, readiness, reason, number, and date language. Raw backend enum values are no longer used as owner copy.
+- The presentation contract test reads the deterministic backend `RecommendationAction` enum and fails when a backend action lacks a frontend mapping. Dashboard, portfolio, position detail, opportunities, review, and ETF Dip history consume the shared language.
+- The owner-facing terminology uses plain Chinese while advanced evidence remains available separately. Missing numbers remain unavailable rather than becoming zero or fake precision.
+- This phase preserves the R0 reanalysis control and runtime status UX. No strategy threshold, recommendation precedence, risk calculation, quantity calculation, or drawdown definition changed.
+
+## Full Review Modification Manual V3 — Phase R2 — 2026-08-20
+
+- The owner dashboard now follows one deterministic decision path: today's conclusion, no more than three server-ranked actions, four portfolio-safety numbers, readiness, and the top risks. It continues to use only `GET /api/v1/brief/today`; React does not compute recommendations.
+- `TodayDecisionHero` distinguishes confirmed no-action, urgent action, incomplete data, stale analysis, and blocked/failed analysis. Incomplete or failed analysis never emits calm language or a precise quantity.
+- Compact action cards lead with action, server-supplied sizing when available, one primary reason, and the principal risk. Detailed evidence, confidence, validity, and change conditions remain collapsed.
+- The duplicate full holdings inventory is removed from the first viewport and reduced to a short summary with a link to Portfolio. R0's last-analysis timestamp and manual reanalysis control remain present.
+- No recommendation, sizing, risk, or readiness value is hard-coded in the UI; no automatic execution path was added.
+
+## Full Review Modification Manual V3 — Phase R3 — 2026-08-20
+
+- Portfolio is now a decision inventory rather than an eleven-column analyst matrix. Desktop prioritizes holding, system recommendation, weight/P&L, primary reason, next event, risk, and data readiness.
+- The holdings API exposes canonical average cost alongside current mark, unrealized dollar/P&L percentage, and daily change without recomputing recommendations in React. Missing values remain unavailable.
+- Narrow viewports render holding cards instead of the desktop table. Filters use owner tasks (needs action, do not add, upcoming earnings, missing data, and classification groups) and ticker/company search.
+- Classification remains scoped to the selected position; the change does not alter portfolio classifications, recommendation precedence, or strategy thresholds.
+
+## Full Review Modification Manual V3 — Phase R4 — 2026-08-20
+
+- Fidelity import is a real state machine: upload, preview, role confirmation, Emergency Cash, confirm, and analysis. Only the current step is interactive, preventing the former mobile pointer interception and cognitive overload.
+- Role confirmation explains the deterministic suggested classification, its purpose, and strategy capacity in owner language. The owner can confirm or change it; ticker/price action never invents a quality classification.
+- Emergency Cash location and amount are separate facts. Every location requires an explicit amount; external cash is tagged user-confirmed and is never inferred to equal the strategy target. Fidelity-held amounts cannot exceed imported broker cash.
+- Flyway V41 labels pre-existing inferred external amounts honestly and records new user-confirmed external sources. Import analysis progress continues to use R0's live Worker/stage diagnostics rather than simulated WAITING states.
+- No force-click workaround, automatic trading, or production fixture fallback was added.
+
+## Full Review Modification Manual V3 — Phase R5 — 2026-08-20
+
+- The canonical holding analyst-report API now exposes persisted decision numbers instead of status-only labels: mark/returns/cost/P&L, the existing financial metric family, valuation multiples and history percentiles, FY1 estimates and revisions, technical/trend/volatility evidence, earnings history, and planned-risk context.
+- Price history is canonicalized to one latest adjusted daily bar per market date before returns, breakouts, drawdown, or benchmark-relative strength are calculated. Missing lookback history remains null rather than becoming zero or a fabricated production observation.
+- Financial, valuation, estimate, earnings, and risk values come from the existing canonical tables. The report does not create a parallel data model. Projected cluster risk remains unavailable when no durable engine output exists; the API does not infer a precise value.
+- OpenAPI and the generated TypeScript client expose the expanded report. Strategy V3 thresholds, recommendation resolution, quantities, stops, and risk decisions were not changed, and no execution path was added.
+- Verification: backend formatting and no-test package pass; the deterministic return/relative-strength unit test passes; generated client and web typecheck pass; all 19 frontend test files / 37 tests pass. The expanded MySQL contract test is committed but remains locally blocked by the stopped Docker service and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R6 — 2026-08-20
+
+- Position Detail now starts with the deterministic recommendation, current/normal/hard weight limits, primary reason, today's owner task, confidence, and timestamp. The hero's hard maximum comes only from `layers.portfolioRole.hardMaxWeight`.
+- Five visible evidence cards consume R5's canonical analyst-report DTO. Quality holdings emphasize fundamentals, valuation, estimates, price, and portfolio risk; ETF, tactical, and speculative classifications receive distinct evidence templates. Unsupported fund/catalyst/time-stop facts remain explicitly unavailable.
+- The prior debug intelligence endpoint is no longer a UI dependency. Detailed system/role/fundamental/valuation/chart/audit evidence remains in disclosures below the owner summary, with only the first two open by default.
+- Chart range selection supports 3M, 6M, 1Y, and 3Y with ordinary buttons and real daily bars. The page has no trading/order control, and missing numbers stay unavailable rather than becoming zero.
+- Verification: 5 focused Position Detail tests pass, including category-specific speculative evidence and ordinary chart-range clicks; frontend lint and typecheck pass. Full build and desktop/mobile E2E are run as the phase gate.
+
+## Full Review Modification Manual V3 — Phase R7 — 2026-08-20
+
+- Quality Deep Discount starters now require non-deteriorating revisions, portfolio and open-risk capacity, and explicit reversal/stabilization evidence. A falling, weak, neutral, or merely trending price cannot trigger a starter from cheap valuation alone.
+- Normal Quality ADD primarily serves ATTRACTIVE valuation with healthy ownership evidence, flat-or-better revisions, confirmed price, position capacity, and open-risk capacity.
+- FAIR valuation is fail-closed: it requires STRONG health, positive-or-better revisions, strong price confirmation, a meaningful gap below the existing target minimum, and open-risk capacity. FAIR + FLAT + UPTREND remains HOLD.
+- UNDERWEIGHT remains capacity evidence only and never becomes a buy signal by itself. No Strategy V3 numeric threshold, sizing formula, stop, or recommendation precedence was changed.
+- Verification: the focused Quality decision matrix passes 32/32 tests across the production decision engine and its pure valuation rule.
+
+## Full Review Modification Manual V3 — Phase R8 — 2026-08-20
+
+- Tactical price reversal and catalyst evidence are now separate domains. Flyway V42 persists catalyst status, the manual's ten catalyst types, summary, source, observation time, expected window, invalidation, and evidence checksum without synthesizing production facts.
+- Tactical ADD requires READY evidence, a confirmed complete catalyst, price reversal confirmation, a formal stop, event evidence, healthy/non-missing risk evidence, capacity below the normal maximum, classification eligibility, and Behavioral Firewall clearance. A reversal without a confirmed catalyst resolves to WATCH, not ADD.
+- Tactical, cyclical tactical, and turnaround tactical holdings now have an explicit readiness path. Fresh price/trend, formal stop, confirmed catalyst, event, risk, thesis, and classification are required; missing catalyst returns `WAIT_FOR_CATALYST`, while a missing stop or invalid thesis returns `BLOCKED`.
+- Unknown canonical open-risk values remain null and block new risk instead of being treated as zero. The existing speculative time-stop behavior was not rewritten.
+- Verification: 33/33 focused tactical decision/readiness tests pass; backend formatting, frontend lint, and frontend typecheck pass. Docker-backed Flyway integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R9 — 2026-08-20
+
+- A quote below average cost is now only a potential entry-price fact. The averaging-down firewall runs only when the deterministic asset engine actually proposes `ADD` or `STARTER_BUY`; HOLD/EXIT/other conclusions are not reclassified merely because a position is below cost.
+- The proposed entry reference uses the most recently acknowledged add price when available, otherwise canonical average cost. Independent thesis evidence can come from the durable thesis record or controlled evidence reason tags.
+- Flyway V43 adds validated structured reason tags to recommendation acknowledgements and journal records, plus the acknowledgement-time market reference price. The API accepts the manual's nine tags; the owner action disclosure can record them, and journal reads expose persisted tags.
+- Cost-basis anchoring now depends on `COST_BASIS_ANCHOR`, not an expanding list of English substrings. Free-form rationale remains explanation only. No acknowledgement submits an execution.
+- Verification: 6/6 focused Behavioral Firewall/tag parser tests pass; backend no-test package, frontend lint/typecheck, and the focused action-card test pass. Docker-backed migration/controller integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R10 — 2026-08-20
+
+- Consecutive Fidelity snapshots now capture broker cash, broker value, and per-instrument quantity/market-value balances before and after reconciliation. Quantity deltas are valued from the imported snapshot; a matched cash offset is classified as an internal trade and never recorded as external cashflow.
+- An unexplained cash change is persisted as `REQUIRED` by Flyway V44 and emits `NAV_RECONCILIATION_REQUIRED`. It is not automatically called a deposit merely because quantities stayed unchanged, and unresolved reconciliation suppresses the dashboard's high-confidence drawdown figure.
+- The post-import screen asks the owner to classify a real detected amount as external cashflow, internal trade proceeds, or other. Only explicit external confirmation calls the existing idempotent `PortfolioNavService.recordExternalCashflow`; internal confirmation creates no NAV cashflow event, and “other” remains unresolved.
+- Baseline imports create no cashflow. Analysis continues independently, but unresolved NAV semantics remain visible rather than being converted into investment return/loss.
+- Verification: 2/2 deterministic reconciliation math tests and 4/4 focused import UI tests pass; backend formatting/no-test package and frontend lint/typecheck pass. The expanded MySQL integration test is committed but remains locally blocked by Docker and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R11 — 2026-08-20
+
+- Drawdown attribution now starts at the canonical NAV peak and reconstructs each owned position from peak quantity/value, post-peak buys and sells at execution prices, current quantity/value, and realized/unrealized P&L. It no longer multiplies today's quantity by a peak-to-current price change.
+- The ledger includes positions closed after the NAV peak, so a realized loser remains in the active drawdown episode. Rows with incomplete execution evidence fail into the cash/other residual instead of receiving fabricated P&L.
+- Signed position contributions, including winners, reconcile with `CASH_AND_OTHER` exactly to canonical NAV drawdown loss. Position and cluster contribution fractions and largest-loss shares now use NAV drawdown loss as their denominator, making values comparable to portfolio loss rather than gross loser-only loss.
+- Flyway V45 adds quantity delta, execution price, and realized P&L evidence to the existing trade journal; it does not create trades or infer executions.
+- Verification: 3/3 deterministic contribution-ledger tests pass, including post-peak buys/sells, closed-loss math, positive contributors, NAV residual reconciliation, and NAV-denominator attribution. Docker-backed historical ledger integration remains locally blocked and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R12 — 2026-08-20
+
+- Stop evidence now extracts two distinct confirmed pivots in chronological order. The current structural swing is always the latest confirmed swing low; `confirmedHigherLow` is populated only when that latest pivot is strictly above the previous confirmed pivot.
+- A single pivot, equal/lower pivot, or missing pivot produces a null higher-low input rather than reusing the structural low. `StopEngine` now treats that higher-low input as genuinely optional while retaining the existing formal-stop, volatility-stop, trailing, and monotonic rules.
+- No Strategy V3 stop buffer or ATR multiplier changed.
+- Verification: 2/2 focused pipeline/stop tests pass for higher, lower, single, and null higher-low evidence; the Maven reactor compiles the updated strategy core and backend.
+
+## Full Review Modification Manual V3 — Phase R13 — 2026-08-20
+
+- The macro runtime now persists VIX level, five-year percentile, 1/2/5-session changes, VIX3M, and the VIX/VIX3M term ratio. CONTANGO, FLAT, and BACKWARDATION boundaries come from explicit empirical-research parameters in Strategy V3 rather than controller code.
+- VXN is collected through the existing macro-provider abstraction. The local fixture deliberately returns MISSING instead of simulating VXN; absent VXN leaves broad VIX and term-structure analysis operational while the technology overlay remains visibly MISSING.
+- VXN level/history percentile/deltas, VXN/VIX ratio and spread, and a deterministic technology-stress state are stored in the canonical macro factor snapshot. Reanalysis upserts the same market date so an earlier incomplete snapshot can be repaired when reliable evidence arrives.
+- The Market Context page now presents VIX, term structure, VXN, and the technology volatility premium before regime, breadth/stress, drawdown, and quality evidence. Missing VXN is described as unavailable and never converted into fake precision.
+- Verification: 7/7 focused backend strategy/volatility tests and 3/3 Market Context component tests pass; backend compilation, frontend ESLint, and frontend typecheck pass. Docker-backed Flyway integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R14 — 2026-08-20
+
+- The analysis pipeline no longer passes a hard-coded `narrowRally=false`. A deterministic evidence service compares current participation with the twentieth prior SPY session and measures equal-weight RSP performance relative to cap-weight SPY over 63 sessions.
+- A narrow rally requires SPY and QQQ above their 200-day averages, complete breadth/new-high/equal-weight evidence, and at least two independent signs of weakening participation: SMA50/SMA200 breadth deterioration, declining 52-week-high participation, or equal-weight lagging cap-weight. Missing evidence fails closed.
+- RSP is now a tracked benchmark instrument so the ordinary market-data runtime can collect real equal-weight evidence through the configured provider. No production price or participation observation is fabricated.
+- A confirmed narrow rally emits the owner explanation “指数上涨集中在少数大型股，表面行情强于真实参与度。” through the existing deterministic regime rule; no regime score or Strategy V3 numerical threshold changed.
+- Verification: 3/3 focused narrow-rally tests and 6/6 market-context golden tests pass; the Maven reactor compiles strategy-core and all backend test sources. Docker-backed provider/Flyway integration remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R15 — 2026-08-20
+
+- `CanonicalMarketRegimeEvidence` is now the single serialization source for persisted regime inputs and evidence checksums. Its fixed-order JSON includes trend, momentum, breadth, stress resilience, SPY/QQQ 200-day flags, VIX, breadth50, QQQ MACD/RSI, narrow-rally status, and evidence quality.
+- Every numeric input is required to be finite and normalized before hashing. Strategy version and data-as-of remain part of the checksum boundary, preserving versioned and point-in-time evidence semantics.
+- A parameterized regression matrix changes each of the twelve inputs independently and proves every resulting checksum is distinct, including all hard-override inputs and the R14 narrow-rally flag.
+- Verification: 2/2 canonical evidence tests and 6/6 market-context golden tests pass; the Maven reactor compiles all backend and strategy-core test sources.
+
+## Full Review Modification Manual V3 — Phase R16 — 2026-08-20
+
+- Strategy V3 explicitly adopts Option A: rates and the yield curve are macro context only. The API publishes `includedInAggregateStress=false`, and the UI states that this evidence is not part of the aggregate market stress score.
+- The canonical macro snapshot now stores 10Y and 2Y nominal Treasury yields, Fed funds, rate-context stress, curve state, and the reliable FRED `DFII10` 10-year real-yield series. Nominal DGS10 is never labeled as a real rate; absent DFII10 remains unavailable.
+- `DFII10` runs through the same live FRED provider abstraction. The explicit local fixture has a clearly identified deterministic value for development only; no live profile falls back to it.
+- Verification: 6/6 focused macro/volatility tests and 3/3 Market Context component tests pass; frontend typecheck and ESLint pass. The rate-context regression proves that changing rates changes rate stress/curve but not aggregate stress resilience.
+
+## Full Review Modification Manual V3 — Phase R17 — 2026-08-20
+
+- SEC share evidence is split into `DILUTED_WEIGHTED_AVG_SHARES` and `COMMON_SHARES_OUTSTANDING`. Weighted-average diluted shares remain the EPS denominator and dilution-analysis input; point-in-time common shares are the only share basis accepted for market-cap and enterprise-value multiples.
+- The live SEC provider supports multiple common-share concepts (`EntityCommonStockSharesOutstanding`, then `CommonStockSharesOutstanding`) while preserving the selected concept, period start/end, filing date/data-as-of, accession, form, and source through the existing canonical financial evidence model.
+- Historical `DILUTED_SHARES` observations are relabeled as weighted-average diluted shares, never silently promoted to common shares. When common shares are absent, market cap and dependent valuation metrics remain unavailable.
+- Verification: 11/11 focused financial-metric, period-resolution, SEC contract, and valuation-basis tests pass; market-cap/EV/FCF-yield math is asserted from common shares independently of diluted weighted-average shares.
+
+## Full Review Modification Manual V3 — Phase R18 — 2026-08-20
+
+- New installations now request five years of real adjusted daily bars and bootstrap valuation history at one deterministic observation per ISO week. Existing price history remains append-only and the bootstrap is idempotent through market-date/evidence checksums.
+- `PointInTimeValuationAssembler` builds every weekly observation only from financial metrics whose filing/data-as-of preceded that market date, estimates that already existed on that date, and that date's real close. Later restatements and estimate revisions are explicitly excluded.
+- Five years of weekly history uses 220 observations as the minimum adequate coverage boundary. Observation count is now the five-year count; insufficient history cannot produce high-confidence deep discount evidence or the “5 年罕见低估” premise.
+- Position Detail tells the truth when history is short, including the actual point-in-time observation count. Missing historical common shares or other metrics remain absent rather than being backfilled from future evidence.
+- Verification: 7/7 focused point-in-time/bootstrap/valuation tests and 5/5 Position Detail component tests pass; frontend typecheck and ESLint pass. The regression explicitly proves that 2026 restatements and estimate revisions do not alter a 2023 observation.
+
+## Full Review Modification Manual V3 — Phase R19 — 2026-08-20
+
+- Relative valuation remains unavailable because the repository does not yet have an explicit, stable, point-in-time sector/peer universe. The API continues to return null and Position Detail now says `暂不可用` rather than leaving a misleading blank.
+- Valuation evidence is grouped into EARNINGS (TTM/FY1 P/E), SALES (EV/Sales and P/S), and CASH_FLOW (FCF yield). Runtime quality is HEALTHY only when at least two independent families are present.
+- Historical high confidence uses the same family independence rule. EV/Sales plus P/S alone is one SALES confirmation and cannot produce high confidence, even with full weekly history.
+- Verification: 7/7 focused valuation family/basis tests and 5/5 Position Detail component tests pass; frontend typecheck and ESLint pass.
+
+## Full Review Modification Manual V3 — Phase R20 — 2026-08-20
+
+- Position Detail now exposes the complete FY1 analyst-consensus evidence set: current EPS, reconstructed 30-day and 90-day prior consensus, fractional revisions, analyst count, high/low estimates, and dispersion.
+- Prior consensus is deterministically reconstructed from the persisted current consensus and fractional revision. Missing inputs and non-positive denominators remain unavailable rather than producing invented history.
+- High dispersion uses the estimate engine's existing 50% quality boundary. When exceeded, the owner UI states exactly: `分析师对盈利路径分歧较大，因此 forward valuation 置信度下降。`; no Strategy V3 decision threshold changed.
+- Verification: 4/4 focused backend estimate tests and 6/6 Position Detail component tests pass; frontend typecheck and ESLint pass.
+
+## Full Review Modification Manual V3 — Phase R21 — 2026-08-20
+
+- The existing deterministic sizing math is unchanged, but each exact sizing result now records its binding constraint, projected position weight, projected total and cluster planned risk, risk per share, and the trade-risk quantity before tighter portfolio constraints.
+- Sizing explanations are persisted with the holding analysis snapshot and surfaced in Position Detail, including a data-derived “why not more shares?” comparison and the actual post-trade planned-risk usage against the configured total-risk cap.
+- Risk language now consistently says `计划退出风险`. The UI explicitly warns that an overnight gap can make actual loss exceed the stop-based figure and never labels planned stop risk as maximum possible loss.
+- Verification: 9/9 sizing/readiness backend tests and 7/7 Position Detail component tests pass; frontend typecheck, ESLint, and diff checks pass. The Flyway migration compiles with the backend, but Docker-backed migration execution remains unavailable locally and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R22 — 2026-08-20
+
+- `/api/v1/review/performance` closes the recommendation loop with cashflow-adjusted portfolio TWR from canonical unit NAV, real adjusted SPY/QQQ returns, active-sleeve return, peak-to-trough drawdown, quantity-adjusted turnover, and contribution-to-return based on per-share return rather than current P&L.
+- The review page exposes 1M, 3M, YTD, 1Y, and since-inception periods. Missing history stays unavailable; no synthetic production performance series or placeholder number is emitted.
+- Decision outcomes are evaluated against deterministic rule objectives. In particular, `HOLD_DO_NOT_ADD` is evaluated as concentration control using subsequent recorded quantities, never as a short-term price forecast.
+- Active-sleeve accountability automatically uses a supported 12M or 24M evidence window and the existing Strategy policy: underperformance above 5 percentage points without drawdown improvement triggers the configured budget review. It displays active return, QQQ benchmark, relative return, active/core max drawdown, contribution, turnover, and budget multiplier.
+- Verification: 3/3 focused cashflow-adjusted performance/contribution/drawdown tests, the existing 12M/24M accountability assertions, and 4/4 workspace component tests pass; frontend typecheck and ESLint pass. Database-backed endpoint execution remains unclaimed while local MySQL/Docker is unavailable.
+
+## Full Review Modification Manual V3 — Phase R23 — 2026-08-20
+
+- `DecisionAsOfContext(marketDate, dataCutoff, strategyVersion)` is now the single replay boundary used by the holding analysis service and market pipeline. Live analysis uses the actual clock cutoff; replay derives a versioned market-close cutoff from the durable analysis run.
+- Indicator, price/quote, macro, breadth, valuation, estimate, earnings, regime, and ETF Dip reads require both `market_date <= context.marketDate` (or the table's honest date equivalent) and `data_as_of <= context.dataCutoff`. Versioned evidence additionally requires the exact strategy version.
+- The same cutoff now protects narrow-rally participation evidence introduced in R14 as well as catalysts, thesis state, stops, drawdown, and analysis profiles. Future rows, later filings, and later revisions fail closed instead of leaking into historical decisions.
+- `PointInTimeEvidenceStore` provides explicit audit queries for the emphasized evidence families, including earnings risk, and the replay integration test proves a newer database row is invisible when its data-as-of exceeds the decision cutoff.
+- Verification: 2/2 pure context-boundary tests pass and the Maven reactor compiles all backend sources/tests. The MySQL point-in-time integration test is committed but cannot be executed while local Docker is unavailable, and is not claimed as passing.
+
+## Full Review Modification Manual V3 — Phase R24 — 2026-08-20
+
+- CI now has independently visible Backend, Frontend, OpenAPI, Desktop E2E, Mobile E2E, Supply Chain, Gitleaks, and Docker jobs. `ci / required` depends on all eight and fails unless every partition succeeds.
+- Frontend and OpenAPI jobs install Temurin JDK 25 before contract work. Gitleaks is a dedicated full-history job with `fetch-depth: 0`, so an empty shallow range cannot be reported as a successful security scan.
+- OpenAPI now includes the complete R20/R21 evidence and sizing fields plus `/api/v1/review/performance`; the TypeScript client is regenerated and owner pages consume generated types. A canonical key-order pass makes contract drift independent of Spring handler discovery order.
+- Verification: the required-workflow contract test passes; OpenAPI JSON parses and canonical generation is idempotent; API-client typecheck/build, web typecheck/ESLint, and 11 focused component tests pass. Local full `api:check` reaches the compiled API export test but remains blocked by unavailable Docker; GitHub CI is the authoritative Docker-backed contract gate.
+
+## Full Review Modification Manual V3 — Phase R25 — 2026-08-20
+
+- Production retains Secure session cookies, framework forwarded-header handling, real market/fundamentals providers, `ALLOW_PARTIAL_PRODUCTION=false`, `PORTFOLIO_ALLOW_DRAFT_STRATEGY=false`, and separate API/worker processes. None of the existing production gates were relaxed for local development.
+- The production profile disables both `/v3/api-docs` and Swagger UI. The production startup gate independently rejects any override that re-enables the OpenAPI endpoint, preventing an accidentally public deployment from exposing it.
+- Verification: 10/10 focused production security/provider tests pass, including the production YAML contract and fail-fast API-docs override. The Maven reactor compiled all dependent modules successfully.
+
+## Full Review Modification Manual V3 — Final release gate correction — 2026-08-20
+
+- The locked transitive `nanoid` dependency is upgraded from 3.3.17 to patched 3.3.18 after the required high-severity audit identified GHSA-2v37-7h3g-55p8. No application dependency, strategy rule, or runtime behavior changed.
+- Verification: `pnpm audit --audit-level high` reports no known vulnerabilities; frontend lint, Web/API-client typecheck, and both production builds pass after the lockfile update.
+
+## Minimum Usable Fix - 2026-08-21
+
+- Capital decisions now share one `CapitalBase`: the full owner-protected Emergency Cash amount is excluded from Strategy NAV, while deployable cash remains included. The required emergency floor is reported separately.
+- Position reports bind recommendation and all evidence to one analysis run, market date, data cutoff, and strategy version. Revenue, diluted EPS, and free cash flow TTM share one canonical four-valid-quarter aggregation; later quotes are shown only as current change.
+- Cashflow reconciliation fails closed unless execution evidence explains the movement, and confirmed external flows retain the statement/import effective date.
+- Active analysis runs publish `UPDATING`, suppress confirmed-no-action, retain an explicit previous-result notice, and stalled recovery abandons the old run and returns a replacement run id that the UI polls.
+- New-risk readiness gates Core ETF buying. Risk reductions bypass new-risk portfolio gates, and fractional exits preserve the exact holding quantity. Approximate active-sleeve performance is labeled and cannot reduce the budget multiplier.
+- Dashboard active/speculative exposure uses the canonical classifications and Strategy NAV denominator.
+- Local verification: Maven reactor `verify` passed all 301 backend tests; frontend lint, typecheck, 49 tests, and production build passed. GitHub CI remains the authoritative desktop/mobile, supply-chain, gitleaks, and Docker gate.
+- Follow-up runtime audit: stalled recovery now uses the latest durable step progress timestamp, matching the status endpoint. A long-running analysis with recent progress is reused instead of being falsely abandoned; only a genuinely stale run is replaced.
+
+## Final Audit Minimum Usable Financial Correctness - F1 - 2026-08-21
+
+- Historical Position Reports now reconstruct position quantity/value, Strategy NAV, tactical reserve, total planned risk, cluster exposure, and cluster planned risk only from snapshots at or before the report's analysis-run cutoff and for the exact strategy version.
+- Later position, mark, capital, and risk changes cannot rewrite an earlier report. A current quote remains separately labeled `CURRENT_STATE_NOT_USED_IN_RECOMMENDATION` and is never used by the recommendation layers.
+- Missing run-bound position evidence fails closed instead of silently falling back to current portfolio state.
+- Verification: `PositionReportContractTest` passed 5/5, including a T0/T1 mutation regression; Maven Spotless and the dependent-module compile/test reactor passed.
+
+## Final Audit Minimum Usable Financial Correctness - F2 - 2026-08-21
+
+- Portfolio unitization now consumes a dedicated Strategy Capital Flow ledger rather than treating every broker-level external cash movement as investable capital. Emergency-only changes never change Strategy NAV units.
+- External deployable deposits/withdrawals and Emergency-to-Strategy boundary transfers create signed unit flows at the prior unit NAV, so they create zero investment return and zero artificial drawdown. Market movement without a capital flow remains the only source of unit-NAV return.
+- Import cashflow confirmation persists both the broker audit event and the Strategy NAV impact after subtracting the change in protected Emergency Cash; confirmed internal trades never become Strategy capital flow.
+- Verification: 13/13 focused NAV and cashflow reconciliation tests passed, including deposit-to-emergency, Emergency-to-deployable, deployable-to-Emergency, deposit-to-deployable, deployable withdrawal, and market-only movement; Flyway applied migration V53 successfully.
+
+## Final Audit Minimum Usable Financial Correctness - F3 - 2026-08-21
+
+- EXIT, REDUCE_HALF, and TRIM now determine the executable reduction quantity before attempting optional portfolio/cluster risk projections. Missing aggregate risk inputs leave the projections null with `RISK_PROJECTION_UNAVAILABLE` and never cancel the reduction.
+- Fractional reductions are preserved exactly: a 0.75-share EXIT remains 0.75, REDUCE_HALF remains 0.375, and TRIM can reduce exactly to a fractional target boundary. Integer-only BUY sizing is unchanged.
+- Verification: 9/9 focused risk sizing tests passed, covering null portfolio/cluster projection inputs and fractional EXIT/REDUCE_HALF/TRIM behavior; Spotless and the dependent-module reactor passed.
+
+## Final Audit Minimum Usable Financial Correctness - F4 - 2026-08-21
+
+- Revenue, diluted EPS, and free-cash-flow TTM now require four continuous fiscal quarters using canonical fiscal-year/fiscal-quarter metadata. The aggregator cannot bridge a missing middle quarter with an older observation.
+- Each fiscal slot selects the latest restatement whose data-as-of is at or before the decision cutoff. A future restatement is invisible, and a latest invalid/partial period or metric makes TTM unavailable rather than falling back to an older version.
+- The canonical aggregate data-as-of is the maximum availability timestamp of its four constituents, and both live reports and point-in-time valuation use this same implementation.
+- Verification: 15/15 focused aggregation, point-in-time valuation, and Position Report tests passed, including normal four-quarter, missing-quarter, restatement, future-restatement, invalid-quality, and non-calendar fiscal-year-boundary cases.
+
+## Final Audit Minimum Usable Financial Correctness - F5 - 2026-08-21
+
+- Replay cutoffs now use the existing XNYS/XNAS trading calendar: 16:00 America/New_York on regular sessions and 13:00 on actual early-close sessions, with timezone conversion following DST.
+- Every newly created analysis run persists its immutable `decision_cutoff`; holding replay and Position Report read that stored value. Legacy runs with no safely persisted cutoff fail closed instead of substituting UTC end-of-day.
+- Evidence after the exchange close is excluded from that session and becomes eligible only at a later session cutoff. Manual runs requested before a close or on a non-session are anchored to the latest completed session.
+- Verification: 19/19 focused calendar, replay-boundary, run-persistence, legacy fail-closed, holding-analysis, and Position Report tests passed; Flyway applied migration V54 successfully.
+
+## Final Audit Runtime Cutoff Integration Follow-up - 2026-08-21
+
+- Runtime-produced evidence now separates its immutable effective timestamp from its physical creation timestamp. Provider bars and quotes use the provider source timestamp; deterministic indicators, position marks, capital/allocation snapshots, Strategy NAV, drawdown, stops, position risk, and cluster risk use the persisted run's exchange-close cutoff.
+- Evidence genuinely published after the exchange close remains excluded, while calculations derived after close exclusively from eligible session evidence remain available to that same analysis run. This restores the real daily pipeline without weakening F5 point-in-time replay guarantees.
+- Drawdown evidence identity includes the owner and canonical Strategy NAV, so a same-session revaluation is persisted instead of being mistaken for an identical snapshot merely because the exchange-close cutoff is stable.
+- Verification: the Fidelity import EOD vertical pipeline passed end to end with three run-bound holding analyses and recommendations, including explicit mark/risk cutoff assertions; the 13-position real portfolio acceptance scenario also passed through all formal services and report contracts.
+- CI-order regression: shared MySQL integration fixtures now remove Strategy Capital Flow ledger rows before deleting their users, preventing cross-class foreign-key contamination regardless of test execution order. The affected 13-test matrix and the complete 317-test backend suite pass.

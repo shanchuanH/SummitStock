@@ -1,6 +1,7 @@
 package com.example.portfolio.analysis.infrastructure;
 
 import com.example.portfolio.analysis.application.HoldingAnalysisApplicationService.RiskProjection;
+import com.example.portfolio.analysis.application.PositionSizing;
 import com.example.portfolio.analysis.domain.HoldingAnalysisResult;
 import com.example.portfolio.analysis.domain.RecommendationResolution;
 import com.example.portfolio.analysis.narrative.NarrativeInput;
@@ -33,6 +34,7 @@ public class HoldingAnalysisStore {
             RecommendationResolution resolution,
             NarrativeInput narrativeInput,
             RiskProjection riskProjection,
+            PositionSizing.Result sizing,
             Instant createdAt) {
         var id = UUID.randomUUID();
         jdbc.sql(
@@ -41,12 +43,16 @@ public class HoldingAnalysisStore {
                             id, analysis_run_id, position_id, strategy_version, analysis_status, readiness, confidence,
                             current_weight, target_weight_min, target_weight_max, exact_quantity_allowed,
                             recommended_action, recommended_quantity_min, recommended_quantity_max,
+                            sizing_limiting_constraint, projected_position_weight, projected_total_risk,
+                            projected_cluster_risk, sizing_risk_per_share, quantity_before_limiting_constraint,
                             reasons, risks, change_conditions, rule_ids, evidence_refs, evidence_checksum, config_hash,
                             decision_payload, data_as_of, valid_until, created_at
                         ) VALUES (
                             UUID_TO_BIN(:id), UUID_TO_BIN(:analysisRunId), UUID_TO_BIN(:positionId), :strategyVersion, :analysisStatus,
                             :readiness, :confidence, :currentWeight, :targetMin, :targetMax, :exactQuantity,
-                            :action, :quantityMin, :quantityMax, CAST(:reasons AS JSON), CAST(:risks AS JSON),
+                            :action, :quantityMin, :quantityMax, :limitingConstraint, :projectedPositionWeight,
+                            :projectedTotalRisk, :projectedClusterRisk, :riskPerShare, :quantityBeforeConstraint,
+                            CAST(:reasons AS JSON), CAST(:risks AS JSON),
                             CAST(:conditions AS JSON), CAST(:rules AS JSON), CAST(:evidenceRefs AS JSON), :checksum, :configHash,
                             CAST(:decisionPayload AS JSON), :dataAsOf, :validUntil, :createdAt
                         )
@@ -65,6 +71,12 @@ public class HoldingAnalysisStore {
                 .param("action", value.recommendedAction().name())
                 .param("quantityMin", value.recommendedQuantityMin())
                 .param("quantityMax", value.recommendedQuantityMax())
+                .param("limitingConstraint", sizing.limitingConstraint())
+                .param("projectedPositionWeight", sizing.projectedPositionWeight())
+                .param("projectedTotalRisk", sizing.projectedTotalRisk())
+                .param("projectedClusterRisk", sizing.projectedClusterRisk())
+                .param("riskPerShare", sizing.riskPerShare())
+                .param("quantityBeforeConstraint", sizing.quantityBeforeLimitingConstraint())
                 .param("reasons", serialize(value.reasons()))
                 .param("risks", serialize(value.risks()))
                 .param("conditions", serialize(value.changeConditions()))
@@ -217,20 +229,32 @@ public class HoldingAnalysisStore {
     public Optional<PositionReportRow> latestReport(UUID userId, UUID positionId) {
         return jdbc.sql(
                         """
-                        SELECT BIN_TO_UUID(p.id) positionId, i.symbol, p.classification,
-                               p.classification_source classificationSource,
+                        SELECT BIN_TO_UUID(p.id) positionId, i.symbol, c.classification,
+                               c.classification_source classificationSource,
                                h.analysis_status analysisStatus, h.readiness, h.confidence,
                                h.current_weight currentWeight, h.target_weight_min targetWeightMin,
                                h.target_weight_max targetWeightMax, h.exact_quantity_allowed exactQuantityAllowed,
                                h.recommended_action recommendedAction,
                                h.recommended_quantity_min recommendedQuantityMin,
                                h.recommended_quantity_max recommendedQuantityMax,
+                               h.sizing_limiting_constraint sizingLimitingConstraint,
+                               h.projected_position_weight projectedPositionWeight,
+                               h.projected_total_risk projectedTotalRisk,
+                               h.projected_cluster_risk projectedClusterRisk,
+                               h.sizing_risk_per_share sizingRiskPerShare,
+                               h.quantity_before_limiting_constraint quantityBeforeLimitingConstraint,
                                h.reasons, h.risks, h.change_conditions changeConditions, h.rule_ids ruleIds,
                                h.evidence_refs evidenceRefs,
                                h.strategy_version strategyVersion, h.config_hash configHash,
                                h.data_as_of dataAsOf, h.valid_until validUntil,
+                               BIN_TO_UUID(h.analysis_run_id) analysisRunId, ar.market_date marketDate,
+                               ar.data_as_of runDataAsOf, ar.decision_cutoff runDecisionCutoff,
+                               ar.strategy_version runStrategyVersion,
                                BIN_TO_UUID(r.id) recommendationId, r.action recommendationAction,
                                r.priority recommendationPriority, r.winning_rule winningRule,
+                               r.risk_before_fraction riskBeforeFraction,
+                               r.risk_after_fraction riskAfterFraction,
+                               r.risk_calculation_reason riskCalculationReason,
                                r.suppressed_candidates suppressedCandidates, r.resolution_reason resolutionReason,
                                n.source narrativeSource, n.headline narrativeHeadline,
                                n.one_sentence narrativeOneSentence, n.why_items narrativeWhy,
@@ -239,12 +263,14 @@ public class HoldingAnalysisStore {
                         FROM position p
                         JOIN investment_account a ON a.id=p.account_id
                         JOIN instrument i ON i.id=p.instrument_id
-                        LEFT JOIN holding_analysis_snapshot h ON h.id=(
-                            SELECT x.id FROM holding_analysis_snapshot x WHERE x.position_id=p.id
-                            ORDER BY x.data_as_of DESC, x.created_at DESC LIMIT 1)
                         LEFT JOIN recommendation r ON r.id=(
                             SELECT y.id FROM recommendation y WHERE y.position_id=p.id AND y.user_id=a.user_id
                             ORDER BY (y.status='ACTIVE') DESC, y.data_as_of DESC, y.created_at DESC LIMIT 1)
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
+                        LEFT JOIN portfolio_analysis_run ar ON ar.id=h.analysis_run_id
+                        LEFT JOIN analysis_run_position_classification rc
+                          ON rc.analysis_run_id=h.analysis_run_id AND rc.position_id=p.id
+                        LEFT JOIN position_classification_snapshot c ON c.id=rc.classification_snapshot_id
                         LEFT JOIN decision_narrative n ON n.recommendation_id=r.id
                         WHERE p.id=UUID_TO_BIN(:positionId) AND a.user_id=UUID_TO_BIN(:userId)
                         """)
@@ -298,6 +324,12 @@ public class HoldingAnalysisStore {
             String recommendedAction,
             BigDecimal recommendedQuantityMin,
             BigDecimal recommendedQuantityMax,
+            String sizingLimitingConstraint,
+            BigDecimal projectedPositionWeight,
+            BigDecimal projectedTotalRisk,
+            BigDecimal projectedClusterRisk,
+            BigDecimal sizingRiskPerShare,
+            BigDecimal quantityBeforeLimitingConstraint,
             String reasons,
             String risks,
             String changeConditions,
@@ -307,10 +339,18 @@ public class HoldingAnalysisStore {
             String configHash,
             LocalDateTime dataAsOf,
             LocalDateTime validUntil,
+            UUID analysisRunId,
+            java.time.LocalDate marketDate,
+            LocalDateTime runDataAsOf,
+            LocalDateTime runDecisionCutoff,
+            String runStrategyVersion,
             UUID recommendationId,
             String recommendationAction,
             String recommendationPriority,
             String winningRule,
+            BigDecimal riskBeforeFraction,
+            BigDecimal riskAfterFraction,
+            String riskCalculationReason,
             String suppressedCandidates,
             String resolutionReason,
             String narrativeSource,

@@ -181,7 +181,7 @@ class ExecutiveBriefStore {
                         SELECT COALESCE(SUM(o.market_value),0) investedValue,
                                COALESCE(SUM(CASE WHEN o.classification IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) coreValue,
                                COALESCE(SUM(CASE WHEN o.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF') THEN o.market_value ELSE 0 END),0) tacticalValue,
-                               COALESCE(SUM(CASE WHEN o.classification IN ('TACTICAL_TRADE','TURNAROUND','SPECULATIVE') THEN o.market_value ELSE 0 END),0) tacticalSpecValue,
+                               COALESCE(SUM(CASE WHEN o.classification IN ('TACTICAL_STOCK','CYCLICAL_TACTICAL','TURNAROUND_TACTICAL','SPECULATIVE') THEN o.market_value ELSE 0 END),0) tacticalSpecValue,
                                COALESCE((SELECT SUM(open_risk_fraction) FROM latest_risk WHERE rn=1),0) openPlannedRisk,
                                COALESCE((SELECT MAX(open_risk_fraction) FROM latest_cluster WHERE rn=1),0) clusterRisk
                         FROM owned o
@@ -240,6 +240,14 @@ class ExecutiveBriefStore {
                 .query(DrawdownMetrics.class)
                 .optional()
                 .orElse(new DrawdownMetrics(null, null));
+        var navReconciliationRequired = jdbc.sql(
+                        """
+                        SELECT EXISTS(SELECT 1 FROM portfolio_cashflow_reconciliation c
+                          JOIN app_user u ON u.id=c.user_id WHERE u.email=:email AND c.status='REQUIRED')
+                        """)
+                .param("email", email)
+                .query(Boolean.class)
+                .single();
         return new PortfolioMetrics(
                 exposure.investedValue(),
                 exposure.coreValue(),
@@ -250,8 +258,8 @@ class ExecutiveBriefStore {
                 exposure.clusterRisk(),
                 exposure.openPlannedRisk(),
                 compensation,
-                drawdown.drawdownFraction(),
-                drawdown.drawdownSource());
+                navReconciliationRequired ? null : drawdown.drawdownFraction(),
+                navReconciliationRequired ? "NAV_RECONCILIATION_REQUIRED" : drawdown.drawdownSource());
     }
 
     private BigDecimal technologyExposure(String email) {

@@ -28,6 +28,11 @@ public class PortfolioNavService {
 
     @Transactional
     public Snapshot capture(UUID userId, LocalDate marketDate, BigDecimal accountEquity) {
+        return capture(userId, marketDate, accountEquity, clock.instant());
+    }
+
+    @Transactional
+    public Snapshot capture(UUID userId, LocalDate marketDate, BigDecimal accountEquity, Instant dataAsOf) {
         if (accountEquity == null || accountEquity.signum() <= 0) {
             throw new IllegalArgumentException("Account equity must be positive");
         }
@@ -42,7 +47,7 @@ public class PortfolioNavService {
                 .param("marketDate", marketDate)
                 .query(Prior.class)
                 .optional();
-        var externalCashflow = prior.map(value -> externalCashflow(userId, value.marketDate(), marketDate))
+        var strategyCapitalFlow = prior.map(value -> strategyCapitalFlow(userId, value.marketDate(), marketDate))
                 .orElse(BigDecimal.ZERO);
         BigDecimal units;
         BigDecimal nav;
@@ -53,8 +58,9 @@ public class PortfolioNavService {
             highWaterNav = BigDecimal.ONE;
         } else {
             var value = prior.orElseThrow();
-            units = value.units().add(externalCashflow.divide(value.nav(), MATH));
-            if (units.signum() <= 0) throw new IllegalStateException("External withdrawal exceeds portfolio units");
+            units = value.units().add(strategyCapitalFlow.divide(value.nav(), MATH));
+            if (units.signum() <= 0)
+                throw new IllegalStateException("Strategy capital withdrawal exceeds portfolio units");
             nav = accountEquity.divide(units, MATH);
             highWaterNav = value.highWaterNav().max(nav);
         }
@@ -66,7 +72,7 @@ public class PortfolioNavService {
                           id,user_id,market_date,nav,units,external_cashflow,account_equity,high_water_nav,
                           drawdown_fraction,data_as_of,created_at)
                         VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),:marketDate,:nav,:units,:cashflow,:equity,
-                          :highWater,:drawdown,:now,:now)
+                          :highWater,:drawdown,:dataAsOf,:now)
                         ON DUPLICATE KEY UPDATE nav=VALUES(nav),units=VALUES(units),
                           external_cashflow=VALUES(external_cashflow),account_equity=VALUES(account_equity),
                           high_water_nav=VALUES(high_water_nav),drawdown_fraction=VALUES(drawdown_fraction),
@@ -77,10 +83,11 @@ public class PortfolioNavService {
                 .param("marketDate", marketDate)
                 .param("nav", nav)
                 .param("units", units)
-                .param("cashflow", externalCashflow)
+                .param("cashflow", strategyCapitalFlow)
                 .param("equity", accountEquity)
                 .param("highWater", highWaterNav)
                 .param("drawdown", drawdown)
+                .param("dataAsOf", dataAsOf)
                 .param("now", now)
                 .update();
         var peak = peak(userId, highWaterNav, marketDate);
@@ -88,13 +95,13 @@ public class PortfolioNavService {
                 marketDate,
                 nav,
                 units,
-                externalCashflow,
+                strategyCapitalFlow,
                 accountEquity,
                 highWaterNav,
                 drawdown,
                 peak.marketDate(),
                 peak.accountEquity(),
-                now);
+                dataAsOf);
     }
 
     @Transactional
@@ -120,10 +127,47 @@ public class PortfolioNavService {
                 == 1;
     }
 
-    private BigDecimal externalCashflow(UUID userId, LocalDate after, LocalDate through) {
+    @Transactional
+    public boolean recordStrategyCapitalFlow(
+            UUID userId,
+            LocalDate effectiveDate,
+            BigDecimal amount,
+            StrategyCapitalFlowType type,
+            String source,
+            String externalReference) {
+        if (amount == null || amount.signum() == 0) {
+            throw new IllegalArgumentException("Strategy capital flow must be non-zero");
+        }
+        if (type == null || type.direction() != amount.signum()) {
+            throw new IllegalArgumentException("Strategy capital flow direction does not match its type");
+        }
+        var checksum = sha256(
+                userId + "|" + effectiveDate + "|" + amount + "|" + type + "|" + source + "|" + externalReference);
+        return jdbc.sql(
+                                """
+                        INSERT IGNORE INTO portfolio_strategy_capital_flow_event (
+                          id,user_id,effective_date,amount,flow_type,source,external_reference,
+                          evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),:date,:amount,:type,:source,:reference,
+                          :checksum,:now,:now)
+                        """)
+                        .param("id", UUID.randomUUID().toString())
+                        .param("userId", userId.toString())
+                        .param("date", effectiveDate)
+                        .param("amount", amount)
+                        .param("type", type.name())
+                        .param("source", source)
+                        .param("reference", externalReference)
+                        .param("checksum", checksum)
+                        .param("now", clock.instant())
+                        .update()
+                == 1;
+    }
+
+    private BigDecimal strategyCapitalFlow(UUID userId, LocalDate after, LocalDate through) {
         return jdbc.sql(
                         """
-                        SELECT COALESCE(SUM(amount),0) FROM portfolio_external_cashflow_event
+                        SELECT COALESCE(SUM(amount),0) FROM portfolio_strategy_capital_flow_event
                         WHERE user_id=UUID_TO_BIN(:userId) AND effective_date>:after AND effective_date<=:through
                         """)
                 .param("userId", userId.toString())
@@ -158,6 +202,23 @@ public class PortfolioNavService {
         }
     }
 
+    public enum StrategyCapitalFlowType {
+        EXTERNAL_TO_STRATEGY(1),
+        STRATEGY_TO_EXTERNAL(-1),
+        EMERGENCY_TO_STRATEGY(1),
+        STRATEGY_TO_EMERGENCY(-1);
+
+        private final int direction;
+
+        StrategyCapitalFlowType(int direction) {
+            this.direction = direction;
+        }
+
+        int direction() {
+            return direction;
+        }
+    }
+
     record Prior(
             BigDecimal nav,
             BigDecimal units,
@@ -172,7 +233,7 @@ public class PortfolioNavService {
             LocalDate marketDate,
             BigDecimal nav,
             BigDecimal units,
-            BigDecimal externalCashflow,
+            BigDecimal strategyCapitalFlow,
             BigDecimal accountEquity,
             BigDecimal highWaterNav,
             BigDecimal drawdownFraction,

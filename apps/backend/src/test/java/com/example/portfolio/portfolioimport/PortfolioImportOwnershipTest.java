@@ -32,12 +32,14 @@ class PortfolioImportOwnershipTest extends PortfolioImportIntegrationSupport {
         mockMvc.perform(get("/api/v1/portfolio-imports/{batchId}", other.batchId())
                         .with(httpBasic(EMAIL, PASSWORD)))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/v1/portfolio-imports/{batchId}/confirm", other.batchId())
-                        .with(httpBasic(EMAIL, PASSWORD))
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"expectedVersion\":0,\"accountMappings\":[],\"rowOverrides\":[],"
-                                + "\"cashSetup\":{\"location\":\"IN_FIDELITY\",\"externalEmergencyAmount\":\"0\"}}"))
+        mockMvc.perform(
+                        post("/api/v1/portfolio-imports/{batchId}/confirm", other.batchId())
+                                .with(httpBasic(EMAIL, PASSWORD))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"expectedVersion\":0,\"accountMappings\":[],\"rowOverrides\":[],"
+                                                + "\"cashSetup\":{\"location\":\"IN_FIDELITY\",\"fidelityAmount\":\"0\",\"externalAmount\":\"0\"}}"))
                 .andExpect(status().isNotFound());
         assertThat(count("SELECT COUNT(*) FROM portfolio_analysis_run")).isZero();
     }

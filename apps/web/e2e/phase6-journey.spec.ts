@@ -60,6 +60,7 @@ const brief = {
   },
   capital: {
     totalLiquidAssets: "6000",
+    requiredEmergencyFloor: "500",
     emergencyReserve: "500",
     deployableCash: "500",
     investableAssets: "5500",
@@ -148,18 +149,68 @@ const report = {
       atHardMax: true,
       capacityExplanation: "已触及组合硬上限。",
     },
+    market: {
+      price: "200",
+      dayChangePct: "0.01",
+      oneMonthReturn: "0.05",
+      threeMonthReturn: "0.1",
+      averageCost: "150",
+      unrealizedPnlDollar: "5000",
+      unrealizedPnlPct: "0.333",
+    },
     fundamentals: {
       financialHealth: "HEALTHY",
+      revenueYoy: "0.14",
+      operatingMargin: "0.31",
+      fcfMargin: "0.26",
+      netCash: "98000000000",
       quality: "HEALTHY",
       available: true,
     },
     valuation: {
       state: "ATTRACTIVE",
+      trailingPeTtm: "21.3",
+      forwardPeFy1: "19.4",
+      fcfYieldTtm: "0.043",
+      historyPercentile5y: "0.28",
       confidence: "MEDIUM",
       observationCount: 12,
       independentConfirmation: true,
       attractive: true,
       attractiveButCannotAdd: true,
+    },
+    estimates: {
+      fy1Eps: "8.42",
+      epsRevision30d: "0.021",
+      epsRevision90d: "0.038",
+      analystCount: 39,
+      state: "POSITIVE",
+      quality: "HEALTHY",
+    },
+    technical: {
+      distanceFromSma50: "0.048",
+      distanceFromSma200: "0.112",
+      rsi14: "56",
+      relativeStrengthQqq3m: "0.031",
+    },
+    earnings: {
+      nextEarningsAt: "2026-10-20T20:00:00Z",
+      eventRisk: "ELEVATED",
+      reaction1d: [],
+      reaction3d: [],
+      reaction5d: [],
+    },
+    risk: {
+      currentWeight: "0.156",
+      normalMaxWeight: "0.12",
+      hardMaxWeight: "0.15",
+      plannedStop: "170",
+      stopDistancePct: "0.15",
+      positionPlannedRiskDollar: "300",
+      positionPlannedRiskPct: "0.0034",
+      clusterRisk: "0.01",
+      totalPortfolioPlannedRisk: "0.019",
+      quality: "HEALTHY",
     },
     priceRiskEarnings: {
       priceState: "UPTREND",
@@ -302,25 +353,34 @@ async function mockApi(page: Page) {
           cashRowCount: 1,
           compensationRowCount: 0,
           idempotentReplay: false,
+          cashflowReconciliation: { status: "NONE", cashChange: "0" },
         },
       });
     if (path.includes("/analysis/status/"))
       return route.fulfill({
         json: {
           runId: "22222222-2222-2222-2222-222222222222",
-          state: "ANALYSIS_RUNNING",
-          completedStages: 2,
-          totalStages: 8,
-          updatedAt: action.dataAsOf,
+          state: "RUNNING",
+          worker: { alive: true, lastSeenAt: action.dataAsOf },
+          progress: {
+            completed: 6,
+            total: 27,
+            currentStage: "COLLECT_FUNDAMENTALS",
+            lastProgressAt: action.dataAsOf,
+          },
           stages: [
             { code: "HOLDINGS", label: "持仓导入", status: "COMPLETE" },
             { code: "PRICES", label: "价格", status: "COMPLETE" },
             { code: "FINANCIALS", label: "财务数据", status: "RUNNING" },
-            { code: "VALUATION", label: "估值", status: "WAITING" },
-            { code: "EVENTS", label: "分析师预测与财报", status: "WAITING" },
-            { code: "PORTFOLIO_RISK", label: "组合风险", status: "WAITING" },
-            { code: "HOLDING_ANALYSIS", label: "逐股分析", status: "WAITING" },
-            { code: "TODAY_BRIEF", label: "今日简报", status: "WAITING" },
+            { code: "VALUATION", label: "估值", status: "STARTING" },
+            {
+              code: "ESTIMATES",
+              label: "分析师预测与财报",
+              status: "STARTING",
+            },
+            { code: "PORTFOLIO_RISK", label: "组合风险", status: "STARTING" },
+            { code: "HOLDING_ANALYSIS", label: "逐股分析", status: "STARTING" },
+            { code: "TODAY_BRIEF", label: "今日简报", status: "STARTING" },
           ],
         },
       });
@@ -340,7 +400,7 @@ test("owner brief is actionable, complete, and never submits a trade", async ({
   await expect(page.getByRole("heading", { name: "今日简报" })).toBeVisible();
   await expect(page.getByText("数据完整 · 100%")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "今日优先动作" }),
+    page.getByRole("heading", { name: "今天需要处理的动作" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "我已处理" })).toBeVisible();
   await expect(page.getByRole("button", { name: "暂不处理" })).toBeVisible();
@@ -362,10 +422,8 @@ test("holding report leads with the decision and keeps technical evidence in a d
   await page.goto("/positions/p1");
   await expect(page.getByRole("heading", { name: "GOOGL" })).toBeVisible();
   await expect(page.locator(".module-number")).toHaveCount(6);
-  await expect(
-    page.getByText(/估值可能有吸引力，但组合仓位已触及上限/),
-  ).toBeVisible();
-  const drawer = page.getByText("查看证据与审计信息");
+  await expect(page.getByText(/仓位已超过目标/).first()).toBeVisible();
+  const drawer = page.getByRole("heading", { name: "完整证据" });
   await expect(drawer).toBeVisible();
   await drawer.click();
   await expect(page.getByText(/RISK_CAP/)).toBeVisible();
@@ -380,13 +438,30 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
     mimeType: "text/csv",
     buffer: Buffer.from("fidelity export"),
   });
-  await expect(page.getByText("GOOGL")).toBeVisible();
-  await expect(page.getByText("SPY")).toBeVisible();
-  await expect(page.getByText("SPAXX")).toBeVisible();
-  await expect(page.getByText("1500", { exact: true })).toBeVisible();
-  await expect(page.getByText("2500", { exact: true })).toBeVisible();
-  await page.getByRole("checkbox", { name: /确认每个持仓/ }).check();
-  await page.getByRole("radio", { name: /Fidelity 现金/ }).check();
+  await expect(page.getByText(/识别金额：持仓 \$4500/)).toBeVisible();
+  await expect(page.getByText(/Fidelity 现金 \$20000/)).toBeVisible();
+  const recognizedRows = page.locator("details.recognized-import-rows");
+  await recognizedRows.locator("summary").click();
+  await expect(
+    recognizedRows.getByText("GOOGL", { exact: true }),
+  ).toBeVisible();
+  await expect(recognizedRows.getByText("SPY", { exact: true })).toBeVisible();
+  await expect(
+    recognizedRows.getByText("SPAXX", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "继续确认角色" }).click();
+  const roleChecks = page.getByRole("checkbox", {
+    name: "我确认这个角色适合该持仓",
+  });
+  await expect(roleChecks).toHaveCount(2);
+  await roleChecks.nth(0).check();
+  await roleChecks.nth(1).check();
+  await page.getByRole("button", { name: "继续设置备用金" }).click();
+  await page.getByRole("radio", { name: /全部在 Fidelity 现金中/ }).check();
+  await page
+    .getByRole("spinbutton", { name: "Fidelity 中保护的备用金" })
+    .fill("1500");
+  await page.getByRole("button", { name: "继续最终确认" }).click();
   const confirmButton = page.getByRole("button", { name: "确认并开始分析" });
   if (testInfo.project.name === "mobile-chromium") {
     await expect(confirmButton).toBeInViewport();
@@ -406,14 +481,49 @@ test("final owner journey imports stock, ETF and cash before analysis and decisi
   } else {
     await confirmButton.click();
   }
-  await expect(page.getByRole("heading", { name: "分析已开始" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "分析正在执行" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("list", { name: "Analysis progress" }).getByRole("listitem"),
   ).toHaveCount(8);
   await page.goto("/");
   await expect(page.locator(".action-card")).toHaveCount(1);
   await page.goto("/positions/p1");
-  await expect(page.getByText("15.0%")).toBeVisible();
+  await expect(
+    page
+      .locator(".position-weight-summary")
+      .getByText("15.0%", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("heading", { name: "价格 / 风险 / 财报" }).click();
   await expect(page.getByText(/财报风险/)).toBeVisible();
+  await page.getByRole("heading", { name: "完整证据" }).click();
   await expect(page.getByText(/什么情况下建议会改变/)).toBeVisible();
+});
+
+test("core owner pages never overflow the viewport horizontally", async ({
+  page,
+}) => {
+  const pages = [
+    "/portfolio/import",
+    "/",
+    "/portfolio",
+    "/positions/p1",
+    "/advanced/market-context",
+    "/review",
+  ];
+
+  for (const path of pages) {
+    await page.goto(path);
+    await page.waitForLoadState("domcontentloaded");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+  }
 });

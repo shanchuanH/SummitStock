@@ -39,13 +39,14 @@ public class ExecutiveBriefQueryService {
 
     public ExecutiveBrief today(String email) {
         var summary = portfolios.summary(email);
+        var capitalBase = portfolios.capitalBase(email);
         var cash = briefStore.cashSummary(email);
         var metrics = briefStore.portfolioMetrics(email);
         var marketSnapshot = briefStore.latestMarket();
         var evidence = briefStore.evidence(email);
         var metadata = briefStore.analysisMetadata(email);
         var run = briefStore.latestAnalysisRun(email);
-        var state = readiness.assess(new PortfolioReadinessService.ReadinessFacts(
+        var assessedState = readiness.assess(new PortfolioReadinessService.ReadinessFacts(
                 evidence.openPositions(),
                 evidence.importPending(),
                 evidence.importing(),
@@ -61,10 +62,14 @@ public class ExecutiveBriefQueryService {
                 evidence.staleAnalysisPositions(),
                 evidence.blocked(),
                 evidence.failedJobCount() > 0 && evidence.analyzedPositions() == 0));
-        var recommendations =
-                state == PortfolioAnalysisState.ANALYSIS_READY || state == PortfolioAnalysisState.PARTIAL_ANALYSIS
-                        ? portfolios.activeRecommendations(email)
-                        : List.<PortfolioStore.RecommendationView>of();
+        var updating =
+                run != null && java.util.Set.of("QUEUED", "RUNNING", "WAITING").contains(run.status());
+        var state = updating ? PortfolioAnalysisState.UPDATING : assessedState;
+        var recommendations = state == PortfolioAnalysisState.ANALYSIS_READY
+                        || state == PortfolioAnalysisState.PARTIAL_ANALYSIS
+                        || state == PortfolioAnalysisState.UPDATING
+                ? portfolios.activeRecommendations(email)
+                : List.<PortfolioStore.RecommendationView>of();
         var todayPriorities = recommendations.stream()
                 .limit(3)
                 .map(ExecutiveBriefQueryService::action)
@@ -110,19 +115,19 @@ public class ExecutiveBriefQueryService {
                 state,
                 confirmedNoAction,
                 headline(state, mustAct.size(), watch.size()),
+                updating
+                        ? "Analysis is updating; recommendations shown below are from the previous completed run."
+                        : null,
                 new PortfolioSummary(
-                        decimal(summary.investedValue()),
-                        decimal(cash.trackedCash()),
-                        decimal(cash.emergencyCash()),
+                        decimal(capitalBase.investedTradableAssets()),
+                        decimal(capitalBase.trackedCash()),
+                        decimal(capitalBase.protectedEmergencyAmount()),
                         decimal(cash.tacticalReserve()),
                         summary.openPositions(),
-                        decimal(summary.investedValue().add(cash.trackedCash())),
-                        fraction(metrics.coreValue(), summary.investedValue().add(cash.trackedCash())),
-                        fraction(
-                                metrics.tacticalValue(), summary.investedValue().add(cash.trackedCash())),
-                        fraction(
-                                metrics.tacticalSpecValue(),
-                                summary.investedValue().add(cash.trackedCash())),
+                        decimal(capitalBase.totalLiquidAssets()),
+                        fraction(metrics.coreValue(), capitalBase.strategyNav()),
+                        fraction(metrics.tacticalValue(), capitalBase.strategyNav()),
+                        fraction(metrics.tacticalSpecValue(), capitalBase.strategyNav()),
                         decimal(metrics.technologyExposureFraction()),
                         decimal(metrics.employerExposureFraction()),
                         decimal(metrics.clusterRiskFraction()),
@@ -141,15 +146,11 @@ public class ExecutiveBriefQueryService {
                                         + " confidence.",
                         instant(marketSnapshot.dataAsOf())),
                 new Capital(
-                        decimal(summary.investedValue().add(cash.trackedCash())),
-                        decimal(cash.emergencyCash()),
-                        decimal(cash.trackedCash()
-                                .subtract(cash.emergencyCash())
-                                .max(BigDecimal.ZERO)),
-                        decimal(summary.investedValue()
-                                .add(cash.trackedCash())
-                                .subtract(cash.emergencyCash())
-                                .max(BigDecimal.ZERO)),
+                        decimal(capitalBase.totalLiquidAssets()),
+                        decimal(capitalBase.requiredEmergencyFloor()),
+                        decimal(capitalBase.protectedEmergencyAmount()),
+                        decimal(capitalBase.deployableCash()),
+                        decimal(capitalBase.strategyNav()),
                         decimal(cash.tacticalReserve())),
                 new PortfolioCommand(
                         decimal(metrics.drawdownFraction()),
@@ -352,7 +353,7 @@ public class ExecutiveBriefQueryService {
     private static String dataStatus(PortfolioAnalysisState state) {
         return switch (state) {
             case ANALYSIS_READY -> "HEALTHY";
-            case PARTIAL_ANALYSIS, STALE, WAIT_FOR_MARKET_DATA, WAIT_FOR_FUNDAMENTALS -> "PARTIAL";
+            case PARTIAL_ANALYSIS, STALE, WAIT_FOR_MARKET_DATA, WAIT_FOR_FUNDAMENTALS, UPDATING -> "PARTIAL";
             case FAILED, BLOCKED -> "BLOCKED";
             default -> "NOT_READY";
         };
@@ -365,6 +366,8 @@ public class ExecutiveBriefQueryService {
             case IMPORTING -> "The portfolio import is in progress.";
             case PORTFOLIO_READY -> "The portfolio is ready; analysis has not started.";
             case ANALYSIS_QUEUED -> "Portfolio analysis is queued.";
+            case UPDATING ->
+                "UPDATING — analysis is running; the recommendations shown are from the previous completed run.";
             case WAIT_FOR_MARKET_DATA -> "Analysis is waiting for required market data.";
             case WAIT_FOR_FUNDAMENTALS -> "Analysis is waiting for required fundamentals.";
             case PARTIAL_ANALYSIS -> "Some positions have not completed analysis.";
@@ -403,6 +406,7 @@ public class ExecutiveBriefQueryService {
             @NotNull PortfolioAnalysisState state,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean confirmedNoAction,
             @NotNull String headline,
+            String recommendationNotice,
             @NotNull @Valid PortfolioSummary summary,
             @NotNull @Valid Market market,
             @NotNull @Valid Capital capital,
@@ -432,6 +436,7 @@ public class ExecutiveBriefQueryService {
 
     public record Capital(
             @NotNull String totalLiquidAssets,
+            @NotNull String requiredEmergencyFloor,
             @NotNull String emergencyReserve,
             @NotNull String deployableCash,
             @NotNull String investableAssets,

@@ -53,4 +53,13 @@ class StrategyConfigParityTest {
         assertThat(strategy.freshness().etfProfileDays()).isEqualTo(14);
         assertThat(strategy.freshness().macroDailyDays()).isEqualTo(3);
     }
+
+    @Test
+    void volatilityResearchBoundariesAreLoadedFromStrategyConfiguration() {
+        var policy = loader.loadVolatilityResearchPolicy(CONFIG);
+
+        assertThat(policy.vixTermFlatLower()).isEqualByComparingTo("0.95");
+        assertThat(policy.vixTermBackwardation()).isEqualByComparingTo("1.00");
+        assertThat(policy.techPremiumElevatedRatio()).isEqualByComparingTo("1.25");
+    }
 }

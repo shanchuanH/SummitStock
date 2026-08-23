@@ -5,6 +5,7 @@ import { ImportConfirmationStep } from "./ImportConfirmationStep";
 import { ImportPreviewTable } from "./ImportPreviewTable";
 import { ImportResult } from "./ImportResult";
 import { CashSetupStep } from "./CashSetupStep";
+import { RoleConfirmationStep } from "./RoleConfirmationStep";
 import type {
   CashSetup,
   ImportConfirmation,
@@ -50,13 +51,14 @@ async function postImport<T>(
 }
 
 export function PortfolioImportPage() {
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [preview, setPreview] = useState<ImportPreview>();
   const [result, setResult] = useState<ImportConfirmation>();
   const [overrides, setOverrides] = useState<Record<number, RowOverride>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [cashSetup, setCashSetup] = useState<CashSetup>();
-  const [classificationsReviewed, setClassificationsReviewed] = useState(false);
+  const [reviewedRows, setReviewedRows] = useState<Set<number>>(new Set());
 
   async function request(factory: () => Promise<ImportPreview>) {
     setBusy(true);
@@ -81,7 +83,8 @@ export function PortfolioImportPage() {
       }
       setOverrides(initialOverrides);
       setCashSetup(undefined);
-      setClassificationsReviewed(false);
+      setReviewedRows(new Set());
+      setStep(2);
     } catch (value) {
       setError(
         value instanceof Error ? value.message : "Import preview failed.",
@@ -96,7 +99,8 @@ export function PortfolioImportPage() {
     setResult(undefined);
     setOverrides({});
     setCashSetup(undefined);
-    setClassificationsReviewed(false);
+    setReviewedRows(new Set());
+    setStep(1);
     setError(undefined);
   }
   const errorsReady =
@@ -121,14 +125,19 @@ export function PortfolioImportPage() {
       if ((value?.rowType ?? row.rowType) !== "HOLDING")
         return row.status !== "ERROR";
       return Boolean(
-        value?.classification && value.classification !== "UNKNOWN",
+        value?.classification &&
+        value.classification !== "UNKNOWN" &&
+        reviewedRows.has(row.rowNumber),
       );
     }) ?? false;
   const cashReady =
     cashSetup !== undefined &&
-    (cashSetup.location === "IN_FIDELITY" ||
-      cashSetup.location === "EXTERNAL_BANK" ||
-      Boolean(cashSetup.externalEmergencyAmount));
+    cashSetup.fidelityAmount.trim() !== "" &&
+    cashSetup.externalAmount.trim() !== "" &&
+    Number.isFinite(Number(cashSetup.fidelityAmount)) &&
+    Number.isFinite(Number(cashSetup.externalAmount)) &&
+    Number(cashSetup.fidelityAmount) >= 0 &&
+    Number(cashSetup.externalAmount) >= 0;
 
   async function confirm() {
     if (!preview) return;
@@ -163,6 +172,21 @@ export function PortfolioImportPage() {
         <h1>导入持仓</h1>
         <p>先预览并修正识别结果，明确确认后才会写入投资组合。</p>
       </section>
+      <ol className="import-stepper" aria-label="导入进度">
+        {["上传", "检查", "确认角色", "备用金", "完成"].map((label, index) => {
+          const number = (index + 1) as 1 | 2 | 3 | 4 | 5;
+          return (
+            <li
+              aria-current={step === number ? "step" : undefined}
+              className={step >= number ? "active" : ""}
+              key={label}
+            >
+              <span>{number}</span>
+              {label}
+            </li>
+          );
+        })}
+      </ol>
       {error ? (
         <aside className="error" role="alert">
           <strong>导入已停止</strong>
@@ -171,7 +195,7 @@ export function PortfolioImportPage() {
       ) : null}
       {result ? (
         <ImportResult onAnother={reset} result={result} />
-      ) : !preview ? (
+      ) : step === 1 || !preview ? (
         <FidelityUploadStep
           busy={busy}
           onFile={(file) => {
@@ -192,8 +216,8 @@ export function PortfolioImportPage() {
             )
           }
         />
-      ) : (
-        <div className="import-review-flow">
+      ) : step === 2 ? (
+        <div className="import-review-flow import-current-step">
           <ImportPreviewTable
             onOverride={(value) => {
               setOverrides((current) => ({
@@ -204,34 +228,74 @@ export function PortfolioImportPage() {
             overrides={overrides}
             preview={preview}
           />
-          <section className="context-card import-classification-review">
-            <p className="eyebrow">第 3 步 / 分类确认</p>
-            <label>
-              <input
-                checked={classificationsReviewed}
-                onChange={(event) => {
-                  setClassificationsReviewed(event.target.checked);
-                }}
-                type="checkbox"
-              />
-              我已确认每个持仓在组合中的角色。
-            </label>
-          </section>
-          <CashSetupStep onChange={setCashSetup} value={cashSetup} />
+          <div className="import-actions">
+            <button type="button" onClick={reset}>
+              上一步
+            </button>
+            <button
+              type="button"
+              disabled={!errorsReady}
+              onClick={() => {
+                setStep(3);
+              }}
+            >
+              继续确认角色
+            </button>
+          </div>
+        </div>
+      ) : step === 3 ? (
+        <RoleConfirmationStep
+          preview={preview}
+          overrides={overrides}
+          reviewedRows={reviewedRows}
+          onOverride={(value) => {
+            setOverrides((current) => ({
+              ...current,
+              [value.rowNumber]: value,
+            }));
+          }}
+          onReviewed={(rowNumber, reviewed) => {
+            setReviewedRows((current) => {
+              const next = new Set(current);
+              if (reviewed) next.add(rowNumber);
+              else next.delete(rowNumber);
+              return next;
+            });
+          }}
+          onBack={() => {
+            setStep(2);
+          }}
+          onNext={() => {
+            if (classificationsReady) setStep(4);
+          }}
+        />
+      ) : step === 4 ? (
+        <CashSetupStep
+          value={cashSetup}
+          importedCash={preview.summary.estimatedCashValue}
+          emergencyTarget={preview.summary.emergencyCashTarget}
+          onChange={setCashSetup}
+          onBack={() => {
+            setStep(3);
+          }}
+          onNext={() => {
+            if (cashReady) setStep(5);
+          }}
+        />
+      ) : cashSetup ? (
+        <div className="import-current-step">
           <ImportConfirmationStep
             busy={busy}
+            cashSetup={cashSetup}
             onConfirm={() => void confirm()}
+            onBack={() => {
+              setStep(4);
+            }}
             onReset={reset}
             preview={preview}
-            ready={
-              errorsReady &&
-              classificationsReady &&
-              classificationsReviewed &&
-              cashReady
-            }
           />
         </div>
-      )}
+      ) : null}
       <footer>
         <span>仅分析导入文件</span>
         <span>不连接券商</span>

@@ -166,6 +166,7 @@ public class PositionIntelligenceController {
             case "3M" -> today.minusMonths(3);
             case "6M" -> today.minusMonths(6);
             case "1Y" -> today.minusYears(1);
+            case "3Y" -> today.minusYears(3);
             case "5Y" -> today.minusYears(5);
             case "MAX" -> LocalDate.of(1970, 1, 1);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported chart range");
@@ -391,6 +392,7 @@ public class PositionIntelligenceController {
             String maeR,
             String exitReason,
             String notes,
+            String reasonTags,
             Instant occurredAt) {
         static JournalResponse from(PositionIntelligenceStore.JournalView value) {
             return new JournalResponse(
@@ -404,6 +406,7 @@ public class PositionIntelligenceController {
                     decimal(value.maeR()),
                     value.exitReason(),
                     value.notes(),
+                    value.reasonTags(),
                     instant(value.occurredAt()));
         }
     }

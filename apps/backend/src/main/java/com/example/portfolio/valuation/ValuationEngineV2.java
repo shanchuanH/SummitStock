@@ -8,14 +8,16 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class ValuationEngineV2 {
+    public static final int MINIMUM_WEEKLY_HISTORY_OBSERVATIONS = 220;
+
     public Assessment assess(Input input) {
         var percentile3y = medianPercentile(input.current(), input.history3y());
         var percentile5y = medianPercentile(input.current(), input.history5y());
         if (percentile3y == null && percentile5y == null) return Assessment.missing();
         var percentile = percentile3y != null ? percentile3y : percentile5y;
-        var count = input.history3y().size();
-        var confidence = count >= 252
-                        && metricPercentiles(input.current(), input.history3y()).size() >= 2
+        var count = input.history5y().size();
+        var confidence = count >= MINIMUM_WEEKLY_HISTORY_OBSERVATIONS
+                        && historicalFamilyCount(input.current(), input.history3y()) >= 2
                 ? Confidence.HIGH
                 : Confidence.LOW;
         var state = state(percentile);
@@ -26,6 +28,43 @@ public final class ValuationEngineV2 {
             state = ValuationState.ATTRACTIVE;
         }
         return new Assessment(state, confidence, percentile3y, percentile5y, count, input.quality());
+    }
+
+    public static boolean historySufficient(int observations) {
+        return observations >= MINIMUM_WEEKLY_HISTORY_OBSERVATIONS;
+    }
+
+    public static int availableFamilyCount(Metrics metrics) {
+        int count = 0;
+        if (metrics.trailingPe() != null || metrics.forwardPe() != null) count++;
+        if (metrics.evSales() != null || metrics.priceSales() != null) count++;
+        if (metrics.fcfYield() != null) count++;
+        return count;
+    }
+
+    private static int historicalFamilyCount(Metrics current, List<Metrics> history) {
+        int count = 0;
+        if (HistoricalValuationPercentile.lowerIsCheaper(
+                                current.trailingPe(),
+                                history.stream().map(Metrics::trailingPe).toList())
+                        != null
+                || HistoricalValuationPercentile.lowerIsCheaper(
+                                current.forwardPe(),
+                                history.stream().map(Metrics::forwardPe).toList())
+                        != null) count++;
+        if (HistoricalValuationPercentile.lowerIsCheaper(
+                                current.evSales(),
+                                history.stream().map(Metrics::evSales).toList())
+                        != null
+                || HistoricalValuationPercentile.lowerIsCheaper(
+                                current.priceSales(),
+                                history.stream().map(Metrics::priceSales).toList())
+                        != null) count++;
+        if (HistoricalValuationPercentile.higherIsCheaper(
+                        current.fcfYield(),
+                        history.stream().map(Metrics::fcfYield).toList())
+                != null) count++;
+        return count;
     }
 
     private static BigDecimal medianPercentile(Metrics current, List<Metrics> history) {

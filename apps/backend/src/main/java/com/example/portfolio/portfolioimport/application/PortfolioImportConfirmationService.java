@@ -2,45 +2,42 @@ package com.example.portfolio.portfolioimport.application;
 
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.portfolioimport.infrastructure.PortfolioImportStore;
-import com.example.portfolio.runtime.DurableJobStore;
+import com.example.portfolio.runtime.AnalysisRunOrchestrator;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class PortfolioImportConfirmationService {
     private final PortfolioImportStore imports;
     private final PortfolioReconciliationService reconciliation;
-    private final DurableJobStore jobs;
+    private final AnalysisRunOrchestrator analysisRuns;
     private final PortfolioProperties properties;
     private final JdbcClient jdbc;
-    private final ObjectMapper json;
     private final Clock clock;
+    private final PortfolioCashflowReconciliationService cashflowReconciliation;
 
     public PortfolioImportConfirmationService(
             PortfolioImportStore imports,
             PortfolioReconciliationService reconciliation,
-            DurableJobStore jobs,
+            AnalysisRunOrchestrator analysisRuns,
             PortfolioProperties properties,
             JdbcClient jdbc,
-            ObjectMapper json,
-            Clock clock) {
+            Clock clock,
+            PortfolioCashflowReconciliationService cashflowReconciliation) {
         this.imports = imports;
         this.reconciliation = reconciliation;
-        this.jobs = jobs;
+        this.analysisRuns = analysisRuns;
         this.properties = properties;
         this.jdbc = jdbc;
-        this.json = json;
         this.clock = clock;
+        this.cashflowReconciliation = cashflowReconciliation;
     }
 
     @Transactional
@@ -69,24 +66,29 @@ public class PortfolioImportConfirmationService {
                 .update();
         if (claimed != 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Import batch version changed");
 
+        var priorCash = cashflowReconciliation.before(batch.userId());
         var reconciled = reconciliation.reconcile(email, batch.userId(), batchId, imports.rows(batchId), command);
+        var cashflow = cashflowReconciliation.reconcile(batch.userId(), batchId, priorCash);
         refreshCounts(batchId);
-        var runId = createAnalysisRun(batch.userId(), batchId);
-        boolean enqueued = jobs.enqueue(
-                "PORTFOLIO_ANALYSIS",
-                "portfolio-analysis:" + runId,
-                payload(email, batch.userId(), runId, batchId),
-                100,
-                clock.instant(),
-                runId);
-        if (!enqueued) throw new IllegalStateException("Portfolio analysis job could not be enqueued");
+        var waitingForCashflow = "REQUIRED".equals(cashflow.status());
+        UUID runId = waitingForCashflow
+                ? null
+                : analysisRuns
+                        .createAndSchedule(
+                                batch.userId(),
+                                LocalDate.now(clock),
+                                properties.strategyVersion(),
+                                batchId,
+                                "import:" + batchId)
+                        .runId();
         jdbc.sql(
                         """
                         UPDATE portfolio_import_batch
-                        SET status='CONFIRMED', confirmed_at=:now, updated_at=:now, version=version+1
+                        SET status=:status, confirmed_at=:now, updated_at=:now, version=version+1
                         WHERE id=UUID_TO_BIN(:batchId) AND status='IMPORTING'
                         """)
                 .param("now", clock.instant())
+                .param("status", waitingForCashflow ? "WAITING_FOR_CASHFLOW_CONFIRMATION" : "CONFIRMED")
                 .param("batchId", batchId.toString())
                 .update();
         audit(batch.userId(), batchId, runId, reconciled);
@@ -96,56 +98,13 @@ public class PortfolioImportConfirmationService {
                 confirmed.status(),
                 confirmed.version(),
                 runId,
-                "ANALYSIS_QUEUED",
+                waitingForCashflow ? "WAITING_FOR_CASHFLOW_CONFIRMATION" : "ANALYSIS_QUEUED",
                 reconciled.openPositionCount(),
                 reconciled.closedPositionCount(),
                 reconciled.cashRowCount(),
                 reconciled.compensationRowCount(),
-                false);
-    }
-
-    private UUID createAnalysisRun(UUID userId, UUID batchId) {
-        var runId = UUID.randomUUID();
-        jdbc.sql(
-                        """
-                        INSERT INTO portfolio_analysis_run (
-                            id, user_id, import_batch_id, market_date, strategy_version, status, run_key,
-                            created_at, updated_at, version
-                        ) VALUES (
-                            UUID_TO_BIN(:id), UUID_TO_BIN(:userId), UUID_TO_BIN(:batchId), :marketDate,
-                            :strategyVersion, 'QUEUED', :runKey, :now, :now, 0
-                        ) ON DUPLICATE KEY UPDATE id=id
-                        """)
-                .param("id", runId.toString())
-                .param("userId", userId.toString())
-                .param("batchId", batchId.toString())
-                .param("marketDate", LocalDate.now(clock))
-                .param("strategyVersion", properties.strategyVersion())
-                .param("runKey", "import:" + batchId)
-                .param("now", clock.instant())
-                .update();
-        var persisted = jdbc.sql(
-                        """
-                        SELECT BIN_TO_UUID(id) FROM portfolio_analysis_run
-                        WHERE user_id=UUID_TO_BIN(:userId) AND import_batch_id=UUID_TO_BIN(:batchId)
-                        """)
-                .param("userId", userId.toString())
-                .param("batchId", batchId.toString())
-                .query(UUID.class)
-                .single();
-        jdbc.sql(
-                        """
-                        INSERT IGNORE INTO portfolio_analysis_step (
-                            id, run_id, step_type, status, attempts, created_at, updated_at, version
-                        ) VALUES (
-                            UUID_TO_BIN(:id), UUID_TO_BIN(:runId), 'PORTFOLIO_ANALYSIS', 'QUEUED', 0, :now, :now, 0
-                        )
-                        """)
-                .param("id", UUID.randomUUID().toString())
-                .param("runId", persisted.toString())
-                .param("now", clock.instant())
-                .update();
-        return persisted;
+                false,
+                cashflow);
     }
 
     private ConfirmationResult result(UUID batchId, boolean replay, int closedCount) {
@@ -171,15 +130,19 @@ public class PortfolioImportConfirmationService {
                 value.status(),
                 value.version(),
                 value.analysisRunId(),
-                analysisState(value.analysisStatus()),
+                "WAITING_FOR_CASHFLOW_CONFIRMATION".equals(value.status())
+                        ? "WAITING_FOR_CASHFLOW_CONFIRMATION"
+                        : analysisState(value.analysisStatus()),
                 value.openPositionCount(),
                 closedCount,
                 value.cashRowCount(),
                 value.compensationRowCount(),
-                replay);
+                replay,
+                cashflowReconciliation.pending(batchId));
     }
 
     private static String analysisState(String status) {
+        if (status == null) return "PORTFOLIO_READY";
         return switch (status) {
             case "QUEUED", "RUNNING" -> "ANALYSIS_QUEUED";
             case "WAITING" -> "WAIT_FOR_MARKET_DATA";
@@ -223,24 +186,11 @@ public class PortfolioImportConfirmationService {
                 .param("userId", userId.toString())
                 .param("batchId", batchId.toString())
                 .param("strategyVersion", properties.strategyVersion())
-                .param("runId", runId.toString())
+                .param("runId", runId == null ? null : runId.toString())
                 .param("openPositions", result.openPositionCount())
                 .param("closedPositions", result.closedPositionCount())
                 .param("now", clock.instant())
                 .update();
-    }
-
-    private String payload(String email, UUID userId, UUID runId, UUID batchId) {
-        try {
-            return json.writeValueAsString(Map.of(
-                    "userEmail", email,
-                    "userId", userId.toString(),
-                    "runId", runId.toString(),
-                    "marketDate", LocalDate.now(clock).toString(),
-                    "importBatchId", batchId.toString()));
-        } catch (JacksonException exception) {
-            throw new IllegalStateException("Unable to enqueue portfolio analysis", exception);
-        }
     }
 
     public record ConfirmCommand(
@@ -267,13 +217,48 @@ public class PortfolioImportConfirmationService {
         BELOW_TARGET
     }
 
-    public record CashSetup(CashLocation location, java.math.BigDecimal externalEmergencyAmount) {
+    public record CashSetup(
+            CashLocation location, java.math.BigDecimal fidelityAmount, java.math.BigDecimal externalAmount) {
         public CashSetup {
             if (location == null) throw new IllegalArgumentException("Safety-cash location is required");
-            externalEmergencyAmount =
-                    externalEmergencyAmount == null ? java.math.BigDecimal.ZERO : externalEmergencyAmount;
-            if (externalEmergencyAmount.signum() < 0) {
-                throw new IllegalArgumentException("Safety-cash amount cannot be negative");
+            if (fidelityAmount == null || externalAmount == null) {
+                throw new IllegalArgumentException("Both Fidelity and external safety-cash amounts are required");
+            }
+            if (fidelityAmount.signum() < 0 || externalAmount.signum() < 0) {
+                throw new IllegalArgumentException("Safety-cash amounts cannot be negative");
+            }
+        }
+
+        public java.math.BigDecimal totalAmount() {
+            return fidelityAmount.add(externalAmount);
+        }
+
+        public void validateAgainst(java.math.BigDecimal importedBrokerCash, java.math.BigDecimal emergencyCashFloor) {
+            if (fidelityAmount.compareTo(importedBrokerCash) > 0) {
+                throw new IllegalArgumentException("Fidelity safety cash exceeds imported Fidelity cash");
+            }
+            switch (location) {
+                case IN_FIDELITY -> {
+                    if (externalAmount.signum() != 0) {
+                        throw new IllegalArgumentException("IN_FIDELITY requires external amount to be zero");
+                    }
+                }
+                case EXTERNAL_BANK -> {
+                    if (fidelityAmount.signum() != 0) {
+                        throw new IllegalArgumentException("EXTERNAL_BANK requires Fidelity amount to be zero");
+                    }
+                }
+                case SPLIT -> {
+                    if (fidelityAmount.signum() <= 0 || externalAmount.signum() <= 0) {
+                        throw new IllegalArgumentException("SPLIT requires positive Fidelity and external amounts");
+                    }
+                }
+                case BELOW_TARGET -> {
+                    if (totalAmount().compareTo(emergencyCashFloor) >= 0) {
+                        throw new IllegalArgumentException(
+                                "BELOW_TARGET total must remain below the emergency-cash target");
+                    }
+                }
             }
         }
     }
@@ -288,7 +273,8 @@ public class PortfolioImportConfirmationService {
             int closedPositionCount,
             int cashRowCount,
             int compensationRowCount,
-            boolean idempotentReplay) {}
+            boolean idempotentReplay,
+            PortfolioCashflowReconciliationService.Result cashflowReconciliation) {}
 
     record ReplayResult(
             UUID batchId,

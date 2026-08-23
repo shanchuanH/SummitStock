@@ -139,7 +139,12 @@ class PipelineJobHandlerConfiguration {
 
     @Bean
     JobHandler computeValuationJobHandler(ValuationApplicationService valuation, Clock clock) {
-        return handler("COMPUTE_VALUATION", context -> success(valuation.computeAll(), clock.instant()));
+        return handler("COMPUTE_VALUATION", context -> {
+            if (context.analysisRunId() == null) {
+                throw new IllegalStateException("COMPUTE_VALUATION requires an analysis run");
+            }
+            return success(valuation.computeAll(context.analysisRunId()), clock.instant());
+        });
     }
 
     @Bean
@@ -208,7 +213,8 @@ class PipelineJobHandlerConfiguration {
     JobHandler capturePositionMarksJobHandler(
             PortfolioAnalysisPipelineService portfolio, ObjectMapper json, Clock clock) {
         return handler("CAPTURE_POSITION_MARKS", context -> {
-            var result = portfolio.capturePositionMarks(requiredUser(payload(context, json)));
+            var jobPayload = payload(context, json);
+            var result = portfolio.capturePositionMarks(requiredUser(jobPayload), jobPayload.marketDate());
             var warnings = new java.util.ArrayList<String>();
             if (result.missing() > 0) warnings.add("POSITION_MARK_MISSING");
             if (result.stale() > 0) warnings.add("POSITION_MARK_STALE");

@@ -63,7 +63,7 @@ public class EodMarketPipelineService {
                     .param("completedSession", completedSession)
                     .query(LocalDate.class)
                     .optional()
-                    .orElse(completedSession.minusDays(370));
+                    .orElse(completedSession.minusYears(5));
             var from = latest.isBefore(completedSession) ? latest.plusDays(1) : completedSession;
             var attempt = providerAttempt(
                     () -> provider.fetchDailyBars(instrument.symbol(), from, completedSession),
@@ -91,7 +91,7 @@ public class EodMarketPipelineService {
                             sha256(result.provenance().checksum() + ":" + bar.marketDate()),
                             result.provenance().normalizationVersion(),
                             result.provenance().qualityStatus().name(),
-                            result.provenance().fetchedAt(),
+                            result.provenance().sourceTimestamp(),
                             "{}",
                             now))
                     .toList();
@@ -141,7 +141,7 @@ public class EodMarketPipelineService {
                             "executionQuality",
                             value.executionLiquidity().quality().name())
                     .param("spread", value.executionLiquidity().spreadFraction())
-                    .param("dataAsOf", value.provenance().fetchedAt())
+                    .param("dataAsOf", value.provenance().sourceTimestamp())
                     .param("now", clock.instant())
                     .update();
             observations++;
@@ -242,11 +242,44 @@ public class EodMarketPipelineService {
             var date = rows.getLast().marketDate();
             var checksum = rows.getLast().checksum();
             var now = clock.instant();
+            var evidenceAsOf = calendar.sessionClose(date);
             var writes = List.of(
-                    snapshot(instrument.id(), date, "SMA_20", "period=20", Indicators.sma(bars, 20), checksum, now),
-                    snapshot(instrument.id(), date, "SMA_50", "period=50", Indicators.sma(bars, 50), checksum, now),
-                    snapshot(instrument.id(), date, "SMA_200", "period=200", Indicators.sma(bars, 200), checksum, now),
-                    snapshot(instrument.id(), date, "EMA_20", "period=20", Indicators.ema(bars, 20), checksum, now),
+                    snapshot(
+                            instrument.id(),
+                            date,
+                            "SMA_20",
+                            "period=20",
+                            Indicators.sma(bars, 20),
+                            checksum,
+                            evidenceAsOf,
+                            now),
+                    snapshot(
+                            instrument.id(),
+                            date,
+                            "SMA_50",
+                            "period=50",
+                            Indicators.sma(bars, 50),
+                            checksum,
+                            evidenceAsOf,
+                            now),
+                    snapshot(
+                            instrument.id(),
+                            date,
+                            "SMA_200",
+                            "period=200",
+                            Indicators.sma(bars, 200),
+                            checksum,
+                            evidenceAsOf,
+                            now),
+                    snapshot(
+                            instrument.id(),
+                            date,
+                            "EMA_20",
+                            "period=20",
+                            Indicators.ema(bars, 20),
+                            checksum,
+                            evidenceAsOf,
+                            now),
                     snapshot(
                             instrument.id(),
                             date,
@@ -254,9 +287,18 @@ public class EodMarketPipelineService {
                             "period=14",
                             Indicators.wilderAtr(bars, 14),
                             checksum,
+                            evidenceAsOf,
                             now),
-                    snapshot(instrument.id(), date, "RSI_14", "period=14", Indicators.rsi(bars, 14), checksum, now),
-                    macdSnapshot(instrument.id(), date, bars, checksum, now),
+                    snapshot(
+                            instrument.id(),
+                            date,
+                            "RSI_14",
+                            "period=14",
+                            Indicators.rsi(bars, 14),
+                            checksum,
+                            evidenceAsOf,
+                            now),
+                    macdSnapshot(instrument.id(), date, bars, checksum, evidenceAsOf, now),
                     snapshot(
                             instrument.id(),
                             date,
@@ -264,6 +306,7 @@ public class EodMarketPipelineService {
                             "period=63",
                             Indicators.rollingHigh(bars, 63),
                             checksum,
+                            evidenceAsOf,
                             now),
                     snapshot(
                             instrument.id(),
@@ -272,6 +315,7 @@ public class EodMarketPipelineService {
                             "period=20",
                             Indicators.realizedVolatility(bars, 20),
                             checksum,
+                            evidenceAsOf,
                             now),
                     snapshot(
                             instrument.id(),
@@ -280,6 +324,7 @@ public class EodMarketPipelineService {
                             "period=60",
                             Indicators.realizedVolatility(bars, 60),
                             checksum,
+                            evidenceAsOf,
                             now));
             observations += writes.size();
             affected += store.appendIndicatorSnapshots(writes);
@@ -328,7 +373,8 @@ public class EodMarketPipelineService {
             String parameters,
             IndicatorResult<Double> result,
             String checksum,
-            Instant now) {
+            Instant dataAsOf,
+            Instant createdAt) {
         return new IndicatorSnapshotWrite(
                 UUID.randomUUID(),
                 id,
@@ -344,12 +390,12 @@ public class EodMarketPipelineService {
                 jsonArray(result.warnings()),
                 checksum,
                 "pipeline-v1",
-                now,
-                now);
+                dataAsOf,
+                createdAt);
     }
 
     private static IndicatorSnapshotWrite macdSnapshot(
-            UUID id, LocalDate date, List<QuantBar> bars, String checksum, Instant now) {
+            UUID id, LocalDate date, List<QuantBar> bars, String checksum, Instant dataAsOf, Instant createdAt) {
         var result = Indicators.macd(bars, 12, 26, 9);
         var value = result.value().map(Indicators.Macd::histogram).orElse(null);
         var json = result.value()
@@ -371,8 +417,8 @@ public class EodMarketPipelineService {
                 jsonArray(result.warnings()),
                 checksum,
                 "pipeline-v2",
-                now,
-                now);
+                dataAsOf,
+                createdAt);
     }
 
     private static String jsonArray(List<String> values) {

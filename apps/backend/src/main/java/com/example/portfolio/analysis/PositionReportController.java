@@ -2,12 +2,18 @@ package com.example.portfolio.analysis;
 
 import com.example.portfolio.analysis.application.HoldingEvidenceAssembler;
 import com.example.portfolio.analysis.infrastructure.HoldingAnalysisStore;
+import com.example.portfolio.analysis.infrastructure.PositionAnalystDataStore;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
+import com.example.portfolio.estimates.EstimateConsensusMath;
+import com.example.portfolio.estimates.EstimateRevisionEngine;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.security.Principal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -25,12 +31,17 @@ import tools.jackson.databind.ObjectMapper;
 public final class PositionReportController {
     private final HoldingAnalysisStore store;
     private final HoldingEvidenceAssembler evidenceAssembler;
+    private final PositionAnalystDataStore analystData;
     private final ObjectMapper json;
 
     public PositionReportController(
-            HoldingAnalysisStore store, HoldingEvidenceAssembler evidenceAssembler, ObjectMapper json) {
+            HoldingAnalysisStore store,
+            HoldingEvidenceAssembler evidenceAssembler,
+            PositionAnalystDataStore analystData,
+            ObjectMapper json) {
         this.store = store;
         this.evidenceAssembler = evidenceAssembler;
+        this.analystData = analystData;
         this.json = json;
     }
 
@@ -42,7 +53,18 @@ public final class PositionReportController {
         if (value.readiness() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Holding analysis has not been generated");
         }
-        var evidence = evidenceAssembler.assemble(userId, positionId);
+        if (value.analysisRunId() == null || value.marketDate() == null || value.runDecisionCutoff() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Analysis run as-of context is unavailable");
+        }
+        if (!value.strategyVersion().equals(value.runStrategyVersion())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Recommendation strategy version is inconsistent");
+        }
+        var context = new DecisionAsOfContext(
+                value.marketDate(), value.runDecisionCutoff().toInstant(ZoneOffset.UTC), value.runStrategyVersion());
+        var evidence = evidenceAssembler.assemble(userId, positionId, context, value.analysisRunId());
+        var analytics = analystData.load(evidence, context);
+        var currentChange = analystData.currentPriceChange(
+                evidence.instrument().id(), analytics.market().price(), context.dataCutoff());
         return new PositionReportResponse(
                 new Position(value.positionId(), value.symbol(), value.classification(), value.classificationSource()),
                 value.readiness(),
@@ -72,13 +94,24 @@ public final class PositionReportController {
                         value.strategyVersion(),
                         value.configHash()),
                 assetEvidence(evidence),
-                analystLayers(value, evidence),
+                analystLayers(value, evidence, analytics, context),
+                new AnalysisAsOf(
+                        value.analysisRunId(), value.marketDate(), context.dataCutoff(), context.strategyVersion()),
+                currentChange == null
+                        ? null
+                        : new CurrentChange(
+                                decimal(currentChange.price()),
+                                decimal(currentChange.changeSinceAnalysis()),
+                                instant(currentChange.dataAsOf()),
+                                "CURRENT_STATE_NOT_USED_IN_RECOMMENDATION"),
                 instant(value.dataAsOf()));
     }
 
     private AnalystLayers analystLayers(
             HoldingAnalysisStore.PositionReportRow value,
-            com.example.portfolio.analysis.domain.HoldingEvidence evidence) {
+            com.example.portfolio.analysis.domain.HoldingEvidence evidence,
+            PositionAnalystDataStore.AnalystData analytics,
+            DecisionAsOfContext context) {
         var action = value.recommendationAction() == null ? value.recommendedAction() : value.recommendationAction();
         var policy = positionPolicy(evidence);
         var atCapacity = value.currentWeight() != null
@@ -91,6 +124,7 @@ public final class PositionReportController {
                         value.confidence(),
                         decimal(value.recommendedQuantityMin()),
                         decimal(value.recommendedQuantityMax()),
+                        decimal(value.quantityBeforeLimitingConstraint()),
                         value.exactQuantityAllowed()),
                 new PortfolioRole(
                         value.classification(),
@@ -103,18 +137,51 @@ public final class PositionReportController {
                         atCapacity
                                 ? "The holding is at or above its hard portfolio limit; attractive valuation cannot authorize more buying."
                                 : "Portfolio capacity remains subject to total-risk, cluster-risk, cash, and liquidity limits."),
+                market(analytics.market()),
                 new Fundamentals(
                         evidence.fundamentals().financialHealth(),
-                        evidence.fundamentals().quality().name(),
-                        evidence.fundamentals().dataAsOf(),
+                        decimal(analytics.fundamentals().revenueTtm()),
+                        decimal(analytics.fundamentals().revenueYoy()),
+                        decimal(analytics.fundamentals().revenue3yCagr()),
+                        decimal(analytics.fundamentals().epsTtm()),
+                        decimal(analytics.fundamentals().epsYoy()),
+                        decimal(analytics.fundamentals().operatingMargin()),
+                        decimal(analytics.fundamentals().operatingMarginYoyChange()),
+                        decimal(analytics.fundamentals().fcfTtm()),
+                        decimal(analytics.fundamentals().fcfMargin()),
+                        decimal(analytics.fundamentals().fcfConversion()),
+                        decimal(analytics.fundamentals().netCash()),
+                        decimal(analytics.fundamentals().netDebtToFcf()),
+                        decimal(analytics.fundamentals().currentRatio()),
+                        decimal(analytics.fundamentals().shareDilutionYoy()),
+                        instant(analytics.fundamentals().dataAsOf()),
+                        analytics.fundamentals().quality() == null
+                                ? evidence.fundamentals().quality().name()
+                                : analytics.fundamentals().quality(),
                         evidence.fundamentals().available()),
                 new Valuation(
                         evidence.valuation().state(),
-                        evidence.valuation().confidence(),
-                        evidence.valuation().observationCount(),
+                        decimal(analytics.valuation().trailingPeTtm()),
+                        decimal(analytics.valuation().forwardPeFy1()),
+                        decimal(analytics.valuation().evSalesTtm()),
+                        decimal(analytics.valuation().priceSalesTtm()),
+                        decimal(analytics.valuation().fcfYieldTtm()),
+                        decimal(analytics.valuation().historyPercentile3y()),
+                        decimal(analytics.valuation().historyPercentile5y()),
+                        analytics.valuation().observationCount(),
+                        analytics.valuation().confidence() == null
+                                ? evidence.valuation().confidence()
+                                : analytics.valuation().confidence(),
+                        decimal(analytics.valuation().relativeValuation()),
+                        analytics.valuation().quality(),
+                        instant(analytics.valuation().dataAsOf()),
                         evidence.valuation().independentConfirmation(),
                         isAttractive(evidence.valuation().state()),
                         isAttractive(evidence.valuation().state()) && atCapacity),
+                estimates(analytics.estimates()),
+                technical(analytics.technical()),
+                earnings(analytics.earnings(), context.dataCutoff()),
+                risk(value, evidence, policy, analytics.risk()),
                 new PriceRiskEarnings(
                         evidence.indicators().priceState(),
                         decimal(evidence.stop().formalStop()),
@@ -154,6 +221,114 @@ public final class PositionReportController {
                 && (valuationState.contains("ATTRACTIVE")
                         || valuationState.contains("DISCOUNT")
                         || valuationState.contains("CHEAP"));
+    }
+
+    private static Market market(PositionAnalystDataStore.MarketData value) {
+        return new Market(
+                decimal(value.price()),
+                decimal(value.dayChangePct()),
+                decimal(value.oneMonthReturn()),
+                decimal(value.threeMonthReturn()),
+                decimal(value.averageCost()),
+                decimal(value.unrealizedPnlDollar()),
+                decimal(value.unrealizedPnlPct()));
+    }
+
+    private static Estimates estimates(PositionAnalystDataStore.EstimateData value) {
+        return new Estimates(
+                decimal(value.fy1Eps()),
+                decimal(EstimateConsensusMath.priorConsensus(value.fy1Eps(), value.epsRevision30d())),
+                decimal(EstimateConsensusMath.priorConsensus(value.fy1Eps(), value.epsRevision90d())),
+                decimal(value.fy1Revenue()),
+                decimal(value.epsRevision30d()),
+                decimal(value.epsRevision90d()),
+                decimal(value.revenueRevision30d()),
+                decimal(value.revenueRevision90d()),
+                value.analystCount(),
+                decimal(value.epsHigh()),
+                decimal(value.epsLow()),
+                decimal(value.dispersion()),
+                EstimateRevisionEngine.isHighDispersion(value.dispersion()),
+                value.state(),
+                value.quality(),
+                instant(value.dataAsOf()));
+    }
+
+    private static Technical technical(PositionAnalystDataStore.TechnicalData value) {
+        return new Technical(
+                decimal(value.sma20()),
+                decimal(value.sma50()),
+                decimal(value.sma200()),
+                decimal(value.distanceFromSma20()),
+                decimal(value.distanceFromSma50()),
+                decimal(value.distanceFromSma200()),
+                decimal(value.rsi14()),
+                value.macdState(),
+                decimal(value.atr14()),
+                decimal(value.atrPercent()),
+                decimal(value.realizedVolatility()),
+                value.breakout20d(),
+                decimal(value.drawdown52Week()),
+                decimal(value.relativeStrengthSpy1m()),
+                decimal(value.relativeStrengthSpy3m()),
+                decimal(value.relativeStrengthSpy6m()),
+                decimal(value.relativeStrengthQqq1m()),
+                decimal(value.relativeStrengthQqq3m()),
+                decimal(value.relativeStrengthQqq6m()),
+                instant(value.dataAsOf()));
+    }
+
+    static Earnings earnings(PositionAnalystDataStore.EarningsData value, Instant decisionCutoff) {
+        var next = instant(value.nextEarningsAt());
+        return new Earnings(
+                next,
+                next == null ? null : Math.max(0, ChronoUnit.DAYS.between(decisionCutoff, next)),
+                value.sessionType(),
+                value.eventRisk(),
+                decimal(value.historicalMedianAbsMove()),
+                decimal(value.historicalP75AbsMove()),
+                decimal(value.worstDownsideGap()),
+                decimals(value.reaction1d()),
+                decimals(value.reaction3d()),
+                decimals(value.reaction5d()),
+                decimal(value.currentR()),
+                value.policyAction(),
+                value.quality(),
+                instant(value.dataAsOf()));
+    }
+
+    private static Risk risk(
+            HoldingAnalysisStore.PositionReportRow report,
+            com.example.portfolio.analysis.domain.HoldingEvidence evidence,
+            com.example.portfolio.analysis.domain.StrategyDefinition.PositionPolicy policy,
+            PositionAnalystDataStore.RiskData value) {
+        var price = evidence.quote().last();
+        var stop = evidence.stop().formalStop();
+        var stopDistance = price == null || price.signum() == 0 || stop == null
+                ? null
+                : price.subtract(stop).divide(price, java.math.MathContext.DECIMAL64);
+        return new Risk(
+                decimal(evidence.currentWeight()),
+                decimal(policy.normalMax()),
+                decimal(policy.hardMax()),
+                decimal(stop),
+                decimal(stopDistance),
+                decimal(value.plannedRiskDollar()),
+                decimal(value.plannedRiskFraction()),
+                decimal(evidence.clusterOpenRisk()),
+                decimal(evidence.totalOpenRisk()),
+                decimal(evidence.strategy().totalOpenRiskMax()),
+                decimal(report.projectedPositionWeight()),
+                decimal(report.projectedTotalRisk()),
+                decimal(report.projectedClusterRisk()),
+                report.sizingLimitingConstraint(),
+                decimal(report.sizingRiskPerShare()),
+                value.quality(),
+                instant(value.dataAsOf()));
+    }
+
+    private static List<String> decimals(List<BigDecimal> values) {
+        return values.stream().map(PositionReportController::decimal).toList();
     }
 
     private static AssetEvidence assetEvidence(com.example.portfolio.analysis.domain.HoldingEvidence evidence) {
@@ -325,8 +500,13 @@ public final class PositionReportController {
     public record AnalystLayers(
             SystemRecommendation systemRecommendation,
             PortfolioRole portfolioRole,
+            Market market,
             Fundamentals fundamentals,
             Valuation valuation,
+            Estimates estimates,
+            Technical technical,
+            Earnings earnings,
+            Risk risk,
             PriceRiskEarnings priceRiskEarnings,
             RationaleAndEvidence rationaleAndEvidence) {}
 
@@ -336,6 +516,7 @@ public final class PositionReportController {
             String confidence,
             String quantityMin,
             String quantityMax,
+            String quantityBeforeLimitingConstraint,
             boolean exactQuantityAllowed) {}
 
     public record PortfolioRole(
@@ -348,15 +529,129 @@ public final class PositionReportController {
             boolean atHardMax,
             String capacityExplanation) {}
 
-    public record Fundamentals(String financialHealth, String quality, Instant dataAsOf, boolean available) {}
+    @Schema(name = "PositionMarket")
+    public record Market(
+            String price,
+            String dayChangePct,
+            String oneMonthReturn,
+            String threeMonthReturn,
+            String averageCost,
+            String unrealizedPnlDollar,
+            String unrealizedPnlPct) {}
+
+    public record Fundamentals(
+            String financialHealth,
+            String revenueTtm,
+            String revenueYoy,
+            String revenue3yCagr,
+            String epsTtm,
+            String epsYoy,
+            String operatingMargin,
+            String operatingMarginYoyChange,
+            String fcfTtm,
+            String fcfMargin,
+            String fcfConversion,
+            String netCash,
+            String netDebtToFcf,
+            String currentRatio,
+            String shareDilutionYoy,
+            Instant dataAsOf,
+            String quality,
+            boolean available) {}
 
     public record Valuation(
             String state,
-            String confidence,
+            String trailingPeTtm,
+            String forwardPeFy1,
+            String evSalesTtm,
+            String priceSalesTtm,
+            String fcfYieldTtm,
+            String historyPercentile3y,
+            String historyPercentile5y,
             int observationCount,
+            String confidence,
+            String relativeValuation,
+            String quality,
+            Instant dataAsOf,
             boolean independentConfirmation,
             boolean attractive,
             boolean attractiveButCannotAdd) {}
+
+    public record Estimates(
+            String fy1Eps,
+            String eps30dAgo,
+            String eps90dAgo,
+            String fy1Revenue,
+            String epsRevision30d,
+            String epsRevision90d,
+            String revenueRevision30d,
+            String revenueRevision90d,
+            Integer analystCount,
+            String epsHigh,
+            String epsLow,
+            String dispersion,
+            boolean dispersionHigh,
+            String state,
+            String quality,
+            Instant dataAsOf) {}
+
+    public record Technical(
+            String sma20,
+            String sma50,
+            String sma200,
+            String distanceFromSma20,
+            String distanceFromSma50,
+            String distanceFromSma200,
+            String rsi14,
+            String macdState,
+            String atr14,
+            String atrPercent,
+            String realizedVolatility,
+            String breakout20d,
+            String drawdown52Week,
+            String relativeStrengthSpy1m,
+            String relativeStrengthSpy3m,
+            String relativeStrengthSpy6m,
+            String relativeStrengthQqq1m,
+            String relativeStrengthQqq3m,
+            String relativeStrengthQqq6m,
+            Instant dataAsOf) {}
+
+    public record Earnings(
+            Instant nextEarningsAt,
+            Long daysUntilEarnings,
+            String sessionType,
+            String eventRisk,
+            String historicalMedianAbsMove,
+            String historicalP75AbsMove,
+            String worstDownsideGap,
+            List<String> reaction1d,
+            List<String> reaction3d,
+            List<String> reaction5d,
+            String currentR,
+            String policyAction,
+            String quality,
+            Instant dataAsOf) {}
+
+    @Schema(name = "PositionRisk")
+    public record Risk(
+            String currentWeight,
+            String normalMaxWeight,
+            String hardMaxWeight,
+            String plannedStop,
+            String stopDistancePct,
+            String positionPlannedRiskDollar,
+            String positionPlannedRiskPct,
+            String clusterRisk,
+            String totalPortfolioPlannedRisk,
+            String totalPortfolioRiskCap,
+            String projectedPositionWeight,
+            String projectedTotalRiskAfterAction,
+            String projectedClusterRiskAfterAction,
+            String sizingLimitingConstraint,
+            String riskPerShare,
+            String quality,
+            Instant dataAsOf) {}
 
     public record PriceRiskEarnings(
             String priceState,
@@ -384,5 +679,12 @@ public final class PositionReportController {
             AuditEvidence evidence,
             AssetEvidence assetEvidence,
             AnalystLayers layers,
+            AnalysisAsOf analysisAsOf,
+            CurrentChange currentChange,
             Instant dataAsOf) {}
+
+    public record AnalysisAsOf(
+            UUID analysisRunId, java.time.LocalDate marketDate, Instant dataCutoff, String strategyVersion) {}
+
+    public record CurrentChange(String price, String changeSinceAnalysis, Instant dataAsOf, String label) {}
 }

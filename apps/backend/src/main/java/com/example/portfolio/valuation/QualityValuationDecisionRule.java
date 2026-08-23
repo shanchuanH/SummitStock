@@ -15,14 +15,18 @@ public final class QualityValuationDecisionRule {
         }
         var belowNormalMax = input.currentWeight().compareTo(input.normalMax()) < 0;
         if (belowNormalMax
+                && input.riskCapacity()
                 && input.valuation() == ValuationEngineV2.ValuationState.DEEP_DISCOUNT
+                && atLeastFlat(input.revision())
+                && stabilized(input.priceState())
                 && (input.priorStarterCount() == 0 || input.independentConfirmation())) {
             return Decision.STARTER_BUY;
         }
         if (belowNormalMax
-                && acceptableNormalValuation(input.valuation())
-                && atLeastFlat(input.revision())
-                && (input.priceState() == PriceState.UPTREND || input.priceState() == PriceState.REVERSAL_CONFIRMED)) {
+                && input.riskCapacity()
+                && normalAddHealthGate(input.health(), input.valuation())
+                && meaningfulGap(input)
+                && normalAddValuationGate(input.valuation(), input.revision(), input.priceState())) {
             return Decision.ADD;
         }
         return Decision.HOLD;
@@ -32,16 +36,54 @@ public final class QualityValuationDecisionRule {
         return value == ValuationEngineV2.CompanyHealth.STRONG || value == ValuationEngineV2.CompanyHealth.HEALTHY;
     }
 
-    private static boolean acceptableNormalValuation(ValuationEngineV2.ValuationState value) {
-        return value == ValuationEngineV2.ValuationState.DEEP_DISCOUNT
-                || value == ValuationEngineV2.ValuationState.ATTRACTIVE
-                || value == ValuationEngineV2.ValuationState.FAIR;
+    private static boolean normalAddHealthGate(
+            ValuationEngineV2.CompanyHealth health, ValuationEngineV2.ValuationState valuation) {
+        return valuation == ValuationEngineV2.ValuationState.FAIR
+                ? health == ValuationEngineV2.CompanyHealth.STRONG
+                : healthy(health);
+    }
+
+    private static boolean meaningfulGap(Input input) {
+        return input.valuation() != ValuationEngineV2.ValuationState.FAIR
+                || (input.targetMin() != null && input.currentWeight().compareTo(input.targetMin()) < 0);
+    }
+
+    private static boolean normalAddValuationGate(
+            ValuationEngineV2.ValuationState valuation,
+            EstimateRevisionEngine.RevisionState revision,
+            PriceState priceState) {
+        if (valuation == ValuationEngineV2.ValuationState.ATTRACTIVE) {
+            return atLeastFlat(revision) && confirmed(priceState);
+        }
+        if (valuation == ValuationEngineV2.ValuationState.FAIR) {
+            return improving(revision) && strongConfirmation(priceState);
+        }
+        return false;
     }
 
     private static boolean atLeastFlat(EstimateRevisionEngine.RevisionState value) {
         return value == EstimateRevisionEngine.RevisionState.STRONGLY_POSITIVE
                 || value == EstimateRevisionEngine.RevisionState.POSITIVE
                 || value == EstimateRevisionEngine.RevisionState.FLAT;
+    }
+
+    private static boolean stabilized(PriceState value) {
+        return value == PriceState.REVERSAL_SETUP || value == PriceState.REVERSAL_CONFIRMED;
+    }
+
+    private static boolean confirmed(PriceState value) {
+        return value == PriceState.UPTREND
+                || value == PriceState.STRONG_UPTREND
+                || value == PriceState.REVERSAL_CONFIRMED;
+    }
+
+    private static boolean improving(EstimateRevisionEngine.RevisionState value) {
+        return value == EstimateRevisionEngine.RevisionState.STRONGLY_POSITIVE
+                || value == EstimateRevisionEngine.RevisionState.POSITIVE;
+    }
+
+    private static boolean strongConfirmation(PriceState value) {
+        return value == PriceState.STRONG_UPTREND || value == PriceState.REVERSAL_CONFIRMED;
     }
 
     public enum Decision {
@@ -52,9 +94,14 @@ public final class QualityValuationDecisionRule {
     }
 
     public enum PriceState {
+        STRONG_UPTREND,
         UPTREND,
+        NEUTRAL,
+        WEAK,
+        REVERSAL_SETUP,
         REVERSAL_CONFIRMED,
         DOWNTREND,
+        BREAKDOWN,
         MISSING
     }
 
@@ -68,7 +115,9 @@ public final class QualityValuationDecisionRule {
             boolean thesisInvalidated,
             boolean catastrophicStop,
             BigDecimal currentWeight,
+            BigDecimal targetMin,
             BigDecimal normalMax,
+            boolean riskCapacity,
             int priorStarterCount,
             boolean independentConfirmation) {}
 }

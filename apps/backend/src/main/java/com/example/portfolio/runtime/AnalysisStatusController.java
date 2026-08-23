@@ -1,6 +1,8 @@
 package com.example.portfolio.runtime;
 
 import java.security.Principal;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -22,17 +24,21 @@ import org.springframework.web.server.ResponseStatusException;
 public class AnalysisStatusController {
     private static final Map<String, StageDefinition> STAGES = stages();
     private final JdbcClient jdbc;
+    private final WorkerHeartbeatStore heartbeats;
+    private final Clock clock;
 
-    public AnalysisStatusController(JdbcClient jdbc) {
+    public AnalysisStatusController(JdbcClient jdbc, WorkerHeartbeatStore heartbeats, Clock clock) {
         this.jdbc = jdbc;
+        this.heartbeats = heartbeats;
+        this.clock = clock;
     }
 
     @GetMapping("/status/{runId}")
     AnalysisStatusResponse status(@PathVariable UUID runId, Principal principal) {
         var run = jdbc.sql(
                         """
-                        SELECT r.status,r.updated_at updatedAt FROM portfolio_analysis_run r
-                        JOIN app_user u ON u.id=r.user_id
+                        SELECT r.status,r.started_at startedAt,r.updated_at updatedAt,r.error_code errorCode
+                        FROM portfolio_analysis_run r JOIN app_user u ON u.id=r.user_id
                         WHERE r.id=UUID_TO_BIN(:runId) AND u.email=:email
                         """)
                 .param("runId", runId.toString())
@@ -40,101 +46,166 @@ public class AnalysisStatusController {
                 .query(RunRow.class)
                 .optional()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Analysis run not found"));
-        var jobs = jdbc.sql(
+        var steps = jdbc.sql(
                         """
-                        SELECT job_type jobType,status FROM job_run
-                        WHERE analysis_run_id=UUID_TO_BIN(:runId)
+                        SELECT step_type stepType,status,error_code errorCode,updated_at updatedAt
+                        FROM portfolio_analysis_step WHERE run_id=UUID_TO_BIN(:runId)
                         """)
                 .param("runId", runId.toString())
-                .query(JobRow.class)
+                .query(StepRow.class)
                 .list();
-        var byType = new java.util.HashMap<String, String>();
-        jobs.forEach(job -> byType.put(job.jobType(), job.status()));
-        var progress = STAGES.entrySet().stream()
+        var byType = new java.util.HashMap<String, StepRow>();
+        steps.forEach(step -> byType.put(step.stepType(), step));
+        var grouped = STAGES.entrySet().stream()
                 .map(entry -> new ProgressStage(
                         entry.getKey(),
                         entry.getValue().label(),
-                        stageStatus(entry.getValue().jobTypes(), byType, run.status())))
+                        stageStatus(entry.getValue().stepTypes(), byType)))
                 .toList();
+        var runtime = heartbeats.snapshot();
+        var completed =
+                steps.stream().filter(step -> "SUCCEEDED".equals(step.status())).count();
+        var current = steps.stream()
+                .filter(step -> Set.of("RUNNING", "QUEUED").contains(step.status()))
+                .sorted(java.util.Comparator.comparingInt(
+                        step -> AnalysisRunOrchestrator.PIPELINE.indexOf(step.stepType())))
+                .map(StepRow::stepType)
+                .findFirst()
+                .orElse(null);
+        var failed = steps.stream()
+                .filter(step -> "FAILED".equals(step.status()))
+                .findFirst()
+                .orElse(null);
+        var lastProgressAt = steps.stream()
+                .map(StepRow::updatedAt)
+                .filter(java.util.Objects::nonNull)
+                .max(java.util.Comparator.naturalOrder())
+                .orElse(run.updatedAt());
+        var pendingAge = "QUEUED".equals(run.status()) || "RUNNING".equals(run.status())
+                ? Math.max(
+                        0,
+                        Duration.between(lastProgressAt.toInstant(ZoneOffset.UTC), clock.instant())
+                                .toSeconds())
+                : null;
+        var state = externalState(run.status(), runtime.workerAlive(), pendingAge);
+        var errorCode = failed == null ? run.errorCode() : failed.errorCode();
         return new AnalysisStatusResponse(
                 runId,
-                externalState(run.status()),
-                progress,
-                progress.stream()
-                        .filter(stage -> "COMPLETE".equals(stage.status()))
-                        .count(),
-                progress.size(),
-                run.updatedAt().toInstant(ZoneOffset.UTC));
+                state,
+                new WorkerStatus(runtime.workerAlive(), runtime.lastHeartbeat()),
+                new ProgressStatus(
+                        completed,
+                        AnalysisRunOrchestrator.PIPELINE.size(),
+                        current,
+                        lastProgressAt.toInstant(ZoneOffset.UTC)),
+                failed == null
+                        ? null
+                        : new FailureStatus(
+                                failed.stepType(), errorCode, failureMessage(errorCode), retryable(errorCode)),
+                pendingAge,
+                run.startedAt() == null ? null : run.startedAt().toInstant(ZoneOffset.UTC),
+                category(current),
+                grouped);
     }
 
-    private static String stageStatus(Set<String> jobTypes, Map<String, String> jobs, String runStatus) {
-        var values = jobTypes.stream()
-                .map(jobs::get)
+    private static String stageStatus(Set<String> stepTypes, Map<String, StepRow> steps) {
+        var values = stepTypes.stream()
+                .map(steps::get)
                 .filter(java.util.Objects::nonNull)
                 .toList();
-        if (values.stream().anyMatch(value -> Set.of("FAILED", "PERMANENT_FAILURE", "BLOCKED")
-                .contains(value))) {
-            return "FAILED";
+        if (values.stream().anyMatch(value -> Set.of("FAILED", "BLOCKED").contains(value.status()))) return "FAILED";
+        if (!values.isEmpty() && values.stream().allMatch(value -> "SUCCEEDED".equals(value.status()))) {
+            return "COMPLETE";
         }
-        if (!values.isEmpty() && values.stream().allMatch("SUCCEEDED"::equals)) return "COMPLETE";
-        if (values.stream().anyMatch(value -> Set.of("RUNNING", "CLAIMED").contains(value))) return "RUNNING";
-        if ("SUCCEEDED".equals(runStatus) && !values.isEmpty()) return "COMPLETE";
-        return "WAITING";
+        if (values.stream().anyMatch(value -> Set.of("RUNNING", "QUEUED").contains(value.status()))) return "RUNNING";
+        return "STARTING";
     }
 
-    private static String externalState(String status) {
+    static String externalState(String status, boolean workerAlive, Long pendingAge) {
+        if (Set.of("QUEUED", "RUNNING").contains(status) && !workerAlive) return "WORKER_OFFLINE";
+        if (Set.of("QUEUED", "RUNNING").contains(status) && pendingAge != null && pendingAge >= 120) return "STALLED";
         return switch (status) {
-            case "QUEUED", "RUNNING" -> "ANALYSIS_RUNNING";
-            case "WAITING" -> "WAIT_FOR_MARKET_DATA";
-            case "PARTIAL" -> "PARTIAL_ANALYSIS";
-            case "SUCCEEDED" -> "ANALYSIS_READY";
-            default -> status;
+            case "QUEUED" -> "STARTING";
+            case "RUNNING" -> "RUNNING";
+            case "WAITING" -> "PARTIAL";
+            case "PARTIAL" -> "PARTIAL";
+            case "SUCCEEDED" -> "READY";
+            case "BLOCKED" -> "BLOCKED";
+            case "FAILED" -> "FAILED";
+            default -> "FAILED";
         };
+    }
+
+    private static String failureMessage(String code) {
+        if (code == null) return "Analysis stopped before completion.";
+        return switch (code) {
+            case "FORMAL_RECOMMENDATION_STRATEGY_REJECTED" ->
+                "The strategy publication gate blocked formal recommendations.";
+            case "MISSING_ANALYSIS_RUN" -> "The analysis run context was missing.";
+            default -> "Analysis stopped at a durable pipeline stage (" + code + ").";
+        };
+    }
+
+    private static boolean retryable(String code) {
+        return code != null
+                && (code.contains("TIMEOUT") || code.contains("RATE_LIMIT") || code.contains("UNAVAILABLE"));
+    }
+
+    private static String category(String stage) {
+        if (stage == null) return null;
+        if (stage.startsWith("COLLECT") || stage.startsWith("CHECK_FILINGS")) return "DATA_COLLECTION";
+        if (stage.contains("RISK") || stage.contains("DRAWDOWN") || stage.contains("STOPS")) return "RISK";
+        if (stage.contains("RECOMMENDATION") || stage.contains("HOLDING_ANALYSIS")) return "DECISION";
+        return "COMPUTATION";
     }
 
     private static Map<String, StageDefinition> stages() {
         var values = new LinkedHashMap<String, StageDefinition>();
-        values.put("HOLDINGS", new StageDefinition("Holdings imported", Set.of("PORTFOLIO_ANALYSIS")));
+        values.put("HOLDINGS", new StageDefinition("持仓", Set.of("PORTFOLIO_ANALYSIS", "SYNC_PORTFOLIO")));
         values.put(
-                "PRICES",
-                new StageDefinition("Prices", Set.of("COLLECT_QUOTES", "COLLECT_BARS", "COMPUTE_INDICATORS")));
+                "PRICES", new StageDefinition("市场价格", Set.of("COLLECT_QUOTES", "COLLECT_BARS", "COMPUTE_PRICE_STATE")));
         values.put(
                 "FINANCIALS",
                 new StageDefinition(
-                        "Financial data",
-                        Set.of("COLLECT_FUNDAMENTALS", "NORMALIZE_FINANCIALS", "COMPUTE_FINANCIAL_HEALTH")));
-        values.put("VALUATION", new StageDefinition("Valuation", Set.of("COMPUTE_VALUATION")));
+                        "公司财务", Set.of("COLLECT_FUNDAMENTALS", "NORMALIZE_FINANCIALS", "COMPUTE_FINANCIAL_HEALTH")));
         values.put(
-                "EVENTS",
+                "ESTIMATES",
                 new StageDefinition(
-                        "Analyst estimates and earnings",
-                        Set.of("COLLECT_ESTIMATES", "COMPUTE_REVISIONS", "COLLECT_EARNINGS_CALENDAR")));
+                        "盈利预测", Set.of("COLLECT_ESTIMATES", "COMPUTE_REVISIONS", "COLLECT_EARNINGS_CALENDAR")));
+        values.put("MARKET", new StageDefinition("市场环境", Set.of("COLLECT_MACRO", "COMPUTE_REGIME")));
         values.put(
                 "PORTFOLIO_RISK",
                 new StageDefinition(
-                        "Portfolio risk",
-                        Set.of("CAPTURE_POSITION_MARKS", "COMPUTE_DRAWDOWN_SOURCE", "RECALCULATE_STOPS")));
-        values.put("HOLDING_ANALYSIS", new StageDefinition("Holding analysis", Set.of("COMPUTE_HOLDING_ANALYSIS")));
+                        "风险计算", Set.of("CAPTURE_POSITION_MARKS", "COMPUTE_DRAWDOWN_SOURCE", "RECALCULATE_STOPS")));
+        values.put("HOLDING_ANALYSIS", new StageDefinition("个股结论", Set.of("COMPUTE_HOLDING_ANALYSIS")));
         values.put(
                 "TODAY_BRIEF",
-                new StageDefinition(
-                        "Today's brief", Set.of("GENERATE_RECOMMENDATIONS", "COUNT_ACTIVE_RECOMMENDATIONS")));
+                new StageDefinition("今日简报", Set.of("GENERATE_RECOMMENDATIONS", "COUNT_ACTIVE_RECOMMENDATIONS")));
         return java.util.Collections.unmodifiableMap(values);
     }
 
-    record StageDefinition(String label, Set<String> jobTypes) {}
+    record StageDefinition(String label, Set<String> stepTypes) {}
 
-    record RunRow(String status, LocalDateTime updatedAt) {}
+    record RunRow(String status, LocalDateTime startedAt, LocalDateTime updatedAt, String errorCode) {}
 
-    record JobRow(String jobType, String status) {}
+    record StepRow(String stepType, String status, String errorCode, LocalDateTime updatedAt) {}
 
     public record ProgressStage(String code, String label, String status) {}
+
+    public record WorkerStatus(boolean alive, Instant lastSeenAt) {}
+
+    public record ProgressStatus(long completed, int total, String currentStage, Instant lastProgressAt) {}
+
+    public record FailureStatus(String failedStage, String errorCode, String errorMessage, boolean retryable) {}
 
     public record AnalysisStatusResponse(
             UUID runId,
             String state,
-            List<ProgressStage> stages,
-            long completedStages,
-            int totalStages,
-            Instant updatedAt) {}
+            WorkerStatus worker,
+            ProgressStatus progress,
+            FailureStatus failure,
+            Long pendingAgeSeconds,
+            Instant startedAt,
+            String estimatedCategory,
+            List<ProgressStage> stages) {}
 }

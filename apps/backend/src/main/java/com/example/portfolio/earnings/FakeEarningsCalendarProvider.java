@@ -5,7 +5,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -13,8 +13,9 @@ import org.springframework.stereotype.Component;
 /** Deterministic raw calendar evidence for full pipeline integration tests. */
 @Component
 @Primary
-@Profile("test")
-@ConditionalOnProperty(name = "portfolio.test.complete-provider-fixtures", havingValue = "true")
+@Profile({"test", "local-fixture"})
+@ConditionalOnExpression(
+        "'${portfolio.providers.earnings-calendar.type:unavailable}' == 'fake' || '${portfolio.test.complete-provider-fixtures:false}' == 'true'")
 final class FakeEarningsCalendarProvider implements EarningsCalendarProvider {
     private final Clock clock;
 

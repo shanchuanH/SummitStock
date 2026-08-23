@@ -2,9 +2,11 @@ package com.example.portfolio.context;
 
 import com.example.portfolio.context.MarketContextStore.DrawdownView;
 import com.example.portfolio.context.MarketContextStore.RegimeView;
+import com.example.portfolio.macro.MacroApplicationService;
 import java.security.Principal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,11 +16,27 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class MarketContextController {
     private final MarketContextStore store;
+    private final MacroApplicationService macro;
     private final Clock clock;
 
-    public MarketContextController(MarketContextStore store, Clock clock) {
+    public MarketContextController(MarketContextStore store, MacroApplicationService macro, Clock clock) {
         this.store = store;
+        this.macro = macro;
         this.clock = clock;
+    }
+
+    @GetMapping("/market/volatility")
+    SnapshotEnvelope<VolatilityResponse> volatility() {
+        var snapshot = macro.latestVolatility(LocalDate.now(clock));
+        var status = snapshot.vix() == null ? "EMPTY" : "READY";
+        return new SnapshotEnvelope<>(status, VolatilityResponse.from(snapshot), clock.instant());
+    }
+
+    @GetMapping("/market/macro-background")
+    SnapshotEnvelope<MacroBackgroundResponse> macroBackground() {
+        var snapshot = macro.latestMacroBackground(LocalDate.now(clock));
+        var status = snapshot.curveState().equals("MISSING") && snapshot.tenYearYield() == null ? "EMPTY" : "READY";
+        return new SnapshotEnvelope<>(status, MacroBackgroundResponse.from(snapshot), clock.instant());
     }
 
     @GetMapping("/market/regime")
@@ -117,8 +135,74 @@ public class MarketContextController {
         }
     }
 
+    public record VolatilityResponse(
+            String vix,
+            String vixPercentile,
+            String vixDelta1d,
+            String vixDelta2d,
+            String vixDelta5d,
+            String vix3m,
+            String vixTermRatio,
+            String vixTermState,
+            String vxn,
+            String vxnPercentile,
+            String vxnDelta1d,
+            String vxnDelta2d,
+            String vxnDelta5d,
+            String vxnVixRatio,
+            String vxnVixSpread,
+            String techStressState,
+            String quality) {
+        static VolatilityResponse from(MacroApplicationService.VolatilitySnapshot value) {
+            return new VolatilityResponse(
+                    nullableDecimal(value.vix()),
+                    nullableDecimal(value.vixPercentile()),
+                    nullableDecimal(value.vixDelta1d()),
+                    nullableDecimal(value.vixDelta2d()),
+                    nullableDecimal(value.vixDelta5d()),
+                    nullableDecimal(value.vix3m()),
+                    nullableDecimal(value.vixTermRatio()),
+                    value.vixTermState(),
+                    nullableDecimal(value.vxn()),
+                    nullableDecimal(value.vxnPercentile()),
+                    nullableDecimal(value.vxnDelta1d()),
+                    nullableDecimal(value.vxnDelta2d()),
+                    nullableDecimal(value.vxnDelta5d()),
+                    nullableDecimal(value.vxnVixRatio()),
+                    nullableDecimal(value.vxnVixSpread()),
+                    value.techStressState(),
+                    value.quality());
+        }
+    }
+
+    public record MacroBackgroundResponse(
+            String tenYearYield,
+            String twoYearYield,
+            String fedFundsRate,
+            String tenYearRealYield,
+            String rateStress,
+            String curveState,
+            String quality,
+            boolean includedInAggregateStress) {
+        static MacroBackgroundResponse from(MacroApplicationService.MacroBackgroundSnapshot value) {
+            return new MacroBackgroundResponse(
+                    nullableDecimal(value.tenYearYield()),
+                    nullableDecimal(value.twoYearYield()),
+                    nullableDecimal(value.fedFundsRate()),
+                    nullableDecimal(value.tenYearRealYield()),
+                    nullableDecimal(value.rateStress()),
+                    value.curveState(),
+                    value.quality(),
+                    false);
+        }
+    }
+
     private static String decimal(java.math.BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
+    }
+
+    private static String nullableDecimal(java.math.BigDecimal value) {
+        return value == null ? null : decimal(value);
     }
 
     private static String percent(java.math.BigDecimal fraction) {

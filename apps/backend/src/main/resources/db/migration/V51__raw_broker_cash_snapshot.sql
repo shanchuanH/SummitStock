@@ -1,0 +1,23 @@
+CREATE TABLE broker_cash_snapshot (
+    id BINARY(16) NOT NULL,
+    user_id BINARY(16) NOT NULL,
+    account_id BINARY(16) NOT NULL,
+    import_batch_id BINARY(16) NOT NULL,
+    source VARCHAR(32) NOT NULL,
+    cash_amount DECIMAL(24,8) NOT NULL,
+    currency CHAR(3) NOT NULL,
+    statement_as_of DATETIME(6) NULL,
+    data_as_of DATETIME(6) NOT NULL,
+    evidence_checksum CHAR(64) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_broker_cash_batch_account (import_batch_id,account_id,currency),
+    UNIQUE KEY uq_broker_cash_evidence (user_id,evidence_checksum),
+    KEY ix_broker_cash_owner_latest (user_id,data_as_of,created_at),
+    KEY ix_broker_cash_account_latest (account_id,data_as_of),
+    CONSTRAINT fk_broker_cash_user FOREIGN KEY (user_id) REFERENCES app_user (id),
+    CONSTRAINT fk_broker_cash_account FOREIGN KEY (account_id) REFERENCES investment_account (id),
+    CONSTRAINT fk_broker_cash_batch FOREIGN KEY (import_batch_id) REFERENCES portfolio_import_batch (id),
+    CONSTRAINT chk_broker_cash_nonnegative CHECK (cash_amount >= 0),
+    CONSTRAINT chk_broker_cash_source CHECK (source IN ('FIDELITY_CSV'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

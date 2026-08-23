@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public final class BehavioralFirewall {
-    public List<RecommendationCandidate> evaluate(DecisionContext context) {
+    public List<RecommendationCandidate> evaluate(
+            DecisionContext context, List<RecommendationCandidate> proposedCandidates) {
         var values = new ArrayList<RecommendationCandidate>();
         var strategy = context.evidence().strategy();
         boolean decisionCooling = context.lastDecisionAt() != null
@@ -28,8 +29,9 @@ public final class BehavioralFirewall {
             values.add(block(
                     RuleIds.RISK_COOLING_PERIOD, "The behavioral cooling period is active; new capital must wait."));
         }
-        if (context.averagingDown()
-                && (!context.thesisImproving()
+        if (proposesNewCapital(proposedCandidates)
+                && context.averagingDown()
+                && (!context.independentNewEvidence()
                         || (context.evidence().position().classification() == HoldingClassification.SPECULATIVE
                                 && !strategy.speculativeAverageDownAllowed()))) {
             values.add(block(
@@ -54,6 +56,25 @@ public final class BehavioralFirewall {
                     "Further waiting would replace the defined horizon with hope."));
         }
         return List.copyOf(values);
+    }
+
+    public static boolean allowsNewRisk(DecisionContext context) {
+        var strategy = context.evidence().strategy();
+        var decisionCooling = context.lastDecisionAt() != null
+                && !context.decisionAt().isBefore(context.lastDecisionAt())
+                && Duration.between(context.lastDecisionAt(), context.decisionAt())
+                                .compareTo(Duration.ofHours(strategy.coolingHours()))
+                        < 0;
+        var ideaCooling =
+                context.ideaCooldownUntil() != null && context.decisionAt().isBefore(context.ideaCooldownUntil());
+        var invalidAverageDown = context.averagingDown() && !context.independentNewEvidence();
+        return !decisionCooling && !ideaCooling && !invalidAverageDown && !context.anchoredToCostBasis();
+    }
+
+    private static boolean proposesNewCapital(List<RecommendationCandidate> candidates) {
+        return candidates.stream()
+                .anyMatch(candidate -> candidate.action() == RecommendationAction.ADD
+                        || candidate.action() == RecommendationAction.STARTER_BUY);
     }
 
     private static RecommendationCandidate block(String ruleId, String reason) {

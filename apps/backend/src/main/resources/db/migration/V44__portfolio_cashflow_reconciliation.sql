@@ -1,0 +1,22 @@
+CREATE TABLE portfolio_cashflow_reconciliation (
+    id BINARY(16) NOT NULL,
+    user_id BINARY(16) NOT NULL,
+    import_batch_id BINARY(16) NOT NULL,
+    prior_cash DECIMAL(24,8) NOT NULL,
+    current_cash DECIMAL(24,8) NOT NULL,
+    cash_change DECIMAL(24,8) NOT NULL,
+    net_position_trade_value DECIMAL(24,8) NOT NULL,
+    broker_value DECIMAL(24,8) NOT NULL,
+    status VARCHAR(40) NOT NULL,
+    confirmation_type VARCHAR(32) NULL,
+    confirmed_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_cashflow_reconciliation_batch (import_batch_id),
+    KEY ix_cashflow_reconciliation_owner_status (user_id,status,updated_at),
+    CONSTRAINT fk_cashflow_reconciliation_user FOREIGN KEY (user_id) REFERENCES app_user (id),
+    CONSTRAINT fk_cashflow_reconciliation_batch FOREIGN KEY (import_batch_id) REFERENCES portfolio_import_batch (id),
+    CONSTRAINT chk_cashflow_reconciliation_status CHECK (status IN ('REQUIRED','RECORDED_EXTERNAL_CASHFLOW','CONFIRMED_INTERNAL_TRADE')),
+    CONSTRAINT chk_cashflow_reconciliation_type CHECK (confirmation_type IS NULL OR confirmation_type IN ('EXTERNAL_CASHFLOW','INTERNAL_TRADE','OTHER'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

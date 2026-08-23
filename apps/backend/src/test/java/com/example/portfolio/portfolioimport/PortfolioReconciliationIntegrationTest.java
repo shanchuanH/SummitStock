@@ -11,7 +11,7 @@ class PortfolioReconciliationIntegrationTest extends PortfolioImportIntegrationS
         confirm(uuid(first, "batchId"), 0, "[{\"rowNumber\":7,\"ignored\":true}]");
 
         var updated = preview("fidelity-positions-updated.csv");
-        var result = confirm(uuid(updated, "batchId"), 0, "[]");
+        var result = confirm(uuid(updated, "batchId"), 0, "[]", "IN_FIDELITY", "13000");
 
         assertThat(result.get("openPositionCount").asInt()).isEqualTo(2);
         assertThat(result.get("closedPositionCount").asInt()).isEqualTo(1);

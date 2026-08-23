@@ -30,6 +30,21 @@ class ProjectedTotalRiskSizingTest {
         assertThat(result.quantityMax()).isZero();
     }
 
+    @Test
+    void exposesTheBindingConstraintAndPostTradeRiskWithoutChangingSizingMath() {
+        var base = PositionSizingV2Fixtures.valid(RecommendationAction.ADD);
+
+        var result = PositionSizing.calculate(withPortfolioLimits(base, "1500", "0.0200", "100"));
+
+        assertThat(result.quantityMax()).isEqualByComparingTo("10");
+        assertThat(result.quantityBeforeLimitingConstraint()).isEqualByComparingTo("40");
+        assertThat(result.limitingConstraint()).isEqualTo("TOTAL_RISK_CAP");
+        assertThat(result.projectedPositionWeight()).isEqualByComparingTo("0.0875");
+        assertThat(result.projectedTotalRisk()).isEqualByComparingTo("0.02");
+        assertThat(result.projectedClusterRisk()).isEqualByComparingTo("0.01125");
+        assertThat(result.riskPerShare()).isEqualByComparingTo("10");
+    }
+
     private static PositionSizing.Input withPortfolioLimits(
             PositionSizing.Input value, String currentRisk, String cap, String liquidity) {
         return new PositionSizing.Input(

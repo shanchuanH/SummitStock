@@ -30,6 +30,9 @@ class PortfolioNavServiceIntegrationTest extends MySqlIntegrationTest {
         jdbc.sql("DELETE FROM portfolio_external_cashflow_event WHERE user_id=UUID_TO_BIN(:id)")
                 .param("id", USER.toString())
                 .update();
+        jdbc.sql("DELETE FROM portfolio_strategy_capital_flow_event WHERE user_id=UUID_TO_BIN(:id)")
+                .param("id", USER.toString())
+                .update();
         jdbc.sql(
                         """
                         INSERT IGNORE INTO app_user (
@@ -42,19 +45,99 @@ class PortfolioNavServiceIntegrationTest extends MySqlIntegrationTest {
     }
 
     @Test
-    void depositsChangeUnitsButDoNotCreatePerformanceOrDrawdown() {
+    void deployableDepositChangesUnitsButDoesNotCreatePerformanceOrDrawdown() {
         var first = service.capture(USER, date("2026-08-10"), money("100000"));
         service.recordExternalCashflow(USER, date("2026-08-11"), money("20000"), "BROKER_DEPOSIT", "dep-1");
+        service.recordStrategyCapitalFlow(
+                USER,
+                date("2026-08-11"),
+                money("20000"),
+                PortfolioNavService.StrategyCapitalFlowType.EXTERNAL_TO_STRATEGY,
+                "BROKER_DEPOSIT",
+                "dep-1");
         var funded = service.capture(USER, date("2026-08-11"), money("120000"));
         var loss = service.capture(USER, date("2026-08-12"), money("108000"));
 
         assertThat(first.nav()).isEqualByComparingTo("1");
         assertThat(funded.nav()).isEqualByComparingTo("1");
         assertThat(funded.units()).isEqualByComparingTo("120000");
-        assertThat(funded.externalCashflow()).isEqualByComparingTo("20000");
+        assertThat(funded.strategyCapitalFlow()).isEqualByComparingTo("20000");
         assertThat(funded.drawdownFraction()).isZero();
         assertThat(loss.nav()).isEqualByComparingTo("0.9");
         assertThat(loss.drawdownFraction()).isEqualByComparingTo("0.1");
+    }
+
+    @Test
+    void depositAllocatedOnlyToEmergencyDoesNotChangeStrategyUnitsOrReturn() {
+        service.capture(USER, date("2026-08-10"), money("100000"));
+        service.recordExternalCashflow(USER, date("2026-08-11"), money("20000"), "BROKER_DEPOSIT", "emergency");
+
+        var unchanged = service.capture(USER, date("2026-08-11"), money("100000"));
+
+        assertZeroReturn(unchanged, "100000", "0");
+    }
+
+    @Test
+    void emergencyToDeployableIsAPositiveStrategyCapitalFlowNotPerformance() {
+        service.capture(USER, date("2026-08-10"), money("100000"));
+        service.recordStrategyCapitalFlow(
+                USER,
+                date("2026-08-11"),
+                money("10000"),
+                PortfolioNavService.StrategyCapitalFlowType.EMERGENCY_TO_STRATEGY,
+                "OWNER_ALLOCATION",
+                "transfer-in");
+
+        assertZeroReturn(service.capture(USER, date("2026-08-11"), money("110000")), "110000", "10000");
+    }
+
+    @Test
+    void deployableToEmergencyIsANegativeStrategyCapitalFlowNotPerformance() {
+        service.capture(USER, date("2026-08-10"), money("100000"));
+        service.recordStrategyCapitalFlow(
+                USER,
+                date("2026-08-11"),
+                money("-10000"),
+                PortfolioNavService.StrategyCapitalFlowType.STRATEGY_TO_EMERGENCY,
+                "OWNER_ALLOCATION",
+                "transfer-out");
+
+        assertZeroReturn(service.capture(USER, date("2026-08-11"), money("90000")), "90000", "-10000");
+    }
+
+    @Test
+    void deployableWithdrawalChangesUnitsButDoesNotCreatePerformance() {
+        service.capture(USER, date("2026-08-10"), money("100000"));
+        service.recordExternalCashflow(USER, date("2026-08-11"), money("-10000"), "BROKER_WITHDRAWAL", "wd-1");
+        service.recordStrategyCapitalFlow(
+                USER,
+                date("2026-08-11"),
+                money("-10000"),
+                PortfolioNavService.StrategyCapitalFlowType.STRATEGY_TO_EXTERNAL,
+                "BROKER_WITHDRAWAL",
+                "wd-1");
+
+        assertZeroReturn(service.capture(USER, date("2026-08-11"), money("90000")), "90000", "-10000");
+    }
+
+    @Test
+    void marketMovementWithoutStrategyCapitalFlowChangesReturnAndHighWaterMark() {
+        service.capture(USER, date("2026-08-10"), money("100000"));
+
+        var gain = service.capture(USER, date("2026-08-11"), money("110000"));
+
+        assertThat(gain.nav()).isEqualByComparingTo("1.1");
+        assertThat(gain.highWaterNav()).isEqualByComparingTo("1.1");
+        assertThat(gain.strategyCapitalFlow()).isZero();
+        assertThat(gain.drawdownFraction()).isZero();
+    }
+
+    private static void assertZeroReturn(
+            PortfolioNavService.Snapshot snapshot, String expectedUnits, String expectedCapitalFlow) {
+        assertThat(snapshot.nav()).isEqualByComparingTo("1");
+        assertThat(snapshot.units()).isEqualByComparingTo(expectedUnits);
+        assertThat(snapshot.strategyCapitalFlow()).isEqualByComparingTo(expectedCapitalFlow);
+        assertThat(snapshot.drawdownFraction()).isZero();
     }
 
     private static LocalDate date(String value) {

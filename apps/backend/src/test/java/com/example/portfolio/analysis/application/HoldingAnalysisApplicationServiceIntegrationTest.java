@@ -1,6 +1,7 @@
 package com.example.portfolio.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.portfolio.analysis.domain.RecommendationAction;
 import com.example.portfolio.analysis.domain.RecommendationCandidate;
@@ -9,6 +10,26 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class HoldingAnalysisApplicationServiceIntegrationTest extends HoldingAnalysisIntegrationFixture {
+    @Test
+    void replayFailsClosedWhenLegacyRunHasNoPersistedDecisionCutoff() {
+        var runId = java.util.UUID.randomUUID();
+        jdbc.sql(
+                        """
+                        INSERT INTO portfolio_analysis_run
+                          (id,user_id,market_date,strategy_version,status,run_key,created_at,updated_at,version)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),CURRENT_DATE,'3.0.0-draft','SUCCEEDED',
+                          :runKey,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),0)
+                        """)
+                .param("id", runId.toString())
+                .param("userId", USER_ID.toString())
+                .param("runKey", "legacy-no-cutoff:" + runId)
+                .update();
+
+        assertThatThrownBy(() -> analysis.analyzeAll(USER_ID, runId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Analysis run decision cutoff is unavailable");
+    }
+
     @Test
     void representativeHoldingsUseDifferentEvidencePoliciesAndTemplates() {
         var results = analysis.analyzeAll(USER_ID).stream()
@@ -58,7 +79,7 @@ class HoldingAnalysisApplicationServiceIntegrationTest extends HoldingAnalysisIn
                           (id,position_id,strategy_version,event_count,event_risk,next_event_at,action,rule_ids,
                            evidence_checksum,data_as_of,valid_until,created_at)
                         VALUES (UUID_TO_BIN('99600000-0000-0000-0000-000000000001'),
-                          UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),'test',4,'EXTREME',
+                          UUID_TO_BIN('94000000-0000-0000-0000-000000000001'),'3.0.0-draft',4,'EXTREME',
                           DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 2 DAY),'REDUCE_HALF',JSON_ARRAY('EARNINGS.TEST'),
                           SHA2('earnings-risk-separation',256),UTC_TIMESTAMP(6),
                           DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY),UTC_TIMESTAMP(6))

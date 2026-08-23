@@ -107,7 +107,7 @@ public class PositionIntelligenceStore {
                         """
                         SELECT BIN_TO_UUID(j.id) id, j.entry_type, j.tax_status,
                                j.planned_risk_amount, j.planned_r, j.realized_r,
-                               j.mfe_r, j.mae_r, j.exit_reason, j.notes, j.occurred_at
+                               j.mfe_r, j.mae_r, j.exit_reason, j.notes, j.reason_tags, j.occurred_at
                         FROM trade_journal j
                         JOIN app_user u ON u.id = j.user_id
                         WHERE u.email = :email AND j.position_id = UUID_TO_BIN(:positionId)
@@ -300,6 +300,7 @@ public class PositionIntelligenceStore {
             BigDecimal maeR,
             String exitReason,
             String notes,
+            String reasonTags,
             LocalDateTime occurredAt) {}
 
     public record ChartView(

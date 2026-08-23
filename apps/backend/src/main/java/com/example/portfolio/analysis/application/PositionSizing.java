@@ -14,8 +14,10 @@ public final class PositionSizing {
     }
 
     public static Result calculate(Input input, boolean requireHealthyPrice, boolean requireReadyRisk) {
-        if (!eligible(input, requireHealthyPrice, requireReadyRisk)) return unavailable();
-        if (RecommendationSizingService.requiresSellSizing(input.action())) return sell(input);
+        if (RecommendationSizingService.requiresSellSizing(input.action())) {
+            return eligibleReduction(input) ? sell(input) : unavailable();
+        }
+        if (!eligibleNewRisk(input, requireHealthyPrice, requireReadyRisk)) return unavailable();
         if (!RecommendationSizingService.requiresBuySizing(input.action())) return unavailable();
         return buy(input);
     }
@@ -69,29 +71,98 @@ public final class PositionSizing {
                         .divide(input.quotePrice(), 12, RoundingMode.DOWN));
         var minimum = targetMinQuantity.min(maximum);
         if (input.action() == RecommendationAction.STARTER_BUY) {
-            return new Result(
-                    true,
-                    scale(minimum, input.starterFraction()),
-                    scale(maximum, input.starterFraction()),
-                    scale(byRisk, input.starterFraction()),
-                    scale(byWeight, input.starterFraction()),
-                    scale(byCash, input.starterFraction()),
-                    scale(byCluster, input.starterFraction()),
-                    scale(byTotalRisk, input.starterFraction()),
-                    scale(byLiquidity, input.starterFraction()));
+            return explainBuy(
+                    input,
+                    plannedRiskPerShare,
+                    new Result(
+                            true,
+                            scale(minimum, input.starterFraction()),
+                            scale(maximum, input.starterFraction()),
+                            scale(byRisk, input.starterFraction()),
+                            scale(byWeight, input.starterFraction()),
+                            scale(byCash, input.starterFraction()),
+                            scale(byCluster, input.starterFraction()),
+                            scale(byTotalRisk, input.starterFraction()),
+                            scale(byLiquidity, input.starterFraction())));
         }
-        return new Result(true, minimum, maximum, byRisk, byWeight, byCash, byCluster, byTotalRisk, byLiquidity);
+        return explainBuy(
+                input,
+                plannedRiskPerShare,
+                new Result(true, minimum, maximum, byRisk, byWeight, byCash, byCluster, byTotalRisk, byLiquidity));
     }
 
     private static Result sell(Input input) {
         var quantity =
                 switch (input.action()) {
-                    case EXIT -> floor(input.currentQuantity());
-                    case REDUCE_HALF -> floor(input.currentQuantity().multiply(new BigDecimal("0.50")));
+                    case EXIT -> input.currentQuantity();
+                    case REDUCE_HALF -> input.currentQuantity().multiply(new BigDecimal("0.50"));
                     case TRIM -> trimQuantity(input);
                     default -> BigDecimal.ZERO;
                 };
-        return new Result(true, quantity, quantity, null, null, null, null);
+        var riskPerShare = input.stopRequired() && input.entryPrice() != null && input.formalStop() != null
+                ? input.entryPrice().subtract(input.formalStop()).abs()
+                : input.riskProxyPerShare();
+        return explainProjection(
+                input, riskPerShare, new Result(true, quantity, quantity, null, null, null, null), false);
+    }
+
+    private static Result explainBuy(Input input, BigDecimal riskPerShare, Result result) {
+        var maximum = result.quantityMax();
+        var limitingConstraint = constraintFor(maximum, result);
+        return explainProjection(
+                input, riskPerShare, result.withExplanation(limitingConstraint, result.quantityByRisk()), true);
+    }
+
+    private static Result explainProjection(Input input, BigDecimal riskPerShare, Result result, boolean buy) {
+        if (result.quantityMax() == null) return result;
+        if (input.quotePrice() == null
+                || input.quotePrice().signum() <= 0
+                || input.investableAssets() == null
+                || input.investableAssets().signum() <= 0
+                || input.currentMarketValue() == null) {
+            return buy ? result : result.withExplanation("RISK_PROJECTION_UNAVAILABLE", null);
+        }
+        var direction = buy ? BigDecimal.ONE : BigDecimal.ONE.negate();
+        var marketValueDelta = input.quotePrice().multiply(result.quantityMax()).multiply(direction);
+        var projectedWeight = input.currentMarketValue()
+                .add(marketValueDelta)
+                .max(BigDecimal.ZERO)
+                .divide(input.investableAssets(), 10, RoundingMode.HALF_UP);
+        BigDecimal projectedTotalRisk = null;
+        BigDecimal projectedClusterRisk = null;
+        if (riskPerShare != null && input.currentPortfolioOpenRiskAmount() != null) {
+            var riskDelta = riskPerShare.multiply(result.quantityMax()).multiply(direction);
+            projectedTotalRisk = input.currentPortfolioOpenRiskAmount()
+                    .add(riskDelta)
+                    .max(BigDecimal.ZERO)
+                    .divide(input.investableAssets(), 10, RoundingMode.HALF_UP);
+        }
+        if (riskPerShare != null && input.currentClusterOpenRiskAmount() != null) {
+            var riskDelta = riskPerShare.multiply(result.quantityMax()).multiply(direction);
+            projectedClusterRisk = input.currentClusterOpenRiskAmount()
+                    .add(riskDelta)
+                    .max(BigDecimal.ZERO)
+                    .divide(input.investableAssets(), 10, RoundingMode.HALF_UP);
+        }
+        var projected = result.withProjection(projectedWeight, projectedTotalRisk, projectedClusterRisk, riskPerShare);
+        return !buy && (projectedTotalRisk == null || projectedClusterRisk == null)
+                ? projected.withExplanation("RISK_PROJECTION_UNAVAILABLE", null)
+                : projected;
+    }
+
+    private static String constraintFor(BigDecimal maximum, Result result) {
+        if (maximum == null) return null;
+        if (same(maximum, result.quantityByTotalRiskCap())) return "TOTAL_RISK_CAP";
+        if (same(maximum, result.quantityByClusterCap())) return "CLUSTER_RISK_CAP";
+        if (same(maximum, result.quantityByWeightCap())) return "POSITION_WEIGHT_CAP";
+        if (same(maximum, result.quantityByRisk())) return "TRADE_RISK_CAP";
+        if (same(maximum, result.quantityByAvailableCash())) return "AVAILABLE_CASH";
+        if (same(maximum, result.quantityByLiquidity())) return "LIQUIDITY";
+        return null;
+    }
+
+    private static boolean same(BigDecimal left, BigDecimal right) {
+        return right != null && left.compareTo(right) == 0;
     }
 
     private static BigDecimal trimQuantity(Input input) {
@@ -99,10 +170,10 @@ public final class PositionSizing {
         var excess = input.currentMarketValue()
                 .subtract(input.investableAssets().multiply(target))
                 .max(BigDecimal.ZERO);
-        return ceil(excess.divide(input.quotePrice(), 12, RoundingMode.UP)).min(floor(input.currentQuantity()));
+        return excess.divide(input.quotePrice(), 10, RoundingMode.HALF_UP).min(input.currentQuantity());
     }
 
-    private static boolean eligible(Input input, boolean requireHealthyPrice, boolean requireReadyRisk) {
+    private static boolean eligibleNewRisk(Input input, boolean requireHealthyPrice, boolean requireReadyRisk) {
         if (input.investableAssets() == null
                 || input.investableAssets().signum() <= 0
                 || input.quotePrice() == null
@@ -114,11 +185,31 @@ public final class PositionSizing {
         }
         if (requireHealthyPrice && (input.priceQuality() != EvidenceQuality.HEALTHY || !input.priceFresh()))
             return false;
-        if (requireReadyRisk && (input.riskQuality() != EvidenceQuality.HEALTHY || !input.riskFresh())) return false;
+        if (requireReadyRisk
+                && (input.riskQuality() != EvidenceQuality.HEALTHY
+                        || !input.riskFresh()
+                        || input.currentPortfolioOpenRiskAmount() == null
+                        || input.currentClusterOpenRiskAmount() == null)) return false;
         return !input.stopRequired()
                 || (input.formalStop() != null
                         && input.entryPrice() != null
                         && input.entryPrice().signum() > 0);
+    }
+
+    private static boolean eligibleReduction(Input input) {
+        if (input.currentQuantity() == null
+                || input.currentQuantity().signum() <= 0
+                || !input.classificationConfirmed()) {
+            return false;
+        }
+        if (input.action() == RecommendationAction.TRIM) {
+            return input.investableAssets() != null
+                    && input.investableAssets().signum() > 0
+                    && input.quotePrice() != null
+                    && input.quotePrice().signum() > 0
+                    && input.currentMarketValue() != null;
+        }
+        return true;
     }
 
     private static Result unavailable() {
@@ -127,10 +218,6 @@ public final class PositionSizing {
 
     private static BigDecimal floor(BigDecimal value) {
         return value.setScale(0, RoundingMode.FLOOR);
-    }
-
-    private static BigDecimal ceil(BigDecimal value) {
-        return value.setScale(0, RoundingMode.CEILING);
     }
 
     private static BigDecimal scale(BigDecimal value, BigDecimal fraction) {
@@ -235,7 +322,41 @@ public final class PositionSizing {
             BigDecimal quantityByAvailableCash,
             BigDecimal quantityByClusterCap,
             BigDecimal quantityByTotalRiskCap,
-            BigDecimal quantityByLiquidity) {
+            BigDecimal quantityByLiquidity,
+            String limitingConstraint,
+            BigDecimal projectedPositionWeight,
+            BigDecimal projectedTotalRisk,
+            BigDecimal projectedClusterRisk,
+            BigDecimal riskPerShare,
+            BigDecimal quantityBeforeLimitingConstraint) {
+        public Result(
+                boolean exactQuantityAllowed,
+                BigDecimal quantityMin,
+                BigDecimal quantityMax,
+                BigDecimal quantityByRisk,
+                BigDecimal quantityByWeightCap,
+                BigDecimal quantityByAvailableCash,
+                BigDecimal quantityByClusterCap,
+                BigDecimal quantityByTotalRiskCap,
+                BigDecimal quantityByLiquidity) {
+            this(
+                    exactQuantityAllowed,
+                    quantityMin,
+                    quantityMax,
+                    quantityByRisk,
+                    quantityByWeightCap,
+                    quantityByAvailableCash,
+                    quantityByClusterCap,
+                    quantityByTotalRiskCap,
+                    quantityByLiquidity,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+
         public Result(
                 boolean exactQuantityAllowed,
                 BigDecimal quantityMin,
@@ -253,7 +374,51 @@ public final class PositionSizing {
                     quantityByAvailableCash,
                     quantityByClusterCap,
                     null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
                     null);
+        }
+
+        Result withExplanation(String constraint, BigDecimal unconstrainedQuantity) {
+            return new Result(
+                    exactQuantityAllowed,
+                    quantityMin,
+                    quantityMax,
+                    quantityByRisk,
+                    quantityByWeightCap,
+                    quantityByAvailableCash,
+                    quantityByClusterCap,
+                    quantityByTotalRiskCap,
+                    quantityByLiquidity,
+                    constraint,
+                    projectedPositionWeight,
+                    projectedTotalRisk,
+                    projectedClusterRisk,
+                    riskPerShare,
+                    unconstrainedQuantity);
+        }
+
+        Result withProjection(BigDecimal weight, BigDecimal totalRisk, BigDecimal clusterRisk, BigDecimal perShare) {
+            return new Result(
+                    exactQuantityAllowed,
+                    quantityMin,
+                    quantityMax,
+                    quantityByRisk,
+                    quantityByWeightCap,
+                    quantityByAvailableCash,
+                    quantityByClusterCap,
+                    quantityByTotalRiskCap,
+                    quantityByLiquidity,
+                    limitingConstraint,
+                    weight,
+                    totalRisk,
+                    clusterRisk,
+                    perShare,
+                    quantityBeforeLimitingConstraint);
         }
     }
 }

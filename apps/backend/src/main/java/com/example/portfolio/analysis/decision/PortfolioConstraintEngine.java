@@ -15,7 +15,9 @@ public final class PortfolioConstraintEngine {
     public List<RecommendationCandidate> evaluate(DecisionContext context) {
         var evidence = context.evidence();
         var values = new ArrayList<RecommendationCandidate>();
-        if (context.readiness() != AnalysisReadiness.READY && context.readiness() != AnalysisReadiness.PARTIAL) {
+        if (context.readiness() != AnalysisReadiness.READY
+                && context.readiness() != AnalysisReadiness.PARTIAL
+                && context.readiness() != AnalysisReadiness.WAIT_FOR_CATALYST) {
             values.add(of(
                     RecommendationAction.WAIT_FOR_DATA,
                     "DO_NOT",
@@ -61,14 +63,18 @@ public final class PortfolioConstraintEngine {
                     "Position weight exceeds the hard cap.",
                     "Concentration is above the strategy limit."));
         }
-        if (evidence.clusterOpenRisk().compareTo(evidence.strategy().clusterOpenRiskMax()) >= 0
+        if (evidence.clusterOpenRisk() == null
+                || evidence.totalOpenRisk() == null
+                || evidence.clusterOpenRisk().compareTo(evidence.strategy().clusterOpenRiskMax()) >= 0
                 || evidence.totalOpenRisk().compareTo(evidence.strategy().totalOpenRiskMax()) >= 0) {
             values.add(of(
                     RecommendationAction.DO_NOT_ADD,
                     "DO_NOT",
                     7,
                     "PORTFOLIO.OPEN_RISK.CAP",
-                    "Cluster or total open-risk capacity is exhausted.",
+                    evidence.clusterOpenRisk() == null || evidence.totalOpenRisk() == null
+                            ? "Cluster or total open-risk capacity is not available."
+                            : "Cluster or total open-risk capacity is exhausted.",
                     "Correlated holdings can lose together."));
         }
         return List.copyOf(values);

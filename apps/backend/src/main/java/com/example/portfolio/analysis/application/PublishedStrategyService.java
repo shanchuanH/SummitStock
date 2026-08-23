@@ -9,10 +9,12 @@ import org.springframework.stereotype.Service;
 @Service
 public final class PublishedStrategyService {
     private final StrategyDefinition definition;
+    private final StrategyDefinitionLoader loader;
     private final JdbcClient jdbc;
     private final PortfolioProperties properties;
 
     public PublishedStrategyService(StrategyDefinitionLoader loader, PortfolioProperties properties, JdbcClient jdbc) {
+        this.loader = loader;
         definition = loader.load(properties.strategyConfigPath());
         this.properties = properties;
         this.jdbc = jdbc;
@@ -23,6 +25,27 @@ public final class PublishedStrategyService {
 
     public StrategyDefinition current() {
         return definition;
+    }
+
+    public StrategyDefinition requireVersion(String version) {
+        if (definition.version().equals(version)) {
+            var registeredHash = jdbc.sql("SELECT config_hash FROM strategy_version WHERE version_code=:version")
+                    .param("version", version)
+                    .query(String.class)
+                    .optional();
+            if (registeredHash.isPresent() && !definition.configHash().equals(registeredHash.orElseThrow())) {
+                throw new IllegalStateException("Run-bound strategy config hash does not match runtime definition");
+            }
+            return definition;
+        }
+        var persisted = jdbc.sql(
+                        "SELECT CAST(config_json AS CHAR) configJson,config_hash configHash FROM strategy_version WHERE version_code=:version")
+                .param("version", version)
+                .query(PersistedDefinition.class)
+                .optional()
+                .orElseThrow(
+                        () -> new IllegalStateException("Run-bound strategy definition is unavailable: " + version));
+        return loader.loadPersistedJson(persisted.configJson(), persisted.configHash(), version);
     }
 
     public RuntimeStrategyStatus status() {
@@ -69,6 +92,8 @@ public final class PublishedStrategyService {
     }
 
     private record DatabaseRelease(String status, String configHash) {}
+
+    private record PersistedDefinition(String configJson, String configHash) {}
 
     public record RuntimeStrategyStatus(
             String version,

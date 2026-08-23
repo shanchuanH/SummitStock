@@ -119,6 +119,7 @@ public class PortfolioReconciliationService {
                     throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Unsupported import row type");
             }
         }
+        cashByAccount.forEach((accountId, amount) -> persistRawBrokerCash(userId, accountId, batchId, amount));
         cashByAccount.forEach((accountId, amount) -> upsertCash(userId, accountId, amount));
         applyCashSetup(userId, batchId, cashByAccount, command.cashSetup());
         return new ReconciliationResult(positionIds.size(), closed, cashByAccount.size(), compensationKeys.size());
@@ -338,6 +339,21 @@ public class PortfolioReconciliationService {
                 .param("checksum", evidence)
                 .param("now", clock.instant())
                 .update();
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO position_classification_snapshot (
+                          id,position_id,classification,classification_confirmed,classification_source,
+                          evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:positionId),:classification,TRUE,'IMPORTED_MAPPING',
+                          SHA2(CONCAT(:positionId,':',:classification,':',:batchId),256),:dataAsOf,:now)
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("positionId", positionId.toString())
+                .param("classification", classification.name())
+                .param("batchId", batchId.toString())
+                .param("dataAsOf", clock.instant())
+                .param("now", clock.instant())
+                .update();
         return positionId;
     }
 
@@ -348,31 +364,15 @@ public class PortfolioReconciliationService {
             PortfolioImportConfirmationService.CashSetup setup) {
         var target = strategies.current().emergencyCashFloor();
         var fidelityAvailable = importedCash.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        var requestedExternal = setup.externalEmergencyAmount().min(target);
-        BigDecimal fidelityEmergency;
-        BigDecimal externalEmergency;
-        switch (setup.location()) {
-            case IN_FIDELITY -> {
-                fidelityEmergency = target.min(fidelityAvailable);
-                externalEmergency = BigDecimal.ZERO;
-            }
-            case EXTERNAL_BANK -> {
-                fidelityEmergency = BigDecimal.ZERO;
-                externalEmergency = target;
-            }
-            case SPLIT -> {
-                externalEmergency = requestedExternal;
-                fidelityEmergency =
-                        target.subtract(externalEmergency).max(BigDecimal.ZERO).min(fidelityAvailable);
-            }
-            case BELOW_TARGET -> {
-                fidelityEmergency = BigDecimal.ZERO;
-                externalEmergency = requestedExternal;
-            }
-            default -> throw new IllegalStateException("Unsupported safety-cash location");
+        var fidelityEmergency = setup.fidelityAmount();
+        var externalEmergency = setup.externalAmount();
+        try {
+            setup.validateAgainst(fidelityAvailable, target);
+        } catch (IllegalArgumentException exception) {
+            throw invalidCashSetup(exception.getMessage());
         }
+        var confirmed = setup.totalAmount();
         protectFidelityCash(userId, fidelityEmergency);
-        var confirmed = fidelityEmergency.add(externalEmergency);
         jdbc.sql("DELETE FROM cash_bucket WHERE user_id=UUID_TO_BIN(:userId) AND bucket_type='EMERGENCY'")
                 .param("userId", userId.toString())
                 .update();
@@ -392,9 +392,9 @@ public class PortfolioReconciliationService {
                         """
                         INSERT INTO portfolio_cash_setup (
                           id,user_id,import_batch_id,location_code,emergency_target,fidelity_emergency_amount,
-                          external_emergency_amount,confirmed_total,created_at)
+                          external_emergency_amount,external_amount_source,confirmed_total,created_at)
                         VALUES (UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:batchId),:location,:target,
-                                :fidelity,:external,:confirmed,:now)
+                                :fidelity,:external,:externalSource,:confirmed,:now)
                         """)
                 .param("id", UUID.randomUUID().toString())
                 .param("userId", userId.toString())
@@ -403,9 +403,17 @@ public class PortfolioReconciliationService {
                 .param("target", target)
                 .param("fidelity", fidelityEmergency)
                 .param("external", externalEmergency)
+                .param(
+                        "externalSource",
+                        externalEmergency.signum() > 0 ? "USER_CONFIRMED_EXTERNAL" : null,
+                        java.sql.Types.VARCHAR)
                 .param("confirmed", confirmed)
                 .param("now", clock.instant())
                 .update();
+    }
+
+    private static ResponseStatusException invalidCashSetup(String reason) {
+        return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, reason);
     }
 
     private void protectFidelityCash(UUID userId, BigDecimal amount) {
@@ -455,6 +463,33 @@ public class PortfolioReconciliationService {
                 .param("accountId", accountId.toString())
                 .param("amount", amount)
                 .param("now", clock.instant())
+                .update();
+    }
+
+    private void persistRawBrokerCash(UUID userId, UUID accountId, UUID batchId, BigDecimal amount) {
+        var now = clock.instant();
+        var checksum = sha256(batchId + "|" + accountId + "|USD|"
+                + amount.stripTrailingZeros().toPlainString());
+        jdbc.sql(
+                        """
+                        INSERT INTO broker_cash_snapshot (
+                          id,user_id,account_id,import_batch_id,source,cash_amount,currency,
+                          statement_as_of,data_as_of,evidence_checksum,created_at)
+                        SELECT UUID_TO_BIN(:id),UUID_TO_BIN(:userId),UUID_TO_BIN(:accountId),b.id,
+                               'FIDELITY_CSV',:amount,'USD',b.data_as_of,:dataAsOf,:checksum,:createdAt
+                        FROM portfolio_import_batch b WHERE b.id=UUID_TO_BIN(:batchId)
+                        ON DUPLICATE KEY UPDATE cash_amount=VALUES(cash_amount),
+                          statement_as_of=VALUES(statement_as_of),data_as_of=VALUES(data_as_of),
+                          evidence_checksum=VALUES(evidence_checksum)
+                        """)
+                .param("id", UUID.randomUUID().toString())
+                .param("userId", userId.toString())
+                .param("accountId", accountId.toString())
+                .param("batchId", batchId.toString())
+                .param("amount", amount)
+                .param("dataAsOf", now)
+                .param("checksum", checksum)
+                .param("createdAt", now)
                 .update();
     }
 

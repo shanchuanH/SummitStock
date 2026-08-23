@@ -2,6 +2,7 @@ package com.example.portfolio.analysis.allocation;
 
 import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -81,6 +82,37 @@ public class PortfolioAllocationService {
                 value.primaryInstrument(),
                 symbol.equalsIgnoreCase(value.primaryInstrument()),
                 value.quality());
+    }
+
+    public SleeveAllocation forPosition(
+            UUID userId, HoldingClassification classification, String symbol, DecisionAsOfContext context) {
+        var positionSleeve = sleeve(classification);
+        if (positionSleeve == null) return null;
+        return jdbc.sql(
+                        """
+                        SELECT sleeve_code sleeve,marked_market_value,current_weight,target_weight,gap_weight,
+                               primary_instrument primaryInstrument,quality_status quality
+                        FROM portfolio_allocation_snapshot
+                        WHERE user_id=UUID_TO_BIN(:userId) AND sleeve_code=:sleeve
+                          AND strategy_version=:strategyVersion AND data_as_of<=:cutoff
+                        ORDER BY data_as_of DESC,created_at DESC,id DESC LIMIT 1
+                        """)
+                .param("userId", userId.toString())
+                .param("sleeve", positionSleeve.name())
+                .param("strategyVersion", context.strategyVersion())
+                .param("cutoff", context.dataCutoff())
+                .query(SnapshotRow.class)
+                .optional()
+                .map(value -> new SleeveAllocation(
+                        PortfolioSleeve.valueOf(value.sleeve()),
+                        value.markedMarketValue(),
+                        value.currentWeight(),
+                        value.targetWeight(),
+                        value.gapWeight(),
+                        value.primaryInstrument(),
+                        symbol.equalsIgnoreCase(value.primaryInstrument()),
+                        com.example.portfolio.strategy.market.EvidenceQuality.valueOf(value.quality())))
+                .orElseThrow(() -> new IllegalStateException("Run-bound portfolio allocation is unavailable"));
     }
 
     @Transactional
@@ -163,4 +195,13 @@ public class PortfolioAllocationService {
     }
 
     record PositionValue(String classification, BigDecimal marketValue) {}
+
+    record SnapshotRow(
+            String sleeve,
+            BigDecimal markedMarketValue,
+            BigDecimal currentWeight,
+            BigDecimal targetWeight,
+            BigDecimal gapWeight,
+            String primaryInstrument,
+            String quality) {}
 }

@@ -29,5 +29,8 @@ CURRENT_LIABILITIES:
   - LiabilitiesCurrent
 SHAREHOLDERS_EQUITY:
   - StockholdersEquity
-DILUTED_SHARES:
+DILUTED_WEIGHTED_AVG_SHARES:
   - WeightedAverageNumberOfDilutedSharesOutstanding
+COMMON_SHARES_OUTSTANDING:
+  - EntityCommonStockSharesOutstanding
+  - CommonStockSharesOutstanding

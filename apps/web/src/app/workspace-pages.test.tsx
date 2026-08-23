@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DashboardPage, SettingsPage } from "./workspace-pages";
+import { DashboardPage, ReviewPage, SettingsPage } from "./workspace-pages";
 
 const { get } = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@portfolio/api-client", () => ({ api: { GET: get } }));
@@ -59,9 +59,29 @@ describe("Packet 07 workspace", () => {
         })),
         topRisks: [],
         allHoldings: [],
-        market: { regime: "YELLOW", score: 52, confidence: "MEDIUM", qualityStatus: "HEALTHY", summary: "Balanced", dataAsOf: "2026-08-05T20:00:00Z" },
-        capital: { totalLiquidAssets: "12000", emergencyReserve: "1000", deployableCash: "1000", investableAssets: "11000", tacticalReserve: "1000" },
-        portfolio: { drawdown: "0.02", drawdownSource: "MARKET_DRIVEN", technologyExposure: "0.4", openRisk: "0.01", clusterRisk: "0.02" },
+        market: {
+          regime: "YELLOW",
+          score: 52,
+          confidence: "MEDIUM",
+          qualityStatus: "HEALTHY",
+          summary: "Balanced",
+          dataAsOf: "2026-08-05T20:00:00Z",
+        },
+        capital: {
+          totalLiquidAssets: "12000",
+          requiredEmergencyFloor: "1000",
+          emergencyReserve: "1000",
+          deployableCash: "1000",
+          investableAssets: "11000",
+          tacticalReserve: "1000",
+        },
+        portfolio: {
+          drawdown: "0.02",
+          drawdownSource: "MARKET_DRIVEN",
+          technologyExposure: "0.4",
+          openRisk: "0.01",
+          clusterRisk: "0.02",
+        },
         portfolioHealth: { status: "WARNING", reasons: [] },
         dataReadiness: {
           status: "HEALTHY",
@@ -77,8 +97,8 @@ describe("Packet 07 workspace", () => {
       }),
     );
     renderPage(<DashboardPage />);
-    expect(await screen.findByText("S1")).toBeInTheDocument();
-    expect(screen.getAllByText("REVIEW")).toHaveLength(3);
+    expect(await screen.findAllByText("S1")).toHaveLength(2);
+    expect(screen.getAllByText("需要复核后再决定")).toHaveLength(3);
     expect(screen.queryByText("S4")).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(1);
     expect(get).toHaveBeenCalledWith("/api/v1/brief/today");
@@ -146,5 +166,62 @@ describe("Packet 07 workspace", () => {
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/v1/auth/login");
+  });
+
+  it("renders cashflow-adjusted performance and rule-objective outcomes", async () => {
+    get.mockResolvedValueOnce(await ok([]));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            quality: "HEALTHY",
+            periods: [
+              {
+                period: "1Y",
+                portfolioTwr: "0.12",
+                spyReturn: "0.09",
+                qqqReturn: "0.1",
+                activeReturn: "0.06",
+              },
+            ],
+            contributions: [{ symbol: "GOOGL", contribution: "0.032" }],
+            decisionOutcomes: [
+              {
+                recommendationId: "r1",
+                symbol: "GOOGL",
+                action: "HOLD_DO_NOT_ADD",
+                ruleObjective: "CONTROL_CONCENTRATION",
+                evaluation: "OBJECTIVE_MAINTAINED",
+                interpretation: "rule objective",
+              },
+            ],
+            activeSleeve: {
+              reviewMonths: 12,
+              activeReturn: "0.06",
+              benchmarkReturn: "0.1",
+              relativeReturn: "-0.04",
+              contribution: "0.012",
+              activeMaxDrawdown: "0.12",
+              coreMaxDrawdown: "0.1",
+              turnover: "0.25",
+              budgetMultiplier: "1",
+              performanceQuality: "APPROXIMATE",
+              ruleIds: [
+                "ACTIVE_12M",
+                "ACTIVE_SLEEVE_APPROXIMATION_NO_AUTO_MULTIPLIER",
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    renderPage(<ReviewPage />);
+    expect(await screen.findAllByText("12.0%")).toHaveLength(2);
+    expect(screen.getByText(/GOOGL · 3.20%pp/)).toBeInTheDocument();
+    expect(screen.getByText(/CONTROL_CONCENTRATION/)).toBeInTheDocument();
+    expect(screen.getByText("APPROXIMATE")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
   });
 });

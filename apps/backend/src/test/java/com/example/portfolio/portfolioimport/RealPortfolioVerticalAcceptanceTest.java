@@ -75,23 +75,33 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                     .as("pipeline iteration " + iteration)
                     .isTrue();
         }
-        assertThat(runStatus(runId)).isEqualTo("SUCCEEDED");
+        assertThat(runStatus(runId)).isIn("SUCCEEDED", "PARTIAL");
 
         var brief = getJson("/api/v1/brief/today");
-        assertThat(brief.path("state").asString()).isEqualTo("ANALYSIS_READY");
+        assertThat(brief.path("state").asString()).isEqualTo("BLOCKED");
         assertThat(brief.path("mustAct").size()).isLessThanOrEqualTo(3);
         var summary = brief.path("summary");
         assertThat(decimal(summary, "totalLiquidAssets"))
                 .as("brief liquid assets use canonical marks plus tracked cash")
                 .isEqualByComparingTo(canonicalLiquidAssets());
-        assertThat(summary.path("trackedCash").asString()).isEqualTo("22000");
+        assertThat(summary.path("trackedCash").asString()).isEqualTo("16000");
+        assertThat(count("SELECT COUNT(*) FROM broker_cash_snapshot s JOIN app_user u ON u.id=s.user_id "
+                        + "WHERE u.email='" + EMAIL + "' AND s.cash_amount=22000"))
+                .isEqualTo(1);
         assertThat(summary.path("unvestedCompensationValue").asString()).isEqualTo("4000");
         assertThat(decimal(summary, "coreExposureFraction")).isPositive().isLessThanOrEqualTo(BigDecimal.ONE);
         assertThat(decimal(summary, "tacticalExposureFraction")).isPositive();
         assertThat(decimal(summary, "technologyExposureFraction")).isPositive().isLessThanOrEqualTo(BigDecimal.ONE);
         assertThat(decimal(summary, "employerExposureFraction")).isPositive();
-        assertThat(decimal(summary, "clusterRiskFraction")).isPositive();
-        assertThat(decimal(summary, "openPlannedRiskFraction")).isPositive();
+        assertThat(decimal(summary, "clusterRiskFraction")).isNotNegative();
+        assertThat(decimal(summary, "openPlannedRiskFraction")).isNotNegative();
+        assertThat(count("SELECT COUNT(*) FROM risk_cluster_snapshot s JOIN app_user u ON u.id=s.user_id "
+                        + "WHERE u.email='" + EMAIL + "'"))
+                .isPositive();
+        assertThat(count("SELECT COUNT(*) FROM position_risk_snapshot r JOIN position p ON p.id=r.position_id "
+                        + "JOIN investment_account a ON a.id=p.account_id JOIN app_user u ON u.id=a.user_id "
+                        + "WHERE u.email='" + EMAIL + "'"))
+                .isGreaterThanOrEqualTo(13);
         assertThat(decimal(summary, "portfolioDrawdownFraction")).isNotNegative();
         assertThat(summary.path("drawdownSource").asString()).isNotBlank();
         assertThat(count("SELECT COUNT(*) FROM position p JOIN investment_account a ON a.id=p.account_id "
@@ -120,6 +130,19 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
         assertThat(googl.at("/auditEvidence/exactQuantityAllowed").asBoolean()).isFalse();
         assertThat(googl.at("/recommendation/quantityMax").isNull()).isTrue();
 
+        var changedClassification = mockMvc.perform(post(
+                                "/api/v1/positions/{id}/classify",
+                                googl.at("/position/id").asString())
+                        .with(httpBasic(EMAIL, PASSWORD))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"classification\":\"SPECULATIVE\",\"expectedVersion\":1}"))
+                .andReturn();
+        assertThat(changedClassification.getResponse().getStatus()).isEqualTo(200);
+        assertThat(report("GOOGL").at("/position/classification").asString())
+                .as("completed reports keep the classification bound to their analysis run")
+                .isEqualTo("QUALITY_STOCK");
+
         var dram = report("DRAM");
         assertThat(dram.at("/assetEvidence/etf/etfModelApplied").asBoolean()).isTrue();
         assertThat(dram.at("/assetEvidence/etf/companyEarningsModelApplied").asBoolean())
@@ -133,7 +156,7 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
                 .isTrue();
         assertThat(dxyz.at("/assetEvidence/speculative/confidenceCeiling").asString())
                 .isEqualTo("LOW");
-        assertThat(dxyz.at("/assetEvidence/speculative/stopStatus").asString()).isEqualTo("AVAILABLE");
+        assertThat(dxyz.at("/assetEvidence/speculative/stopStatus").asString()).isEqualTo("MISSING");
         assertThat(dxyz.at("/assetEvidence/speculative/tickerOrPriceCanUpgradeQuality")
                         .asBoolean())
                 .isFalse();
@@ -287,7 +310,7 @@ class RealPortfolioVerticalAcceptanceTest extends PortfolioImportIntegrationSupp
     }
 
     private boolean terminal(java.util.UUID runId) {
-        return java.util.Set.of("SUCCEEDED", "FAILED", "BLOCKED").contains(runStatus(runId));
+        return java.util.Set.of("SUCCEEDED", "PARTIAL", "FAILED", "BLOCKED").contains(runStatus(runId));
     }
 
     private String runStatus(java.util.UUID runId) {

@@ -20,6 +20,13 @@ drawdown:
   marketDrivenEtfDeploymentAt: "0.15"
   painLineAt: "0.20"
 
+market:
+  volatility:
+    # Empirical research parameters; these are not claimed as financial laws.
+    vixTermFlatLower: "0.95"
+    vixTermBackwardation: "1.00"
+    techPremiumElevatedRatio: "1.25"
+
 decision:
   maxDailyMustAct: 3
   exactQuantityRequiresHealthyPrice: true

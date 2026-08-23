@@ -1,6 +1,8 @@
 package com.example.portfolio.portfolioimport.web;
 
+import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.portfolioimport.application.ImportClassificationSuggester;
+import com.example.portfolio.portfolioimport.application.PortfolioCashflowReconciliationService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportConfirmationService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportPreviewService;
 import com.example.portfolio.portfolioimport.application.PortfolioImportQueryService;
@@ -33,16 +35,22 @@ public class PortfolioImportController {
     private final PortfolioImportQueryService queries;
     private final PortfolioImportConfirmationService confirmations;
     private final ImportClassificationSuggester classifications;
+    private final PublishedStrategyService strategies;
+    private final PortfolioCashflowReconciliationService cashflows;
 
     public PortfolioImportController(
             PortfolioImportPreviewService previews,
             PortfolioImportQueryService queries,
             PortfolioImportConfirmationService confirmations,
-            ImportClassificationSuggester classifications) {
+            ImportClassificationSuggester classifications,
+            PublishedStrategyService strategies,
+            PortfolioCashflowReconciliationService cashflows) {
         this.previews = previews;
         this.queries = queries;
         this.confirmations = confirmations;
         this.classifications = classifications;
+        this.strategies = strategies;
+        this.cashflows = cashflows;
     }
 
     @PostMapping(value = "/fidelity/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -50,7 +58,8 @@ public class PortfolioImportController {
         try {
             return PreviewResponse.from(
                     previews.previewFidelity(principal.getName(), file.getBytes(), file.getOriginalFilename()),
-                    classifications);
+                    classifications,
+                    strategies.current().emergencyCashFloor());
         } catch (IOException | IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
         }
@@ -60,7 +69,9 @@ public class PortfolioImportController {
     PreviewResponse previewPasted(@Valid @RequestBody PastedTableRequest request, Principal principal) {
         try {
             return PreviewResponse.from(
-                    previews.previewPastedTable(principal.getName(), request.table()), classifications);
+                    previews.previewPastedTable(principal.getName(), request.table()),
+                    classifications,
+                    strategies.current().emergencyCashFloor());
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
         }
@@ -70,7 +81,9 @@ public class PortfolioImportController {
     PreviewResponse previewManual(@Valid @RequestBody ManualHoldingRequest request, Principal principal) {
         try {
             return PreviewResponse.from(
-                    previews.previewManual(principal.getName(), request.toHolding()), classifications);
+                    previews.previewManual(principal.getName(), request.toHolding()),
+                    classifications,
+                    strategies.current().emergencyCashFloor());
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
         }
@@ -78,7 +91,10 @@ public class PortfolioImportController {
 
     @GetMapping("/{batchId}")
     PreviewResponse find(@PathVariable UUID batchId, Principal principal) {
-        return PreviewResponse.from(queries.find(principal.getName(), batchId), classifications);
+        return PreviewResponse.from(
+                queries.find(principal.getName(), batchId),
+                classifications,
+                strategies.current().emergencyCashFloor());
     }
 
     @PostMapping("/{batchId}/confirm")
@@ -86,6 +102,21 @@ public class PortfolioImportController {
             @PathVariable UUID batchId, @Valid @RequestBody ConfirmationRequest request, Principal principal) {
         return ConfirmationResponse.from(confirmations.confirm(principal.getName(), batchId, request.toCommand()));
     }
+
+    @PostMapping("/{batchId}/cashflow-confirmation")
+    CashflowReconciliationResponse confirmCashflow(
+            @PathVariable UUID batchId, @Valid @RequestBody CashflowConfirmationRequest request, Principal principal) {
+        try {
+            return CashflowReconciliationResponse.from(cashflows.confirm(
+                    principal.getName(),
+                    batchId,
+                    PortfolioCashflowReconciliationService.ConfirmationType.valueOf(request.type())));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported cashflow confirmation", exception);
+        }
+    }
+
+    public record CashflowConfirmationRequest(@NotNull String type) {}
 
     public record ConfirmationRequest(
             long expectedVersion,
@@ -152,14 +183,14 @@ public class PortfolioImportController {
         }
     }
 
-    public record CashSetupRequest(@NotNull String location, String externalEmergencyAmount) {
+    public record CashSetupRequest(
+            @NotNull String location, @NotNull String fidelityAmount, @NotNull String externalAmount) {
         PortfolioImportConfirmationService.CashSetup toCommand() {
             try {
                 return new PortfolioImportConfirmationService.CashSetup(
                         PortfolioImportConfirmationService.CashLocation.valueOf(location),
-                        externalEmergencyAmount == null || externalEmergencyAmount.isBlank()
-                                ? BigDecimal.ZERO
-                                : new BigDecimal(externalEmergencyAmount));
+                        fidelityAmount.isBlank() ? null : new BigDecimal(fidelityAmount),
+                        externalAmount.isBlank() ? null : new BigDecimal(externalAmount));
             } catch (IllegalArgumentException exception) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid safety-cash setup", exception);
             }
@@ -177,7 +208,10 @@ public class PortfolioImportController {
             List<String> errors,
             SummaryResponse summary,
             java.time.Instant dataAsOf) {
-        static PreviewResponse from(PortfolioImportPreview value, ImportClassificationSuggester classifications) {
+        static PreviewResponse from(
+                PortfolioImportPreview value,
+                ImportClassificationSuggester classifications,
+                BigDecimal emergencyCashTarget) {
             return new PreviewResponse(
                     value.batchId(),
                     value.status().name(),
@@ -189,7 +223,7 @@ public class PortfolioImportController {
                     value.cash().stream().map(CashResponse::from).toList(),
                     value.warnings(),
                     value.errors(),
-                    SummaryResponse.from(value.summary()),
+                    SummaryResponse.from(value.summary(), emergencyCashTarget),
                     value.dataAsOf());
         }
     }
@@ -261,14 +295,16 @@ public class PortfolioImportController {
             int validRowCount,
             int errorRowCount,
             @NotNull String estimatedInvestedValue,
-            @NotNull String estimatedCashValue) {
-        static SummaryResponse from(PortfolioImportPreview.Summary value) {
+            @NotNull String estimatedCashValue,
+            @NotNull String emergencyCashTarget) {
+        static SummaryResponse from(PortfolioImportPreview.Summary value, BigDecimal emergencyCashTarget) {
             return new SummaryResponse(
                     value.rowCount(),
                     value.validRowCount(),
                     value.errorRowCount(),
                     decimal(value.estimatedInvestedValue()),
-                    decimal(value.estimatedCashValue()));
+                    decimal(value.estimatedCashValue()),
+                    decimal(emergencyCashTarget));
         }
     }
 
@@ -282,7 +318,8 @@ public class PortfolioImportController {
             int closedPositionCount,
             int cashRowCount,
             int compensationRowCount,
-            boolean idempotentReplay) {
+            boolean idempotentReplay,
+            CashflowReconciliationResponse cashflowReconciliation) {
         static ConfirmationResponse from(PortfolioImportConfirmationService.ConfirmationResult value) {
             return new ConfirmationResponse(
                     value.batchId(),
@@ -294,7 +331,20 @@ public class PortfolioImportController {
                     value.closedPositionCount(),
                     value.cashRowCount(),
                     value.compensationRowCount(),
-                    value.idempotentReplay());
+                    value.idempotentReplay(),
+                    CashflowReconciliationResponse.from(value.cashflowReconciliation()));
+        }
+    }
+
+    public record CashflowReconciliationResponse(
+            UUID reconciliationId, String status, String cashChange, UUID analysisRunId, String analysisState) {
+        static CashflowReconciliationResponse from(PortfolioCashflowReconciliationService.Result value) {
+            return new CashflowReconciliationResponse(
+                    value.reconciliationId(),
+                    value.status(),
+                    decimal(value.cashChange()),
+                    value.analysisRunId(),
+                    value.analysisState());
         }
     }
 

@@ -126,6 +126,8 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
         update("DELETE FROM audit_log WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER + "'))");
         update("DELETE FROM recommendation WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('" + OTHER
                 + "'))");
+        update("DELETE FROM portfolio_capital_snapshot WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('"
+                + OTHER + "'))");
         update("DELETE FROM portfolio_drawdown_snapshot WHERE user_id IN (UUID_TO_BIN('" + OWNER + "'), UUID_TO_BIN('"
                 + OTHER + "'))");
         update("DELETE FROM position_mark_snapshot WHERE position_id IN (UUID_TO_BIN('" + OWNER_POSITION
@@ -381,6 +383,7 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(jsonPath("$[0].version").value(0))
                 .andExpect(jsonPath("$[0].symbol").value("SPY"))
                 .andExpect(jsonPath("$[0].marketValue").value("5000.125"))
+                .andExpect(jsonPath("$[0].keyReason").value("reason"))
                 .andExpect(jsonPath("$[0].classificationConfirmed").value(false));
         mockMvc.perform(get("/api/v1/positions/{id}/chart", OWNER_POSITION)
                         .param("range", "1Y")

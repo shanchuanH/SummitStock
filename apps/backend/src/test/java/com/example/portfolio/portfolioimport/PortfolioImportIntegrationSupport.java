@@ -96,7 +96,16 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         update("DELETE c FROM cash_bucket c JOIN app_user u ON u.id=c.user_id WHERE u.email='" + EMAIL
                 + "' AND c.bucket_type='EMERGENCY'");
         update("DELETE a FROM audit_log a JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
-                + "' AND a.event_type='PORTFOLIO_IMPORT_CONFIRMED'");
+                + "' AND a.event_type IN ('PORTFOLIO_IMPORT_CONFIRMED','NAV_RECONCILIATION_REQUIRED')");
+        update("DELETE e FROM portfolio_external_cashflow_event e JOIN app_user u ON u.id=e.user_id WHERE u.email='"
+                + EMAIL + "'");
+        update("DELETE e FROM portfolio_strategy_capital_flow_event e JOIN app_user u ON u.id=e.user_id WHERE u.email='"
+                + EMAIL + "'");
+        update("DELETE c FROM portfolio_cashflow_reconciliation c JOIN app_user u ON u.id=c.user_id WHERE u.email='"
+                + EMAIL + "'");
+        update("DELETE s FROM broker_cash_snapshot s JOIN investment_account a ON a.id=s.account_id "
+                + "JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
+                + "' AND a.import_source='FIDELITY_CSV'");
         update("DELETE a FROM investment_account a JOIN app_user u ON u.id=a.user_id WHERE u.email='" + EMAIL
                 + "' AND a.import_source='FIDELITY_CSV'");
         update("DELETE b FROM portfolio_import_batch b JOIN app_user u ON u.id=b.user_id WHERE u.email='" + EMAIL
@@ -117,6 +126,12 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
     }
 
     protected JsonNode confirm(UUID batchId, long version, String rowOverrides) throws Exception {
+        return confirm(batchId, version, rowOverrides, "IN_FIDELITY", "14000");
+    }
+
+    protected JsonNode confirm(
+            UUID batchId, long version, String rowOverrides, String cashLocation, String confirmedAmount)
+            throws Exception {
         var current = mockMvc.perform(
                         get("/api/v1/portfolio-imports/{batchId}", batchId).with(httpBasic(EMAIL, PASSWORD)))
                 .andReturn();
@@ -136,9 +151,12 @@ abstract class PortfolioImportIntegrationSupport extends MySqlIntegrationTest {
         var merged = new java.util.ArrayList<String>();
         if (!supplied.isBlank()) merged.add(supplied);
         merged.addAll(additions);
+        var fidelityAmount = "EXTERNAL_BANK".equals(cashLocation) ? "0" : confirmedAmount;
+        var externalAmount = "EXTERNAL_BANK".equals(cashLocation) ? confirmedAmount : "0";
         var body = "{\"expectedVersion\":" + version + ",\"accountMappings\":[],\"rowOverrides\":["
                 + String.join(",", merged)
-                + "],\"cashSetup\":{\"location\":\"IN_FIDELITY\",\"externalEmergencyAmount\":\"0\"}}";
+                + "],\"cashSetup\":{\"location\":\"" + cashLocation + "\",\"fidelityAmount\":\""
+                + fidelityAmount + "\",\"externalAmount\":\"" + externalAmount + "\"}}";
         var result = mockMvc.perform(post("/api/v1/portfolio-imports/{batchId}/confirm", batchId)
                         .with(httpBasic(EMAIL, PASSWORD))
                         .with(csrf())

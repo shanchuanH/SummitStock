@@ -12,7 +12,7 @@
     "typecheck": "pnpm --filter @portfolio/web typecheck && pnpm --filter @portfolio/api-client typecheck",
     "test": "pnpm --filter @portfolio/web test",
     "build": "pnpm --filter @portfolio/api-client build && pnpm --filter @portfolio/web build",
-    "api:export": "node scripts/export-openapi.mjs",
+    "api:export": "node scripts/export-openapi.mjs && node scripts/canonicalize-openapi.mjs",
     "api:generate": "pnpm api:export && pnpm --filter @portfolio/api-client generate",
     "api:check": "pnpm api:generate && git diff --exit-code -- contracts/openapi contracts/generated",
     "format": "prettier --write .",

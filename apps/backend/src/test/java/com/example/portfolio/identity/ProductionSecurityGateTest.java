@@ -3,9 +3,22 @@ package com.example.portfolio.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.io.ClassPathResource;
 
 class ProductionSecurityGateTest {
+    @Test
+    void productionProfileDisablesPublicApiDocumentation() throws Exception {
+        var sources =
+                new YamlPropertySourceLoader().load("production", new ClassPathResource("application-production.yaml"));
+
+        assertThat(sources).anySatisfy(source -> {
+            assertThat(source.getProperty("springdoc.api-docs.enabled")).isEqualTo(false);
+            assertThat(source.getProperty("springdoc.swagger-ui.enabled")).isEqualTo(false);
+        });
+    }
+
     @Test
     void rejectsEveryDocumentedPlaceholderCredential() {
         assertRejected("portfolio.security.dev-password=change-before-use", "portfolio.security.dev-password");
@@ -19,6 +32,7 @@ class ProductionSecurityGateTest {
         assertRejected("server.forward-headers-strategy=none", "PRODUCTION_FORWARDED_HEADERS_REQUIRED");
         assertRejected("portfolio.providers.market.type=fake", "PRODUCTION_FAKE_PROVIDER_FORBIDDEN");
         assertRejected("portfolio.providers.fundamentals.type=fake", "PRODUCTION_FAKE_PROVIDER_FORBIDDEN");
+        assertRejected("springdoc.api-docs.enabled=true", "PRODUCTION_API_DOCS_MUST_BE_DISABLED");
     }
 
     @Test

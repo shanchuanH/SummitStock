@@ -1,19 +1,32 @@
 import type { components } from "@portfolio/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { postJson } from "../http";
+import { presentAction } from "../presentation/action-presentation";
+import { presentClassification } from "../presentation/classification-presentation";
+import { presentConfidence } from "../presentation/confidence-presentation";
+import { formatDateTime } from "../presentation/date-format";
+import {
+  formatMoney,
+  formatPercent,
+  formatQuantity,
+} from "../presentation/number-format";
+import { presentPriority } from "../presentation/priority-presentation";
+import { presentReason } from "../presentation/reason-presentation";
 
 export type DashboardAction = components["schemas"]["BriefAction"];
 
-const actionLabels: Record<string, string> = {
-  BUY: "买入",
-  ADD: "增持",
-  HOLD: "持有",
-  TRIM: "减持",
-  SELL: "卖出",
-  WATCH: "观察",
-  WAIT_FOR_DATA: "等待数据",
-  DO_NOT_CHASE: "不要追高",
-};
+const reasonTagOptions = [
+  ["NEW_FUNDAMENTAL_EVIDENCE", "新的基本面证据"],
+  ["VALUATION", "估值"],
+  ["PRICE_CONFIRMATION", "价格确认"],
+  ["CATALYST", "催化剂"],
+  ["RISK_REDUCTION", "降低风险"],
+  ["COST_BASIS_ANCHOR", "成本价锚定"],
+  ["HISTORICAL_HIGH_ANCHOR", "历史高点锚定"],
+  ["LOSS_AVERSION", "不愿确认亏损"],
+  ["SOCIAL_IDEA", "社交来源想法"],
+] as const;
 
 function list(value?: string | null) {
   if (!value) return [];
@@ -24,34 +37,17 @@ function list(value?: string | null) {
     return [];
   }
 }
-function percent(value?: string | null) {
-  return value == null ? "—" : `${(Number(value) * 100).toFixed(1)}%`;
-}
-function money(value?: string | null) {
-  return value == null
-    ? "—"
-    : new Intl.NumberFormat("zh-CN", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }).format(Number(value));
-}
-function quantity(action: DashboardAction) {
-  if (!action.quantityMin && !action.quantityMax)
-    return "证据不足，暂不提供精确数量";
-  if (action.quantityMin === action.quantityMax)
-    return `${String(action.quantityMin ?? action.quantityMax)} 股`;
-  return `${action.quantityMin ?? "—"}–${action.quantityMax ?? "—"} 股`;
-}
 
 export function ActionCard({ action }: { action: DashboardAction }) {
   const queryClient = useQueryClient();
+  const [reasonTags, setReasonTags] = useState<string[]>([]);
   const acknowledgement = useMutation({
     mutationFn: (decisionType: "HANDLED" | "DEFERRED" | "IGNORED") =>
       postJson(`/api/v1/recommendations/${action.id}/acknowledge`, {
         idempotencyKey: crypto.randomUUID(),
         decisionType,
         rationale: null,
+        reasonTags,
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["executive-brief-today"] }),
@@ -59,79 +55,113 @@ export function ActionCard({ action }: { action: DashboardAction }) {
   const reasons = list(action.reasonsJson);
   const risks = list(action.risksJson);
   const changes = list(action.changeConditionsJson);
+  const actionCopy = presentAction(action.action);
+  const priority = presentPriority(action.priority);
+  const confidence = presentConfidence(action.confidence);
+  const quantity = formatQuantity(action.quantityMin, action.quantityMax);
   return (
-    <li className="action-card" data-priority={action.priority}>
+    <li
+      className="action-card compact-action-card"
+      data-priority={action.priority}
+      data-tone={actionCopy.tone}
+    >
       <header>
         <div>
           <strong>{action.symbol ?? "组合"}</strong>
           <span>
             {action.companyName ?? "公司名称待确认"} ·{" "}
-            {action.classification ?? "分类待确认"}
+            {presentClassification(action.classification)}
           </span>
         </div>
-        <div className="action-verdict">
-          <b>{actionLabels[action.action] ?? action.action}</b>
-          {actionLabels[action.action] ? <small>{action.action}</small> : null}
-        </div>
+        <span className={`priority-pill ${priority.tone}`}>
+          {priority.label}
+        </span>
       </header>
+      <h3>{actionCopy.title}</h3>
+      {quantity ? (
+        <p className="action-quantity">
+          建议：{actionCopy.verb} {quantity}
+          {action.estimatedAmount
+            ? `，约 ${formatMoney(action.estimatedAmount)}`
+            : ""}
+        </p>
+      ) : (
+        <p className="quantity-unavailable">
+          暂不提供精确股数：{presentReason(action.riskCalculationReason)}
+        </p>
+      )}
       <p className="analyst-line">
         {reasons[0] ?? "分析证据尚未形成完整结论。"}
       </p>
-      <dl className="action-metrics">
-        <div>
-          <dt>当前 → 目标</dt>
-          <dd>
-            {percent(action.currentWeight)} → {percent(action.targetWeightMin)}–
-            {percent(action.targetWeightMax)}
-          </dd>
-        </div>
-        <div>
-          <dt>建议数量</dt>
-          <dd>{quantity(action)}</dd>
-        </div>
-        <div>
-          <dt>建议金额</dt>
-          <dd>{money(action.estimatedAmount)}</dd>
-        </div>
-        <div>
-          <dt>优先级 / 置信度</dt>
-          <dd>
-            {action.priority} / {action.confidence}
-          </dd>
-        </div>
-      </dl>
-      <div className="action-evidence">
-        <section>
-          <h3>为什么</h3>
-          <ul>
-            {(reasons.length ? reasons : ["暂无完整原因证据"])
-              .slice(0, 3)
-              .map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-          </ul>
-        </section>
-        <section>
-          <h3>主要风险</h3>
-          <ul>
-            {(risks.length ? risks : ["暂无完整风险证据"])
-              .slice(0, 2)
-              .map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-          </ul>
-        </section>
-      </div>
-      <p>
-        <strong>改变条件：</strong>
-        {changes.length ? changes.join("；") : "暂无明确条件"}
+      <p className="compact-position-line">
+        当前 {formatPercent(action.currentWeight)} → 目标{" "}
+        {formatPercent(action.targetWeightMin)}–
+        {formatPercent(action.targetWeightMax)}
       </p>
-      <p>
-        <strong>数据更新：</strong>
-        {new Date(action.dataAsOf).toLocaleString("zh-CN")}；
-        <strong>有效期：</strong>
-        {new Date(action.validUntil).toLocaleString("zh-CN")}
-      </p>
+      {action.action === "DO_NOT_ADD" || action.action === "HOLD_DO_NOT_ADD" ? (
+        <section className="do-not-add-explanation" aria-label="不加仓说明">
+          <p><strong>为什么不能加：</strong>{reasons[0] ?? "当前证据不足以支持新增风险。"}</p>
+          <p><strong>当前缺口或限制：</strong>{presentReason(action.riskCalculationReason)}</p>
+          <p><strong>重新评估条件：</strong>{changes[0] ?? "等待缺失证据更新后重新分析。"}</p>
+        </section>
+      ) : null}
+      <details className="action-disclosure">
+        <summary>查看原因与风险</summary>
+        <div className="action-evidence">
+          <section>
+            <h4>为什么</h4>
+            <ul>
+              {(reasons.length ? reasons : ["暂无完整原因证据"])
+                .slice(0, 3)
+                .map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+            </ul>
+          </section>
+          <section>
+            <h4>主要风险</h4>
+            <ul>
+              {(risks.length ? risks : ["暂无完整风险证据"])
+                .slice(0, 2)
+                .map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+            </ul>
+          </section>
+        </div>
+        <p>
+          <strong>什么情况下改变结论：</strong>
+          {changes.length ? changes.join("；") : "暂无明确条件"}
+        </p>
+        <p>
+          <strong>置信度：</strong>
+          {confidence.label} — {confidence.detail}
+        </p>
+        <p>
+          <strong>数据更新：</strong>
+          {formatDateTime(action.dataAsOf)}；<strong>有效期：</strong>
+          {formatDateTime(action.validUntil)}
+        </p>
+        <fieldset className="decision-reason-tags">
+          <legend>记录这次决定的依据（可选）</legend>
+          {reasonTagOptions.map(([value, label]) => (
+            <label key={value}>
+              <input
+                type="checkbox"
+                checked={reasonTags.includes(value)}
+                onChange={(event) => {
+                  setReasonTags((current) =>
+                    event.target.checked
+                      ? [...current, value]
+                      : current.filter((tag) => tag !== value),
+                  );
+                }}
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+      </details>
       <div className="action-buttons">
         {action.positionId ? (
           <a className="report-link" href={`/positions/${action.positionId}`}>
@@ -156,7 +186,7 @@ export function ActionCard({ action }: { action: DashboardAction }) {
         </button>
       </div>
       <div className="acknowledgement">
-        <small>记录确认不等于执行交易。</small>
+        <small>这里只记录你的决定，不会执行交易。</small>
         {acknowledgement.isSuccess ? (
           <span role="status">处理决定已记录。</span>
         ) : null}

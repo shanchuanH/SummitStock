@@ -37,14 +37,38 @@ jobs:
         with:
           node-version: "22.22.0"
           cache: pnpm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  openapi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.22.0"
+          cache: pnpm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - run: pnpm install --frozen-lockfile
       - run: pnpm api:check
 
-  e2e:
+  e2e-desktop:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -58,7 +82,23 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @portfolio/web exec playwright install --with-deps chromium
-      - run: pnpm --filter @portfolio/web test:e2e
+      - run: pnpm --filter @portfolio/web exec playwright test --project=desktop-chromium
+
+  e2e-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22.22.0"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @portfolio/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @portfolio/web exec playwright test --project=mobile-chromium
 
   supply-chain:
     runs-on: ubuntu-latest
@@ -78,11 +118,19 @@ jobs:
         if: github.event_name == 'pull_request'
         with:
           fail-on-severity: high
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  container:
+  docker:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -92,19 +140,25 @@ jobs:
 
   required:
     if: always()
-    needs: [backend, frontend, e2e, supply-chain, container]
+    needs: [backend, frontend, openapi, e2e-desktop, e2e-mobile, supply-chain, gitleaks, docker]
     runs-on: ubuntu-latest
     steps:
       - name: Enforce every required CI partition
         env:
           BACKEND: ${{ needs.backend.result }}
           FRONTEND: ${{ needs.frontend.result }}
-          E2E: ${{ needs.e2e.result }}
+          OPENAPI: ${{ needs.openapi.result }}
+          E2E_DESKTOP: ${{ needs.e2e-desktop.result }}
+          E2E_MOBILE: ${{ needs.e2e-mobile.result }}
           SUPPLY_CHAIN: ${{ needs.supply-chain.result }}
-          CONTAINER: ${{ needs.container.result }}
+          GITLEAKS: ${{ needs.gitleaks.result }}
+          DOCKER: ${{ needs.docker.result }}
         run: |
           test "$BACKEND" = success
           test "$FRONTEND" = success
-          test "$E2E" = success
+          test "$OPENAPI" = success
+          test "$E2E_DESKTOP" = success
+          test "$E2E_MOBILE" = success
           test "$SUPPLY_CHAIN" = success
-          test "$CONTAINER" = success
+          test "$GITLEAKS" = success
+          test "$DOCKER" = success

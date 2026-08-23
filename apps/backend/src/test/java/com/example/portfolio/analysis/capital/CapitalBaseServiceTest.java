@@ -7,8 +7,10 @@ import com.example.portfolio.analysis.allocation.PortfolioAllocationService;
 import com.example.portfolio.analysis.allocation.PortfolioSleeve;
 import com.example.portfolio.analysis.application.HoldingEvidenceAssembler;
 import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.market.provider.TradingCalendar;
+import com.example.portfolio.strategy.portfolio.HoldingClassification;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -126,6 +128,7 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
 
         assertThat(capital.investedTradableAssets()).isEqualByComparingTo("80000");
         assertThat(capital.trackedCash()).isEqualByComparingTo("20000");
+        assertThat(capital.requiredEmergencyFloor()).isEqualByComparingTo("20000");
         assertThat(capital.emergencyReserve()).isEqualByComparingTo("20000");
         assertThat(capital.deployableCash()).isEqualByComparingTo("0");
         assertThat(capital.investableAssets()).isEqualByComparingTo("80000");
@@ -142,6 +145,20 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
     }
 
     @Test
+    void ownerProtectedCashAboveRequiredFloorIsFullyExcluded() {
+        update(
+                "UPDATE cash_bucket SET target_amount=35000,current_amount=35000 WHERE user_id=UUID_TO_BIN('a1000000-0000-0000-0000-000000000001')");
+
+        var capital = capitalBases.calculate(USER);
+
+        assertThat(capital.requiredEmergencyFloor()).isEqualByComparingTo("20000");
+        assertThat(capital.protectedEmergencyAmount()).isEqualByComparingTo("35000");
+        assertThat(capital.deployableCash()).isZero();
+        assertThat(capital.strategyNav()).isEqualByComparingTo("80000");
+        assertThat(capital.totalLiquidAssets()).isEqualByComparingTo("115000");
+    }
+
+    @Test
     void positionWeightUsesInvestableAssets() {
         assertThat(evidenceAssembler.assemble(USER, POSITION).currentWeight()).isEqualByComparingTo("0.1");
     }
@@ -155,6 +172,45 @@ class CapitalBaseServiceTest extends MySqlIntegrationTest {
         assertThat(values.get(PortfolioSleeve.TECH_CORE).gapWeight()).isZero();
         assertThat(values.get(PortfolioSleeve.BROAD_CORE).markedMarketValue()).isEqualByComparingTo("60000");
         assertThat(allocations.capture(USER, clock.instant())).isEqualTo(PortfolioSleeve.values().length);
+    }
+
+    @Test
+    void historicalAllocationAndClassificationIgnoreLaterCurrentStateChanges() {
+        var cutoff = clock.instant().plusSeconds(1);
+        jdbc.sql(
+                        """
+                INSERT INTO position_classification_snapshot (
+                  id,position_id,classification,classification_confirmed,classification_source,
+                  evidence_checksum,data_as_of,created_at)
+                VALUES (UUID_TO_BIN(UUID()),UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),
+                  'CORE_TECH_ETF',TRUE,'USER_CONFIRMED',SHA2('capital-t0-classification',256),
+                  DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 1 SECOND),UTC_TIMESTAMP(6))
+                """)
+                .update();
+        capitalBases.capture(USER, cutoff);
+        allocations.capture(USER, cutoff);
+        var context = new DecisionAsOfContext(calendar.latestCompletedSession(cutoff), cutoff, "3.0.0-draft");
+
+        update("UPDATE position SET classification='SPECULATIVE',classification_confirmed=TRUE "
+                + "WHERE id=UUID_TO_BIN('a4000000-0000-0000-0000-000000000001')");
+        jdbc.sql(
+                        """
+                INSERT INTO position_classification_snapshot (
+                  id,position_id,classification,classification_confirmed,classification_source,
+                  evidence_checksum,data_as_of,created_at)
+                VALUES (UUID_TO_BIN(UUID()),UUID_TO_BIN('a4000000-0000-0000-0000-000000000001'),
+                  'SPECULATIVE',TRUE,'USER_OVERRIDE',SHA2('capital-t1-classification',256),
+                  DATE_ADD(:cutoff,INTERVAL 1 SECOND),DATE_ADD(:cutoff,INTERVAL 1 SECOND))
+                """)
+                .param("cutoff", cutoff)
+                .update();
+
+        var sleeve = allocations.forPosition(USER, HoldingClassification.CORE_TECH_ETF, "CAP1", context);
+        var historical = evidenceAssembler.assemble(USER, POSITION, context);
+
+        assertThat(sleeve.markedMarketValue()).isEqualByComparingTo("20000");
+        assertThat(sleeve.currentWeight()).isEqualByComparingTo("0.25");
+        assertThat(historical.position().classification()).isEqualTo(HoldingClassification.CORE_TECH_ETF);
     }
 
     @Test

@@ -59,6 +59,7 @@ const preview = {
     errorRowCount: 1,
     estimatedInvestedValue: "5412.05",
     estimatedCashValue: "14000",
+    emergencyCashTarget: "20000",
   },
 };
 
@@ -73,6 +74,7 @@ const confirmation = {
   cashRowCount: 1,
   compensationRowCount: 0,
   idempotentReplay: false,
+  cashflowReconciliation: { status: "NONE", cashChange: "0" },
 };
 
 function json(value: unknown) {
@@ -103,10 +105,14 @@ describe("PortfolioImportPageTest", () => {
       if (path.includes("/analysis/status/"))
         return json({
           runId: confirmation.analysisRunId,
-          state: "ANALYSIS_RUNNING",
-          completedStages: 1,
-          totalStages: 8,
-          updatedAt: "2026-08-12T20:00:00Z",
+          state: "RUNNING",
+          worker: { alive: true, lastSeenAt: "2026-08-12T20:00:00Z" },
+          progress: {
+            completed: 1,
+            total: 27,
+            currentStage: "COLLECT_QUOTES",
+            lastProgressAt: "2026-08-12T20:00:00Z",
+          },
           stages: [
             {
               code: "HOLDINGS",
@@ -131,30 +137,31 @@ describe("PortfolioImportPageTest", () => {
     render(<PortfolioImportPage />);
 
     expect(
-      screen.getByText(/does not connect to or operate your Fidelity account/i),
+      screen.getByText(/不会登录 Fidelity，也不会替你交易/i),
     ).toBeInTheDocument();
     await user.upload(
-      screen.getByLabelText(/select fidelity positions csv/i),
+      screen.getByLabelText(/选择 Fidelity Positions CSV/i),
       new File(["positions"], "positions.csv", { type: "text/csv" }),
     );
 
     expect(
       await screen.findByText("5412.05", { exact: false }),
     ).toBeInTheDocument();
-    const confirm = screen.getByRole("button", {
-      name: /确认并开始分析/i,
-    });
-    expect(confirm).toBeDisabled();
     await user.click(screen.getByRole("checkbox", { name: /ignore/i }));
-    await user.click(screen.getByRole("checkbox", { name: /确认每个持仓/i }));
-    await user.click(screen.getByRole("radio", { name: /^在外部银行$/i }));
-    expect(confirm).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: /继续确认角色/i }));
+    await user.click(screen.getByRole("checkbox", { name: /我确认这个角色/i }));
+    await user.click(screen.getByRole("button", { name: /继续设置备用金/i }));
+    await user.click(screen.getByRole("radio", { name: /^全部在外部银行中$/i }));
+    expect(screen.getByLabelText("外部银行中的备用金")).toHaveValue(null);
+    await user.type(screen.getByLabelText("外部银行中的备用金"), "14000");
+    await user.click(screen.getByRole("button", { name: /继续最终确认/i }));
+    const confirm = screen.getByRole("button", { name: /确认并开始分析/i });
     await user.click(confirm);
 
     expect(
-      await screen.findByRole("heading", { name: /分析已开始/i }),
+      await screen.findByRole("heading", { name: /分析正在执行/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("ANALYSIS_QUEUED")).toBeInTheDocument();
+    expect(screen.getByText("在线")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
@@ -162,13 +169,11 @@ describe("PortfolioImportPageTest", () => {
     const user = userEvent.setup();
     render(<PortfolioImportPage />);
     await user.upload(
-      screen.getByLabelText(/select fidelity positions csv/i),
+      screen.getByLabelText(/选择 Fidelity Positions CSV/i),
       new File(["positions"], "positions.csv", { type: "text/csv" }),
     );
 
-    const confirm = await screen.findByRole("button", {
-      name: /确认并开始分析/i,
-    });
+    await screen.findByText("5412.05", { exact: false });
     await user.type(screen.getByLabelText("Symbol row 3"), "DXYZ");
     await user.selectOptions(
       screen.getByLabelText("Asset type row 3"),
@@ -178,8 +183,16 @@ describe("PortfolioImportPageTest", () => {
       screen.getByLabelText("Classification row 3"),
       "SPECULATIVE",
     );
-    await user.click(screen.getByRole("checkbox", { name: /确认每个持仓/i }));
-    await user.click(screen.getByRole("radio", { name: /^在外部银行$/i }));
-    expect(confirm).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: /继续确认角色/i }));
+    const confirmations = screen.getAllByRole("checkbox", {
+      name: /我确认这个角色/i,
+    });
+    expect(confirmations).toHaveLength(2);
+    for (const confirmationBox of confirmations) {
+      await user.click(confirmationBox);
+    }
+    expect(
+      screen.getByRole("button", { name: /继续设置备用金/i }),
+    ).toBeEnabled();
   });
 });

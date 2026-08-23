@@ -1,6 +1,8 @@
 package com.example.portfolio.analysis.application;
 
 import com.example.portfolio.analysis.domain.StrategyDefinition;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +35,9 @@ public final class StrategyDefinitionLoader {
             "drawdown.etfDipSetupAt",
             "drawdown.marketDrivenEtfDeploymentAt",
             "drawdown.painLineAt",
+            "market.volatility.vixTermFlatLower",
+            "market.volatility.vixTermBackwardation",
+            "market.volatility.techPremiumElevatedRatio",
             "decision.maxDailyMustAct",
             "decision.exactQuantityRequiresHealthyPrice",
             "decision.exactQuantityRequiresReadyRisk",
@@ -115,113 +120,146 @@ public final class StrategyDefinitionLoader {
             var resource = resource(configuredPath);
             var bytes = resource.getInputStream().readAllBytes();
             var values = flatten(new String(bytes, StandardCharsets.UTF_8));
-            return new StrategyDefinition(
-                    required(values, "strategyVersion"),
-                    sha256(bytes),
-                    required(values, "publishState"),
-                    decimal(values, "capital.emergencyFloorUsd"),
-                    bool(values, "capital.emergencyExcludedFromInvestableAssets"),
-                    decimal(values, "drawdown.painLineAt"),
-                    decimal(values, "risk.absoluteSingleTradeMax"),
-                    decimal(values, "risk.totalOpenStockRiskMax"),
-                    decimal(values, "risk.clusterOpenRiskMax"),
-                    integer(values, "risk.socialMediaCoolingHours"),
-                    integer(values, "decision.maxDailyMustAct"),
-                    bool(values, "decision.underweightAloneCanTriggerAdd"),
-                    decimal(values, "qualityStock.starterFractionOfTarget"),
-                    decimal(values, "allocation.broadUsCore"),
-                    decimal(values, "allocation.techCore"),
-                    required(values, "allocation.broadUsCorePrimary"),
-                    required(values, "allocation.techCorePrimary"),
-                    policy(
-                            values,
-                            "qualityStock.targetPct",
-                            "qualityStock.normalMaxPct",
-                            "qualityStock.hardMaxPct",
-                            "qualityStock.tradeRiskPct"),
-                    policy(
-                            values,
-                            "thematicEtf.targetPct",
-                            "thematicEtf.hardMaxPct",
-                            "thematicEtf.hardMaxPct",
-                            "thematicEtf.tradeRiskPct"),
-                    policy(
-                            values,
-                            "tacticalStock.targetPct",
-                            "tacticalStock.hardMaxPct",
-                            "tacticalStock.hardMaxPct",
-                            "tacticalStock.tradeRiskPct"),
-                    policy(
-                            values,
-                            "speculative.targetPct",
-                            "speculative.hardMaxPct",
-                            "speculative.hardMaxPct",
-                            "speculative.tradeRiskPct"),
-                    new StrategyDefinition.EtfDipPolicy(
-                            integer(values, "etfDip.setupScoreMin"),
-                            integer(values, "etfDip.requiredReversalSignals"),
-                            decimals(values, "etfDip.tranchePctOfReserve"),
-                            integer(values, "etfDip.cooldownTradingDays"),
-                            bool(values, "etfDip.requiresMarketDrivenDrawdown")),
-                    new StrategyDefinition.FreshnessPolicy(
-                            integer(values, "freshness.eodPriceTradingSessions"),
-                            integer(values, "freshness.financialQuarterDays"),
-                            integer(values, "freshness.estimatesDays"),
-                            integer(values, "freshness.earningsCalendarDays"),
-                            integer(values, "freshness.etfProfileDays"),
-                            integer(values, "freshness.macroDailyDays")),
-                    new StrategyDefinition.FinancialHealthPolicy(
-                            decimal(values, "financialHealth.revenueGrowthStrong"),
-                            decimal(values, "financialHealth.revenueGrowthHealthy"),
-                            decimal(values, "financialHealth.marginDeteriorationWarningPctPoints"),
-                            decimal(values, "financialHealth.fcfMarginHealthy"),
-                            decimal(values, "financialHealth.dilutionWarning"),
-                            decimal(values, "financialHealth.netDebtToFcfWarning")),
-                    bool(values, "profile.manualExecutionOnly"),
-                    required(values, "profile.benchmarks.primaryGrowth"),
-                    required(values, "profile.benchmarks.broadMarket"),
-                    decimals(values, "capital.tacticalReserveTargetPct"),
-                    decimal(values, "drawdown.stopNewSpeculationAt"),
-                    decimal(values, "drawdown.reduceTacticalCapacityAt"),
-                    decimal(values, "drawdown.etfDipSetupAt"),
-                    decimal(values, "drawdown.marketDrivenEtfDeploymentAt"),
-                    bool(values, "decision.exactQuantityRequiresHealthyPrice"),
-                    bool(values, "decision.exactQuantityRequiresReadyRisk"),
-                    bool(values, "decision.riskPriorityOverTax"),
-                    bool(values, "qualityStock.deepDiscountStarterEnabled"),
-                    bool(values, "speculative.averageDownAllowed"),
-                    integer(values, "speculative.timeStopTradingDays"),
-                    new StrategyDefinition.SleeveAllocationTargets(
-                            decimal(values, "allocation.broadUsCore"),
-                            decimal(values, "allocation.techCore"),
-                            decimal(values, "allocation.internationalCore"),
-                            decimal(values, "allocation.quality"),
-                            decimal(values, "allocation.thematic"),
-                            decimal(values, "allocation.tactical"),
-                            decimal(values, "allocation.speculative"),
-                            decimals(values, "capital.tacticalReserveTargetPct").get(1),
-                            required(values, "allocation.internationalCorePrimary")),
-                    new StrategyDefinition.ExecutionRiskPolicy(
-                            decimal(values, "risk.liquidityParticipationMax"),
-                            decimal(values, "risk.thematicAtrRiskMultiple"),
-                            decimal(values, "risk.thematicFallbackRiskFraction")),
-                    new StrategyDefinition.StopPolicy(
-                            decimal(values, "stops.structureBufferAtr"),
-                            decimal(values, "stops.qualityVolatilityAtr"),
-                            decimal(values, "stops.tacticalVolatilityAtr"),
-                            decimal(values, "stops.speculativeVolatilityAtr"),
-                            decimal(values, "stops.trailingEmaBufferAtr"),
-                            decimal(values, "stops.softAlertAtr"),
-                            decimal(values, "stops.catastrophicAtr")),
-                    new StrategyDefinition.CashflowPolicy(
-                            decimal(values, "cashflow.broadCoreWithoutSignal"),
-                            decimal(values, "cashflow.broadCoreWithSignal"),
-                            decimal(values, "cashflow.techCore"),
-                            decimal(values, "cashflow.internationalCore"),
-                            decimal(values, "cashflow.tacticalReserve"),
-                            decimal(values, "cashflow.qualityOpportunityWithSignal")));
+            return definition(values, sha256(bytes));
         } catch (IOException exception) {
             throw new IllegalStateException("Published strategy configuration is unavailable", exception);
+        }
+    }
+
+    StrategyDefinition loadPersistedJson(String json, String configHash, String expectedVersion) {
+        try {
+            Map<String, Object> tree = JsonMapper.builder().build().readValue(json, new TypeReference<>() {});
+            var values = new LinkedHashMap<String, String>();
+            flattenJson("", tree, values);
+            var loaded = definition(values, configHash);
+            if (!loaded.version().equals(expectedVersion)) {
+                throw new IllegalStateException("Persisted strategy version does not match analysis run");
+            }
+            return loaded;
+        } catch (IOException | RuntimeException exception) {
+            throw new IllegalStateException("Run-bound strategy definition is invalid or incomplete", exception);
+        }
+    }
+
+    private static StrategyDefinition definition(Map<String, String> values, String configHash) {
+        return new StrategyDefinition(
+                required(values, "strategyVersion"),
+                configHash,
+                required(values, "publishState"),
+                decimal(values, "capital.emergencyFloorUsd"),
+                bool(values, "capital.emergencyExcludedFromInvestableAssets"),
+                decimal(values, "drawdown.painLineAt"),
+                decimal(values, "risk.absoluteSingleTradeMax"),
+                decimal(values, "risk.totalOpenStockRiskMax"),
+                decimal(values, "risk.clusterOpenRiskMax"),
+                integer(values, "risk.socialMediaCoolingHours"),
+                integer(values, "decision.maxDailyMustAct"),
+                bool(values, "decision.underweightAloneCanTriggerAdd"),
+                decimal(values, "qualityStock.starterFractionOfTarget"),
+                decimal(values, "allocation.broadUsCore"),
+                decimal(values, "allocation.techCore"),
+                required(values, "allocation.broadUsCorePrimary"),
+                required(values, "allocation.techCorePrimary"),
+                policy(
+                        values,
+                        "qualityStock.targetPct",
+                        "qualityStock.normalMaxPct",
+                        "qualityStock.hardMaxPct",
+                        "qualityStock.tradeRiskPct"),
+                policy(
+                        values,
+                        "thematicEtf.targetPct",
+                        "thematicEtf.hardMaxPct",
+                        "thematicEtf.hardMaxPct",
+                        "thematicEtf.tradeRiskPct"),
+                policy(
+                        values,
+                        "tacticalStock.targetPct",
+                        "tacticalStock.hardMaxPct",
+                        "tacticalStock.hardMaxPct",
+                        "tacticalStock.tradeRiskPct"),
+                policy(
+                        values,
+                        "speculative.targetPct",
+                        "speculative.hardMaxPct",
+                        "speculative.hardMaxPct",
+                        "speculative.tradeRiskPct"),
+                new StrategyDefinition.EtfDipPolicy(
+                        integer(values, "etfDip.setupScoreMin"),
+                        integer(values, "etfDip.requiredReversalSignals"),
+                        decimals(values, "etfDip.tranchePctOfReserve"),
+                        integer(values, "etfDip.cooldownTradingDays"),
+                        bool(values, "etfDip.requiresMarketDrivenDrawdown")),
+                new StrategyDefinition.FreshnessPolicy(
+                        integer(values, "freshness.eodPriceTradingSessions"),
+                        integer(values, "freshness.financialQuarterDays"),
+                        integer(values, "freshness.estimatesDays"),
+                        integer(values, "freshness.earningsCalendarDays"),
+                        integer(values, "freshness.etfProfileDays"),
+                        integer(values, "freshness.macroDailyDays")),
+                new StrategyDefinition.FinancialHealthPolicy(
+                        decimal(values, "financialHealth.revenueGrowthStrong"),
+                        decimal(values, "financialHealth.revenueGrowthHealthy"),
+                        decimal(values, "financialHealth.marginDeteriorationWarningPctPoints"),
+                        decimal(values, "financialHealth.fcfMarginHealthy"),
+                        decimal(values, "financialHealth.dilutionWarning"),
+                        decimal(values, "financialHealth.netDebtToFcfWarning")),
+                bool(values, "profile.manualExecutionOnly"),
+                required(values, "profile.benchmarks.primaryGrowth"),
+                required(values, "profile.benchmarks.broadMarket"),
+                decimals(values, "capital.tacticalReserveTargetPct"),
+                decimal(values, "drawdown.stopNewSpeculationAt"),
+                decimal(values, "drawdown.reduceTacticalCapacityAt"),
+                decimal(values, "drawdown.etfDipSetupAt"),
+                decimal(values, "drawdown.marketDrivenEtfDeploymentAt"),
+                bool(values, "decision.exactQuantityRequiresHealthyPrice"),
+                bool(values, "decision.exactQuantityRequiresReadyRisk"),
+                bool(values, "decision.riskPriorityOverTax"),
+                bool(values, "qualityStock.deepDiscountStarterEnabled"),
+                bool(values, "speculative.averageDownAllowed"),
+                integer(values, "speculative.timeStopTradingDays"),
+                new StrategyDefinition.SleeveAllocationTargets(
+                        decimal(values, "allocation.broadUsCore"),
+                        decimal(values, "allocation.techCore"),
+                        decimal(values, "allocation.internationalCore"),
+                        decimal(values, "allocation.quality"),
+                        decimal(values, "allocation.thematic"),
+                        decimal(values, "allocation.tactical"),
+                        decimal(values, "allocation.speculative"),
+                        decimals(values, "capital.tacticalReserveTargetPct").get(1),
+                        required(values, "allocation.internationalCorePrimary")),
+                new StrategyDefinition.ExecutionRiskPolicy(
+                        decimal(values, "risk.liquidityParticipationMax"),
+                        decimal(values, "risk.thematicAtrRiskMultiple"),
+                        decimal(values, "risk.thematicFallbackRiskFraction")),
+                new StrategyDefinition.StopPolicy(
+                        decimal(values, "stops.structureBufferAtr"),
+                        decimal(values, "stops.qualityVolatilityAtr"),
+                        decimal(values, "stops.tacticalVolatilityAtr"),
+                        decimal(values, "stops.speculativeVolatilityAtr"),
+                        decimal(values, "stops.trailingEmaBufferAtr"),
+                        decimal(values, "stops.softAlertAtr"),
+                        decimal(values, "stops.catastrophicAtr")),
+                new StrategyDefinition.CashflowPolicy(
+                        decimal(values, "cashflow.broadCoreWithoutSignal"),
+                        decimal(values, "cashflow.broadCoreWithSignal"),
+                        decimal(values, "cashflow.techCore"),
+                        decimal(values, "cashflow.internationalCore"),
+                        decimal(values, "cashflow.tacticalReserve"),
+                        decimal(values, "cashflow.qualityOpportunityWithSignal")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void flattenJson(String prefix, Object value, Map<String, String> values) {
+        if (value instanceof Map<?, ?> map) {
+            map.forEach(
+                    (key, child) -> flattenJson(prefix.isEmpty() ? key.toString() : prefix + "." + key, child, values));
+        } else if (value instanceof List<?> list) {
+            values.put(
+                    prefix,
+                    list.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(",", "[", "]")));
+        } else if (value != null) {
+            values.put(prefix, value.toString());
         }
     }
 
@@ -231,6 +269,28 @@ public final class StrategyDefinitionLoader {
             return Set.copyOf(flatten(new String(bytes, StandardCharsets.UTF_8)).keySet());
         } catch (IOException exception) {
             throw new IllegalStateException("Strategy configuration is unavailable", exception);
+        }
+    }
+
+    public VolatilityResearchPolicy loadVolatilityResearchPolicy(String configuredPath) {
+        try {
+            var values = flatten(
+                    new String(resource(configuredPath).getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+            return new VolatilityResearchPolicy(
+                    decimal(values, "market.volatility.vixTermFlatLower"),
+                    decimal(values, "market.volatility.vixTermBackwardation"),
+                    decimal(values, "market.volatility.techPremiumElevatedRatio"));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Volatility research configuration is unavailable", exception);
+        }
+    }
+
+    public record VolatilityResearchPolicy(
+            BigDecimal vixTermFlatLower, BigDecimal vixTermBackwardation, BigDecimal techPremiumElevatedRatio) {
+        public VolatilityResearchPolicy {
+            if (vixTermFlatLower.compareTo(vixTermBackwardation) >= 0) {
+                throw new IllegalArgumentException("VIX term thresholds must be ordered");
+            }
         }
     }
 

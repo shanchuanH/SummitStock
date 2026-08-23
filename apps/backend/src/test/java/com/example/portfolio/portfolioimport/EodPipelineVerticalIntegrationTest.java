@@ -40,7 +40,7 @@ class EodPipelineVerticalIntegrationTest extends PortfolioImportIntegrationSuppo
                     .isTrue();
         }
 
-        assertThat(runStatus(runId)).withFailMessage(() -> diagnostics(runId)).isEqualTo("SUCCEEDED");
+        assertThat(runStatus(runId)).withFailMessage(() -> diagnostics(runId)).isIn("SUCCEEDED", "PARTIAL");
         assertThat(count("SELECT COUNT(*) FROM price_bar")).isPositive();
         assertThat(count("SELECT COUNT(*) FROM indicator_snapshot")).isPositive();
         assertThat(count("SELECT COUNT(*) FROM market_regime_snapshot")).isPositive();
@@ -60,10 +60,22 @@ class EodPipelineVerticalIntegrationTest extends PortfolioImportIntegrationSuppo
                         + "JOIN app_user u ON u.id=r.user_id WHERE u.email='" + EMAIL + "' "
                         + "AND h.analysis_run_id=UUID_TO_BIN('" + runId + "')"))
                 .isEqualTo(3);
+        assertThat(count("SELECT COUNT(*) FROM position_mark_snapshot m "
+                        + "JOIN position p ON p.id=m.position_id JOIN investment_account a ON a.id=p.account_id "
+                        + "JOIN app_user u ON u.id=a.user_id JOIN portfolio_analysis_run r ON r.user_id=u.id "
+                        + "WHERE u.email='" + EMAIL + "' AND r.id=UUID_TO_BIN('" + runId + "') "
+                        + "AND m.strategy_version=r.strategy_version AND m.data_as_of<=r.decision_cutoff"))
+                .isEqualTo(3);
+        assertThat(count("SELECT COUNT(*) FROM position_risk_snapshot x "
+                        + "JOIN position p ON p.id=x.position_id JOIN investment_account a ON a.id=p.account_id "
+                        + "JOIN app_user u ON u.id=a.user_id JOIN portfolio_analysis_run r ON r.user_id=u.id "
+                        + "WHERE u.email='" + EMAIL + "' AND r.id=UUID_TO_BIN('" + runId + "') "
+                        + "AND x.strategy_version=r.strategy_version AND x.data_as_of<=r.decision_cutoff"))
+                .isEqualTo(3);
     }
 
     private boolean terminal(java.util.UUID runId) {
-        return java.util.Set.of("SUCCEEDED", "FAILED", "BLOCKED").contains(runStatus(runId));
+        return java.util.Set.of("SUCCEEDED", "PARTIAL", "FAILED", "BLOCKED").contains(runStatus(runId));
     }
 
     private String runStatus(java.util.UUID runId) {

@@ -1,6 +1,7 @@
 package com.example.portfolio.portfolio;
 
 import com.example.portfolio.analysis.application.PublishedStrategyService;
+import com.example.portfolio.analysis.capital.CapitalBase;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -74,6 +75,10 @@ public class PortfolioStore {
                 .single();
     }
 
+    public CapitalBase capitalBase(String email) {
+        return findUserId(email).map(capitalBases::calculate).orElseGet(capitalBases::empty);
+    }
+
     public List<PositionView> positions(String email) {
         return jdbc.sql(
                         """
@@ -129,30 +134,50 @@ public class PortfolioStore {
                             JOIN instrument i ON i.id=p.instrument_id
                             LEFT JOIN current_position_mark m ON m.position_id=p.id
                             WHERE u.email=:email AND p.status='OPEN'
+                        ), latest_bars AS (
+                            SELECT instrument_id,market_date,close_price,
+                                   LEAD(close_price) OVER (PARTITION BY instrument_id ORDER BY market_date DESC) previous_close,
+                                   ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY market_date DESC) row_rank
+                            FROM price_bar WHERE timeframe='1D' AND adjusted=TRUE AND quality_status='HEALTHY'
                         )
                         SELECT BIN_TO_UUID(o.id) id, o.version, o.symbol, o.instrument_name name, o.asset_type assetType,
                                o.bucket, o.classification, o.classification_confirmed classificationConfirmed,
                                o.canonical_market_value marketValue,
+                               q.last_price currentPrice,o.average_cost averageCost,
+                               CASE WHEN o.average_cost IS NULL OR q.last_price IS NULL THEN NULL
+                                    ELSE (q.last_price-o.average_cost)*o.quantity END unrealizedPnlDollar,
+                               CASE WHEN o.average_cost IS NULL OR o.average_cost=0 OR q.last_price IS NULL THEN NULL
+                                    ELSE q.last_price/o.average_cost-1 END unrealizedPnlPct,
+                               CASE WHEN lb.previous_close IS NULL OR lb.previous_close=0 THEN NULL
+                                    ELSE lb.close_price/lb.previous_close-1 END dayChangePct,
+                               CASE WHEN lb.close_price IS NULL THEN NULL ELSE lb.close_price/(
+                                   SELECT prior.close_price FROM price_bar prior
+                                   WHERE prior.instrument_id=o.instrument_id AND prior.timeframe='1D'
+                                     AND prior.adjusted=TRUE AND prior.quality_status='HEALTHY'
+                                     AND prior.market_date<=DATE_SUB(lb.market_date,INTERVAL 30 DAY)
+                                   ORDER BY prior.market_date DESC LIMIT 1
+                               )-1 END oneMonthReturn,
                                CASE WHEN :investable=0 THEN 0 ELSE o.canonical_market_value/:investable END currentWeight,
                                h.target_weight_min targetWeightMin, h.target_weight_max targetWeightMax,
                                COALESCE(r.action,h.recommended_action,'WAIT_FOR_DATA') action,
                                COALESCE(r.priority,'WATCH') priority,
                                COALESCE(r.confidence,h.confidence,'WAIT_FOR_DATA') confidence,
+                               COALESCE(JSON_UNQUOTE(JSON_EXTRACT(r.reasons,'$[0]')),
+                                        JSON_UNQUOTE(JSON_EXTRACT(h.reasons,'$[0]'))) keyReason,
                                CASE WHEN q.last_price IS NULL OR sma.value_double IS NULL THEN 'WAIT_FOR_DATA'
                                     WHEN q.last_price>=sma.value_double THEN 'ABOVE_TREND' ELSE 'BELOW_TREND' END trend,
                                (SELECT MIN(e.event_at) FROM company_event e
                                 WHERE e.instrument_id=o.instrument_id AND e.event_at>=UTC_TIMESTAMP(6)) nextEvent,
                                COALESCE(h.readiness,o.data_readiness,'WAIT_FOR_DATA') dataStatus
                         FROM owned o
-                        LEFT JOIN holding_analysis_snapshot h ON h.id=(
-                            SELECT x.id FROM holding_analysis_snapshot x WHERE x.position_id=o.id
-                            ORDER BY x.data_as_of DESC,x.created_at DESC LIMIT 1)
                         LEFT JOIN recommendation r ON r.id=(
                             SELECT y.id FROM recommendation y WHERE y.position_id=o.id AND y.status='ACTIVE'
                             ORDER BY y.data_as_of DESC,y.created_at DESC LIMIT 1)
+                        LEFT JOIN holding_analysis_snapshot h ON h.id=r.holding_analysis_id
                         LEFT JOIN quote q ON q.id=(
                             SELECT z.id FROM quote z WHERE z.instrument_id=o.instrument_id
                             ORDER BY z.data_as_of DESC,z.created_at DESC LIMIT 1)
+                        LEFT JOIN latest_bars lb ON lb.instrument_id=o.instrument_id AND lb.row_rank=1
                         LEFT JOIN indicator_snapshot sma ON sma.id=(
                             SELECT s.id FROM indicator_snapshot s WHERE s.instrument_id=o.instrument_id
                               AND s.indicator_code='SMA_20' AND s.status='READY'
@@ -166,11 +191,14 @@ public class PortfolioStore {
     }
 
     private UUID userId(String email) {
+        return findUserId(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private Optional<UUID> findUserId(String email) {
         return jdbc.sql("SELECT BIN_TO_UUID(id) FROM app_user WHERE email=:email")
                 .param("email", email)
                 .query(UUID.class)
-                .optional()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .optional();
     }
 
     @Transactional
@@ -223,6 +251,35 @@ public class PortfolioStore {
                 .param("version", expectedVersion)
                 .update();
         if (updated != 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "Position version changed");
+        var snapshotId = UUID.randomUUID();
+        var occurredAt = clock.instant();
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO position_classification_snapshot (
+                          id,position_id,classification,classification_confirmed,classification_source,
+                          evidence_checksum,data_as_of,created_at)
+                        VALUES (UUID_TO_BIN(:snapshotId),UUID_TO_BIN(:positionId),:classification,TRUE,:source,
+                          SHA2(CONCAT(:positionId,':',:classification,':',:source,':',:occurredAt),256),:occurredAt,:occurredAt)
+                        """)
+                .param("snapshotId", snapshotId.toString())
+                .param("positionId", id.toString())
+                .param("classification", classification)
+                .param("source", source)
+                .param("occurredAt", occurredAt)
+                .update();
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO analysis_run_position_classification (
+                          id,analysis_run_id,position_id,classification_snapshot_id,created_at)
+                        SELECT UUID_TO_BIN(UUID()),r.id,UUID_TO_BIN(:positionId),UUID_TO_BIN(:snapshotId),:occurredAt
+                        FROM portfolio_analysis_run r JOIN app_user u ON u.id=r.user_id
+                        WHERE u.email=:email AND r.status IN ('QUEUED','RUNNING','WAITING')
+                        """)
+                .param("positionId", id.toString())
+                .param("snapshotId", snapshotId.toString())
+                .param("occurredAt", occurredAt)
+                .param("email", email)
+                .update();
         jdbc.sql(
                         """
                         INSERT INTO audit_log (
@@ -342,12 +399,19 @@ public class PortfolioStore {
             String classification,
             boolean classificationConfirmed,
             BigDecimal marketValue,
+            BigDecimal currentPrice,
+            BigDecimal averageCost,
+            BigDecimal unrealizedPnlDollar,
+            BigDecimal unrealizedPnlPct,
+            BigDecimal dayChangePct,
+            BigDecimal oneMonthReturn,
             BigDecimal currentWeight,
             BigDecimal targetWeightMin,
             BigDecimal targetWeightMax,
             String action,
             String priority,
             String confidence,
+            String keyReason,
             String trend,
             LocalDateTime nextEvent,
             String dataStatus) {}

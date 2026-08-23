@@ -5,12 +5,14 @@ import com.example.portfolio.analysis.application.PublishedStrategyService;
 import com.example.portfolio.analysis.capital.CapitalBaseService;
 import com.example.portfolio.analysis.dip.EtfDipEventService;
 import com.example.portfolio.analysis.mark.PositionMarkService;
+import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.analysis.risk.ClusterRiskService;
 import com.example.portfolio.analysis.risk.DrawdownAttributionService;
 import com.example.portfolio.analysis.risk.PortfolioNavService;
 import com.example.portfolio.configuration.PortfolioProperties;
 import com.example.portfolio.context.BreadthService;
 import com.example.portfolio.context.MarketContextService;
+import com.example.portfolio.context.NarrowRallyEvidenceService;
 import com.example.portfolio.macro.MacroApplicationService;
 import com.example.portfolio.quant.Indicators;
 import com.example.portfolio.quant.QuantBar;
@@ -27,6 +29,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -46,6 +49,7 @@ public class PortfolioAnalysisPipelineService {
     private final PublishedStrategyService strategies;
     private final MacroApplicationService macro;
     private final BreadthService breadthService;
+    private final NarrowRallyEvidenceService narrowRally;
     private final Clock clock;
 
     public PortfolioAnalysisPipelineService(
@@ -62,6 +66,7 @@ public class PortfolioAnalysisPipelineService {
             PublishedStrategyService strategies,
             MacroApplicationService macro,
             BreadthService breadthService,
+            NarrowRallyEvidenceService narrowRally,
             Clock clock) {
         this.jdbc = jdbc;
         this.contextService = contextService;
@@ -76,6 +81,7 @@ public class PortfolioAnalysisPipelineService {
         this.strategies = strategies;
         this.macro = macro;
         this.breadthService = breadthService;
+        this.narrowRally = narrowRally;
         this.clock = clock;
     }
 
@@ -84,9 +90,10 @@ public class PortfolioAnalysisPipelineService {
     }
 
     public int computeRegime(LocalDate marketDate) {
-        var spy = benchmark("SPY", marketDate);
-        var qqq = benchmark("QQQ", marketDate);
-        var canonicalBreadth = breadthService.latest(marketDate);
+        var decisionContext = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion());
+        var spy = benchmark("SPY", decisionContext);
+        var qqq = benchmark("QQQ", decisionContext);
+        var canonicalBreadth = breadthService.latest(decisionContext);
         var breadth = canonicalBreadth.pctAboveSma50() == null
                 ? 0
                 : canonicalBreadth.pctAboveSma50().doubleValue();
@@ -99,11 +106,12 @@ public class PortfolioAnalysisPipelineService {
                 ? null
                 : BigDecimal.valueOf(Math.clamp(qqq.realizedVolatility() / 0.50, 0, 1));
         macro.computeFactors(marketDate, realizedStress);
-        var macroFactors = macro.latestFactors(marketDate);
+        var macroFactors = macro.latestFactors(decisionContext);
         double stressResilience = macroFactors.stressResilience() == null
                 ? realizedStress == null ? 0 : 1 - realizedStress.doubleValue()
                 : macroFactors.stressResilience().doubleValue();
-        var vix = macro.latestValue("VIXCLS", marketDate);
+        var vix = macro.latestValue("VIXCLS", decisionContext);
+        var narrowRallyEvidence = narrowRally.evaluate(decisionContext, spy.above200(), qqq.above200());
         var input = new MarketRegimeEngine.Input(
                 trend,
                 momentum,
@@ -115,7 +123,7 @@ public class PortfolioAnalysisPipelineService {
                 breadth,
                 qqq.macd() != null && qqq.macd() < 0,
                 qqq.rsi() == null ? 0 : qqq.rsi(),
-                false,
+                narrowRallyEvidence.result().narrowRally(),
                 quality);
         return contextService
                         .calculateRegime(
@@ -148,35 +156,26 @@ public class PortfolioAnalysisPipelineService {
         return updated;
     }
 
-    public PositionMarkService.CaptureResult capturePositionMarks(UUID userId) {
-        var result = positionMarks.captureForUser(userId, clock.instant());
-        capitalBases.capture(userId, clock.instant());
-        allocations.capture(userId, clock.instant());
+    public PositionMarkService.CaptureResult capturePositionMarks(UUID userId, LocalDate marketDate) {
+        var dataCutoff = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion())
+                .dataCutoff();
+        var result = positionMarks.captureForUser(userId, dataCutoff);
+        capitalBases.capture(userId, dataCutoff);
+        allocations.capture(userId, dataCutoff);
         return result;
     }
 
     public int computeDrawdown(UUID userId, LocalDate marketDate) {
-        var totals = jdbc.sql(
-                        """
-                        SELECT COALESCE(SUM(m.marked_market_value),0) invested,
-                               COALESCE((SELECT SUM(c.current_amount) FROM cash_bucket c
-                                         WHERE c.user_id=UUID_TO_BIN(:userId)),0) cash,
-                               COALESCE(MAX(m.marked_market_value),0) largest,
-                               COUNT(p.id) openPositions,COUNT(m.id) markCount
-                        FROM position p JOIN investment_account a ON a.id=p.account_id
-                        LEFT JOIN current_position_mark m ON m.position_id=p.id
-                        WHERE a.user_id=UUID_TO_BIN(:userId) AND p.status='OPEN'
-                        """)
-                .param("userId", userId.toString())
-                .query(PortfolioTotals.class)
-                .single();
-        if (totals.markCount() < totals.openPositions()
-                || capitalBases.calculate(userId).quality() != EvidenceQuality.HEALTHY) {
+        var capital = capitalBases.calculate(userId);
+        if (capital.quality() != EvidenceQuality.HEALTHY) {
             return 0;
         }
-        var equity = totals.invested().add(totals.cash());
-        if (equity.signum() <= 0) throw new PermanentDataException("NO_PORTFOLIO_EQUITY", "Portfolio has no equity");
-        var nav = portfolioNav.capture(userId, marketDate, equity);
+        var strategyNav = capital.strategyNav();
+        if (strategyNav.signum() <= 0)
+            throw new PermanentDataException("NO_STRATEGY_NAV", "Portfolio has no investable strategy capital");
+        var dataCutoff = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion())
+                .dataCutoff();
+        var nav = portfolioNav.capture(userId, marketDate, strategyNav, dataCutoff);
         var attribution =
                 drawdownAttribution.calculate(userId, nav.peakMarketDate(), marketDate, nav.peakAccountEquity());
         var input = new DrawdownEngine.Input(
@@ -196,13 +195,15 @@ public class PortfolioAnalysisPipelineService {
                                 attribution.positionJson(),
                                 attribution.clusterJson(),
                                 nav.dataAsOf(),
-                                equity)
+                                strategyNav)
                         .inserted()
                 ? 1
                 : 0;
     }
 
     public int recalculateStops(UUID userId, LocalDate marketDate) {
+        var dataCutoff = DecisionAsOfContext.marketClose(marketDate, properties.strategyVersion())
+                .dataCutoff();
         int affected = 0;
         for (var row : jdbc.sql(
                         """
@@ -230,18 +231,18 @@ public class PortfolioAnalysisPipelineService {
                 .query(StopInput.class)
                 .list()) {
             var atr = BigDecimal.valueOf(row.atr());
-            var swing = confirmedSwingLow(row.instrumentId(), marketDate);
-            if (swing == null) continue;
+            var swings = confirmedSwingLows(row.instrumentId(), marketDate);
+            if (swings.structureSwingLow() == null) continue;
             var result = StopEngine.calculate(
                     new StopEngine.Input(
                             HoldingClassification.valueOf(row.classification()),
                             row.entryPrice(),
-                            swing,
+                            swings.structureSwingLow(),
                             atr,
                             row.previousLiveStop(),
                             null,
                             BigDecimal.valueOf(row.ema20()),
-                            swing,
+                            swings.confirmedHigherLow(),
                             row.closePrice(),
                             BigDecimal.valueOf(row.rollingHigh()),
                             null),
@@ -257,7 +258,7 @@ public class PortfolioAnalysisPipelineService {
                             ) VALUES (
                                 UUID_TO_BIN(:id), UUID_TO_BIN(:positionId), :strategy, :entry, :atr, :structure,
                                 :volatility, :initial, :live, :soft, :catastrophic, :closeConfirmed,
-                                :rules, 'HEALTHY', :checksum, :now, :now
+                                :rules, 'HEALTHY', :checksum, :dataAsOf, :createdAt
                             )
                             """)
                     .param("id", UUID.randomUUID().toString())
@@ -274,7 +275,8 @@ public class PortfolioAnalysisPipelineService {
                     .param("closeConfirmed", result.closeConfirmed())
                     .param("rules", json(result.ruleIds()))
                     .param("checksum", checksum)
-                    .param("now", clock.instant())
+                    .param("dataAsOf", dataCutoff)
+                    .param("createdAt", clock.instant())
                     .update();
         }
         affected += jdbc.sql(
@@ -291,12 +293,12 @@ public class PortfolioAnalysisPipelineService {
                 .param("userId", userId.toString())
                 .param("now", clock.instant())
                 .update();
-        var positionRisks = snapshotPortfolioRisk(userId);
-        var clusterRiskSnapshots = clusterRisks.capture(userId, clock.instant());
+        var positionRisks = snapshotPortfolioRisk(userId, dataCutoff);
+        var clusterRiskSnapshots = clusterRisks.capture(userId, dataCutoff);
         return affected + positionRisks + clusterRiskSnapshots;
     }
 
-    private int snapshotPortfolioRisk(UUID userId) {
+    private int snapshotPortfolioRisk(UUID userId, java.time.Instant dataAsOf) {
         var investable = capitalBases.calculate(userId).investableAssets();
         return jdbc.sql(
                         """
@@ -334,7 +336,7 @@ public class PortfolioAnalysisPipelineService {
                                       OR (c.classification NOT IN ('CORE_BROAD_ETF','CORE_TECH_ETF','THEMATIC_ETF','CASH_EQUIVALENT') AND c.live_stop IS NULL)
                                     THEN 'MISSING' ELSE 'HEALTHY' END,
                                SHA2(CONCAT(BIN_TO_UUID(c.id),':',COALESCE(c.market_value,''),':',COALESCE(c.last_price,''),':',COALESCE(c.live_stop,''),':',COALESCE(c.atr,''),':',:now),256),
-                               :now,:now
+                               :dataAsOf,:now
                         FROM calculated c WHERE c.equity>0
                         """)
                 .param("userId", userId.toString())
@@ -344,6 +346,7 @@ public class PortfolioAnalysisPipelineService {
                         strategies.current().executionRisk().thematicFallbackRiskFraction())
                 .param("investable", investable)
                 .param("strategy", properties.strategyVersion())
+                .param("dataAsOf", dataAsOf)
                 .param("now", clock.instant())
                 .update();
     }
@@ -395,24 +398,29 @@ public class PortfolioAnalysisPipelineService {
     }
 
     private Benchmark benchmark(String symbol, LocalDate date) {
+        return benchmark(symbol, DecisionAsOfContext.marketClose(date, properties.strategyVersion()));
+    }
+
+    private Benchmark benchmark(String symbol, DecisionAsOfContext context) {
         return jdbc.sql(
                         """
                         SELECT p.close_price latestClose,
                                (SELECT AVG(x.close_price) FROM (SELECT close_price FROM price_bar b
                                 JOIN instrument j ON j.id=b.instrument_id WHERE j.symbol=:symbol
-                                AND b.adjusted=TRUE AND b.market_date<=:date ORDER BY b.market_date DESC LIMIT 200) x) average200,
+                                AND b.adjusted=TRUE AND b.market_date<=:date AND b.data_as_of<=:cutoff ORDER BY b.market_date DESC LIMIT 200) x) average200,
                                (SELECT value_double FROM indicator_snapshot s JOIN instrument k ON k.id=s.instrument_id
-                                WHERE k.symbol=:symbol AND s.indicator_code='RSI_14' ORDER BY s.market_date DESC LIMIT 1) rsi,
+                                WHERE k.symbol=:symbol AND s.indicator_code='RSI_14' AND s.market_date<=:date AND s.data_as_of<=:cutoff ORDER BY s.market_date DESC,s.data_as_of DESC LIMIT 1) rsi,
                                (SELECT value_double FROM indicator_snapshot s JOIN instrument k ON k.id=s.instrument_id
-                                WHERE k.symbol=:symbol AND s.indicator_code='MACD_12_26_9' ORDER BY s.market_date DESC LIMIT 1) macd,
+                                WHERE k.symbol=:symbol AND s.indicator_code='MACD_12_26_9' AND s.market_date<=:date AND s.data_as_of<=:cutoff ORDER BY s.market_date DESC,s.data_as_of DESC LIMIT 1) macd,
                                (SELECT value_double FROM indicator_snapshot s JOIN instrument k ON k.id=s.instrument_id
-                                WHERE k.symbol=:symbol AND s.indicator_code='REALIZED_VOL_20' ORDER BY s.market_date DESC LIMIT 1) realizedVolatility
+                                WHERE k.symbol=:symbol AND s.indicator_code='REALIZED_VOL_20' AND s.market_date<=:date AND s.data_as_of<=:cutoff ORDER BY s.market_date DESC,s.data_as_of DESC LIMIT 1) realizedVolatility
                         FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
-                        WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
+                        WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date AND p.data_as_of<=:cutoff
                         ORDER BY p.market_date DESC LIMIT 1
                         """)
                 .param("symbol", symbol)
-                .param("date", date)
+                .param("date", context.marketDate())
+                .param("cutoff", context.dataCutoff())
                 .query(BenchmarkRow.class)
                 .optional()
                 .map(row -> new Benchmark(
@@ -432,13 +440,14 @@ public class PortfolioAnalysisPipelineService {
     private double returnFromPeak(String symbol, LocalDate date) {
         return jdbc.sql(
                         """
-                        SELECT COALESCE(latest.close_price/MAX(p.close_price)-1,0)
-                        FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
-                        JOIN price_bar latest ON latest.instrument_id=p.instrument_id AND latest.adjusted=TRUE
-                          AND latest.market_date=(SELECT MAX(x.market_date) FROM price_bar x
-                                                  WHERE x.instrument_id=p.instrument_id AND x.market_date<=:date)
-                        WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
-                        GROUP BY latest.close_price
+                        SELECT COALESCE(
+                          (SELECT p.close_price FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
+                           WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date
+                           ORDER BY p.market_date DESC,p.data_as_of DESC,p.created_at DESC LIMIT 1)
+                          /
+                          (SELECT MAX(p.close_price) FROM price_bar p JOIN instrument i ON i.id=p.instrument_id
+                           WHERE i.symbol=:symbol AND p.adjusted=TRUE AND p.market_date<=:date)
+                          - 1,0)
                         """)
                 .param("symbol", symbol)
                 .param("date", date)
@@ -475,7 +484,7 @@ public class PortfolioAnalysisPipelineService {
         return value ? 1 : 0;
     }
 
-    private BigDecimal confirmedSwingLow(UUID instrumentId, LocalDate marketDate) {
+    private SwingStructure confirmedSwingLows(UUID instrumentId, LocalDate marketDate) {
         var bars = jdbc
                 .sql(
                         """
@@ -492,15 +501,21 @@ public class PortfolioAnalysisPipelineService {
                 .map(row ->
                         new QuantBar(row.date(), row.open(), row.high(), row.low(), row.close(), row.volume(), true))
                 .toList();
-        var confirmed = Indicators.confirmedSwingLow(bars, 2, 2)
-                .value()
-                .map(value -> BigDecimal.valueOf(value.price()))
-                .orElse(null);
-        if (confirmed != null || bars.size() < 5) return confirmed;
-        return bars.subList(Math.max(0, bars.size() - 22), bars.size() - 2).stream()
-                .map(QuantBar::low)
-                .min(BigDecimal::compareTo)
-                .orElse(null);
+        return swingStructure(bars);
+    }
+
+    static SwingStructure swingStructure(List<QuantBar> bars) {
+        var latest = Indicators.confirmedSwingLow(bars, 2, 2).value().orElse(null);
+        if (latest == null) return new SwingStructure(null, null, null);
+        var priorBars = bars.stream()
+                .filter(bar -> bar.marketDate().isBefore(latest.marketDate()))
+                .toList();
+        var previous = Indicators.confirmedSwingLow(priorBars, 2, 2).value().orElse(null);
+        var latestPrice = BigDecimal.valueOf(latest.price());
+        if (previous == null) return new SwingStructure(latestPrice, null, latest.marketDate());
+        var previousPrice = BigDecimal.valueOf(previous.price());
+        return new SwingStructure(
+                latestPrice, latestPrice.compareTo(previousPrice) > 0 ? latestPrice : null, latest.marketDate());
     }
 
     private static String json(java.util.List<String> values) {
@@ -518,9 +533,6 @@ public class PortfolioAnalysisPipelineService {
         }
     }
 
-    record PortfolioTotals(
-            BigDecimal invested, BigDecimal cash, BigDecimal largest, long openPositions, long markCount) {}
-
     record StopInput(
             UUID positionId,
             UUID instrumentId,
@@ -534,6 +546,8 @@ public class PortfolioAnalysisPipelineService {
 
     record StopBar(
             LocalDate date, BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal close, BigDecimal volume) {}
+
+    record SwingStructure(BigDecimal structureSwingLow, BigDecimal confirmedHigherLow, LocalDate latestSwingDate) {}
 
     record BenchmarkRow(
             BigDecimal latestClose, BigDecimal average200, Double rsi, Double macd, Double realizedVolatility) {}

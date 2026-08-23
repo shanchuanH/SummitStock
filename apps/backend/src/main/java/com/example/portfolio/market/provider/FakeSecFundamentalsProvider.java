@@ -74,7 +74,11 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
                 metric("CURRENT_ASSETS", "AssetsCurrent", latest ? "800" : "700"),
                 metric("CURRENT_LIABILITIES", "LiabilitiesCurrent", latest ? "300" : "290"),
                 metric("SHAREHOLDERS_EQUITY", "StockholdersEquity", latest ? "1400" : "1200"),
-                metric("DILUTED_SHARES", "WeightedAverageNumberOfDilutedSharesOutstanding", latest ? "100" : "100"));
+                metric(
+                        "DILUTED_WEIGHTED_AVG_SHARES",
+                        "WeightedAverageNumberOfDilutedSharesOutstanding",
+                        latest ? "100" : "100"),
+                metric("COMMON_SHARES_OUTSTANDING", "EntityCommonStockSharesOutstanding", latest ? "98" : "99"));
         var accession = "fixture-" + cik + "-" + end.getYear();
         for (var value : values) {
             facts.add(new ProviderModels.CompanyFact(
@@ -97,7 +101,7 @@ public class FakeSecFundamentalsProvider implements FundamentalsProvider {
     private static String unit(String businessMetric) {
         return switch (businessMetric) {
             case "DILUTED_EPS" -> "USD/shares";
-            case "DILUTED_SHARES" -> "shares";
+            case "DILUTED_WEIGHTED_AVG_SHARES", "COMMON_SHARES_OUTSTANDING" -> "shares";
             default -> "USD";
         };
     }

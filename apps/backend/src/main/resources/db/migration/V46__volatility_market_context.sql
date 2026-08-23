@@ -1,0 +1,17 @@
+ALTER TABLE macro_factor_snapshot
+    ADD COLUMN vix_level DECIMAL(18,8) NULL,
+    ADD COLUMN vix_percentile_5y DECIMAL(18,10) NULL,
+    ADD COLUMN vix_delta_1d DECIMAL(18,8) NULL,
+    ADD COLUMN vix_delta_2d DECIMAL(18,8) NULL,
+    ADD COLUMN vix_delta_5d DECIMAL(18,8) NULL,
+    ADD COLUMN vix3m_level DECIMAL(18,8) NULL,
+    ADD COLUMN vix_term_ratio DECIMAL(18,10) NULL,
+    ADD COLUMN vix_term_state VARCHAR(20) NOT NULL DEFAULT 'MISSING',
+    ADD COLUMN vxn_level DECIMAL(18,8) NULL,
+    ADD COLUMN vxn_percentile_5y DECIMAL(18,10) NULL,
+    ADD COLUMN vxn_delta_1d DECIMAL(18,8) NULL,
+    ADD COLUMN vxn_delta_2d DECIMAL(18,8) NULL,
+    ADD COLUMN vxn_delta_5d DECIMAL(18,8) NULL,
+    ADD COLUMN vxn_vix_ratio DECIMAL(18,10) NULL,
+    ADD COLUMN vxn_vix_spread DECIMAL(18,8) NULL,
+    ADD COLUMN tech_stress_state VARCHAR(20) NOT NULL DEFAULT 'MISSING';

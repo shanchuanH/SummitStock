@@ -47,7 +47,7 @@ describe("DipPage", () => {
           })
         : ok([
             {
-              action: "DEPLOY_TRANCHE",
+              action: "DEPLOY_DIP_TRANCHE",
               symbol: "QQQ",
               confidence: "HIGH",
               status: "ACTIVE",
@@ -60,7 +60,7 @@ describe("DipPage", () => {
       screen.getByText("DISLOCATION / SETUP").closest("article"),
     ).toHaveTextContent("2 triggers");
     expect(screen.getAllByText(/20%|25%|30%/)).toHaveLength(4);
-    expect(screen.getByText(/DEPLOY_TRANCHE/)).toBeInTheDocument();
+    expect(screen.getByText(/部署一档/)).toBeInTheDocument();
   });
   it("uses an honest no-action state and previews no-signal cash fallback", async () => {
     get.mockImplementation((path?: string) =>
