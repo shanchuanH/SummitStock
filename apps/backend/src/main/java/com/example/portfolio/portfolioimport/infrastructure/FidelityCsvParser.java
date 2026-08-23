@@ -184,7 +184,10 @@ public class FidelityCsvParser {
         var marker = String.join(" ", row.values()).toUpperCase(Locale.ROOT);
         return marker.contains("ACCOUNT TOTAL")
                 || marker.contains("TOTAL ACCOUNT VALUE")
-                || marker.contains("PENDING ACTIVITY");
+                || marker.contains("PENDING ACTIVITY")
+                || marker.contains("THE DATA AND INFORMATION IN THIS SPREADSHEET")
+                || marker.contains("BROKERAGE SERVICES ARE PROVIDED BY FIDELITY")
+                || marker.contains("DATE DOWNLOADED");
     }
 
     private static String normalizeSymbol(String symbol) {
@@ -241,7 +244,17 @@ public class FidelityCsvParser {
                 ((description == null ? "" : description) + " " + (type == null ? "" : type)).toUpperCase(Locale.ROOT);
         if (evidence.contains("ETF") || evidence.contains("EXCHANGE TRADED")) return "ETF";
         if (evidence.contains("MUTUAL FUND")) return "MUTUAL_FUND";
-        if (evidence.contains("EQUITY") || evidence.contains("STOCK") || evidence.contains("COMMON")) return "EQUITY";
+        if (evidence.contains("EQUITY")
+                || evidence.contains("STOCK")
+                || evidence.contains("COMMON")
+                || evidence.contains(" INC")
+                || evidence.contains("CORP")
+                || evidence.contains(" COM")
+                || evidence.contains("CAP STK")
+                || evidence.contains(" ADR")
+                || evidence.contains(" ORD")
+                || evidence.contains(" LTD")
+                || evidence.contains(" PLC")) return "EQUITY";
         return "UNKNOWN";
     }
 

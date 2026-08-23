@@ -70,6 +70,42 @@ class FidelityCsvParserTest {
         assertThat(preview.summary().estimatedInvestedValue()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
+    @Test
+    void recognizesCommonFidelityEquityDescriptionsAndSkipsExportDisclaimers() {
+        var csv =
+                "Account number,Account name,Symbol,Description,Quantity,Last price,Current value,Cost basis total,Average cost basis,Type\n"
+                        + "Z12345678,Individual,SPAXX**,HELD IN MONEY MARKET,,,$21000,,,Cash,\n"
+                        + "Z12345678,Individual,AAOI,APPLIED OPTOELECTRONICS INC,57,$124.82,$7114.74,$8844.63,$155.17,Cash,\n"
+                        + "Z12345678,Individual,DXYZ,DESTINY TECH100 INC COM SHS,250,$34.43,$8607.50,$12581.66,$50.33,Cash,\n"
+                        + "Z12345678,Individual,GOOGL,ALPHABET INC CAP STK CL A,23,$344.82,$7930.86,$8002.84,$347.95,Cash,\n"
+                        + "Z12345678,Individual,MSFT,MICROSOFT CORP,15,$483.24,$7248.60,$6016.90,$401.13,Cash,\n"
+                        + "Z12345678,Individual,NOK,NOKIA OYJ ADR EACH REPR 1 ORD NPV,750,$10.21,$7657.50,$10741.13,$14.32,Cash,\n"
+                        + "Z12345678,Individual,NVDA,NVIDIA CORPORATION COM,6,$214.72,$1288.32,$1183.98,$197.33,Cash,\n"
+                        + "\"The data and information in this spreadsheet is provided to you solely for your use.\"\n"
+                        + "\"Brokerage services are provided by Fidelity Brokerage Services LLC (FBS).\"\n"
+                        + "\"Date downloaded Aug-23-2026 5:23 p.m ET\"\n";
+
+        var preview = parser.parse(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8), "positions.csv");
+
+        assertThat(preview.summary().rowCount()).isEqualTo(7);
+        assertThat(preview.summary().validRowCount()).isEqualTo(7);
+        assertThat(preview.summary().errorRowCount()).isZero();
+        assertThat(preview.cash()).singleElement().satisfies(row -> {
+            assertThat(row.symbol()).isEqualTo("SPAXX");
+            assertThat(row.currentValue()).isEqualByComparingTo("21000");
+        });
+        assertThat(preview.holdings())
+                .extracting(row -> row.symbol(), row -> row.assetType(), row -> row.status())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("AAOI", "EQUITY", ImportRowStatus.VALID),
+                        org.assertj.core.groups.Tuple.tuple("DXYZ", "EQUITY", ImportRowStatus.VALID),
+                        org.assertj.core.groups.Tuple.tuple("GOOGL", "EQUITY", ImportRowStatus.VALID),
+                        org.assertj.core.groups.Tuple.tuple("MSFT", "EQUITY", ImportRowStatus.VALID),
+                        org.assertj.core.groups.Tuple.tuple("NOK", "EQUITY", ImportRowStatus.VALID),
+                        org.assertj.core.groups.Tuple.tuple("NVDA", "EQUITY", ImportRowStatus.VALID));
+        assertThat(preview.errors()).isEmpty();
+    }
+
     private static byte[] fixture(String name) throws IOException {
         try (var input = FidelityCsvParserTest.class.getResourceAsStream("/portfolio-import/" + name)) {
             if (input == null) throw new IOException("Missing test fixture " + name);

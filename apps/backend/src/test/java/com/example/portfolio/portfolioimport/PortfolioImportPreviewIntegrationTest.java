@@ -27,6 +27,8 @@ class PortfolioImportPreviewIntegrationTest extends PortfolioImportIntegrationSu
         assertThat(first.get("summary").get("emergencyCashTarget").asString()).isEqualTo("20000");
         assertThat(uuid(repeated, "batchId")).isEqualTo(uuid(first, "batchId"));
         assertThat(count("SELECT COUNT(*) FROM portfolio_import_batch")).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_import_batch WHERE parser_revision='fidelity-v2'"))
+                .isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM portfolio_import_row")).isEqualTo(6);
         assertThat(
                         count(
@@ -37,6 +39,20 @@ class PortfolioImportPreviewIntegrationTest extends PortfolioImportIntegrationSu
         assertThat(first.path("holdings").get(0).path("suggestedClassification").asString())
                 .isEqualTo("CORE_BROAD_ETF");
         assertThat(count("SELECT COUNT(*) FROM app_user WHERE email='" + EMAIL + "'"))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void parserRevisionChangeReparsesTheSameSourceFile() throws Exception {
+        var legacy = preview("fidelity-positions.csv");
+        update("UPDATE portfolio_import_batch SET parser_revision='legacy-v1' WHERE id=UUID_TO_BIN('"
+                + uuid(legacy, "batchId") + "')");
+
+        var reparsed = preview("fidelity-positions.csv");
+
+        assertThat(uuid(reparsed, "batchId")).isNotEqualTo(uuid(legacy, "batchId"));
+        assertThat(count("SELECT COUNT(*) FROM portfolio_import_batch")).isEqualTo(2);
+        assertThat(count("SELECT COUNT(*) FROM portfolio_import_batch WHERE parser_revision='fidelity-v2'"))
                 .isEqualTo(1);
     }
 
