@@ -67,8 +67,9 @@ public class FakeEodMarketDataProvider implements MarketDataProvider {
             }
             date = date.plusDays(1);
         }
+        var latestRequestedSession = calendar.previousSession(to.plusDays(1));
         return new ProviderModels.DailyBarsResult(
-                symbol, bars, provenance(symbol + from + to, calendar.sessionClose(to)));
+                symbol, bars, provenance(symbol + from + to, calendar.sessionClose(latestRequestedSession)));
     }
 
     @Override
