@@ -35,9 +35,10 @@ public final class FredMacroDataProvider implements MacroDataProvider {
     @Override
     public MacroSeriesResult fetch(String seriesCode, LocalDate from, LocalDate to) {
         var code = seriesCode.strip().toUpperCase(java.util.Locale.ROOT);
+        var providerCode = "VIX3M".equals(code) ? "VXVCLS" : code;
         var config = properties.macro();
         var base = config.baseUrl().replaceAll("/$", "") + "/series/observations";
-        var query = "series_id=" + encode(code) + "&observation_start=" + from + "&observation_end=" + to
+        var query = "series_id=" + encode(providerCode) + "&observation_start=" + from + "&observation_end=" + to
                 + "&file_type=json&api_key=" + encode(config.apiKey());
         var root = http.get(URI.create(base + "?" + query), Map.of()).json();
         var rows = root.get("observations");

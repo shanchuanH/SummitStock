@@ -717,3 +717,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Drawdown evidence identity includes the owner and canonical Strategy NAV, so a same-session revaluation is persisted instead of being mistaken for an identical snapshot merely because the exchange-close cutoff is stable.
 - Verification: the Fidelity import EOD vertical pipeline passed end to end with three run-bound holding analyses and recommendations, including explicit mark/risk cutoff assertions; the 13-position real portfolio acceptance scenario also passed through all formal services and report contracts.
 - CI-order regression: shared MySQL integration fixtures now remove Strategy Capital Flow ledger rows before deleting their users, preventing cross-class foreign-key contamination regardless of test execution order. The affected 13-test matrix and the complete 317-test backend suite pass.
+
+## Local Live Analysis Recovery - 2026-08-23
+
+- Local Compose now honors the selected Spring profile and provider environment instead of forcing fixture adapters. The active local runtime uses Yahoo for quotes, adjusted bars, and corporate actions; SEC for filings and fundamentals; Alpha Vantage only for estimates and the earnings calendar; and FRED for macro evidence.
+- The cached Yahoo adapter omitted from the hardening merge chain is restored with its provider, safety, and canonical benchmark regressions.
+- Canonical macro code `VIX3M` maps to FRED's official `VXVCLS` series while remaining `VIX3M` inside the strategy model.
+- Live verification completed two 27/27-job analysis runs and generated 13 recommendations. Provider health is `HEALTHY`; the latest run is honestly `PARTIAL` only because four Alpha Vantage estimate requests hit the current daily plan limit and NOK SEC facts cannot be normalized. No missing evidence was fabricated.
+- Verification: 10/10 focused provider tests pass, Compose configuration validates, both API and worker start under `local-live`, and the FRED warning is absent from the second live run.

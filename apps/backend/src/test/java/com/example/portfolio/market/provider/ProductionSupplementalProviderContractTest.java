@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -22,6 +23,7 @@ class ProductionSupplementalProviderContractTest {
     @Test
     void normalizesEstimateCalendarAndMacroProviderPayloads() throws Exception {
         var calendarRequests = new AtomicInteger();
+        var macroQuery = new AtomicReference<String>();
         try (var server = new ProviderMockServer(exchange -> {
             var query = exchange.getRequestURI().getRawQuery();
             if (query.contains("EARNINGS_ESTIMATES")) return ok(estimates());
@@ -30,7 +32,10 @@ class ProductionSupplementalProviderContractTest {
                 assertThat(query).doesNotContain("symbol=");
                 return ok(calendar());
             }
-            if (exchange.getRequestURI().getPath().contains("series/observations")) return ok(macro());
+            if (exchange.getRequestURI().getPath().contains("series/observations")) {
+                macroQuery.set(query);
+                return ok(macro());
+            }
             return new ProviderMockServer.Response(404, "{}");
         })) {
             var properties = properties(server.baseUrl());
@@ -55,7 +60,9 @@ class ProductionSupplementalProviderContractTest {
             assertThat(calendarRequests).hasValue(1);
 
             var macro = new FredMacroDataProvider(http, properties, CLOCK)
-                    .fetch("VIXCLS", LocalDate.parse("2026-08-01"), LocalDate.parse("2026-08-05"));
+                    .fetch("VIX3M", LocalDate.parse("2026-08-01"), LocalDate.parse("2026-08-05"));
+            assertThat(macro.seriesCode()).isEqualTo("VIX3M");
+            assertThat(macroQuery.get()).contains("series_id=VXVCLS");
             assertThat(macro.observations()).hasSize(1);
             assertThat(macro.observations().getFirst().value()).isEqualByComparingTo("18.25");
         }
