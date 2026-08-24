@@ -12,6 +12,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -20,11 +22,20 @@ class ProductionSupplementalProviderContractTest {
 
     @Test
     void normalizesEstimateCalendarAndMacroProviderPayloads() throws Exception {
+        var calendarRequests = new AtomicInteger();
+        var macroQuery = new AtomicReference<String>();
         try (var server = new ProviderMockServer(exchange -> {
             var query = exchange.getRequestURI().getRawQuery();
             if (query.contains("EARNINGS_ESTIMATES")) return ok(estimates());
-            if (query.contains("EARNINGS_CALENDAR")) return ok(calendar());
-            if (exchange.getRequestURI().getPath().contains("series/observations")) return ok(macro());
+            if (query.contains("EARNINGS_CALENDAR")) {
+                calendarRequests.incrementAndGet();
+                assertThat(query).doesNotContain("symbol=");
+                return ok(calendar());
+            }
+            if (exchange.getRequestURI().getPath().contains("series/observations")) {
+                macroQuery.set(query);
+                return ok(macro());
+            }
             return new ProviderMockServer.Response(404, "{}");
         })) {
             var properties = properties(server.baseUrl());
@@ -38,13 +49,20 @@ class ProductionSupplementalProviderContractTest {
                             EarningsEstimateResult.EstimateType.EPS, EarningsEstimateResult.EstimateType.REVENUE);
             assertThat(estimates.estimates().getFirst().analystCount()).isEqualTo(24);
 
-            var calendar = new AlphaVantageEarningsCalendarProvider(http, properties, CLOCK)
-                    .fetch("IBM", LocalDate.parse("2026-08-01"), LocalDate.parse("2026-10-31"));
+            var calendarProvider = new AlphaVantageEarningsCalendarProvider(http, properties, CLOCK);
+            var calendar = calendarProvider.fetch("IBM", LocalDate.parse("2026-08-01"), LocalDate.parse("2026-10-31"));
             assertThat(calendar.events()).hasSize(1);
             assertThat(calendar.events().getFirst().marketDate()).isEqualTo("2026-09-15");
+            assertThat(calendarProvider
+                            .fetch("MSFT", LocalDate.parse("2026-08-01"), LocalDate.parse("2026-10-31"))
+                            .events())
+                    .hasSize(1);
+            assertThat(calendarRequests).hasValue(1);
 
             var macro = new FredMacroDataProvider(http, properties, CLOCK)
-                    .fetch("VIXCLS", LocalDate.parse("2026-08-01"), LocalDate.parse("2026-08-05"));
+                    .fetch("VIX3M", LocalDate.parse("2026-08-01"), LocalDate.parse("2026-08-05"));
+            assertThat(macro.seriesCode()).isEqualTo("VIX3M");
+            assertThat(macroQuery.get()).contains("series_id=VXVCLS");
             assertThat(macro.observations()).hasSize(1);
             assertThat(macro.observations().getFirst().value()).isEqualByComparingTo("18.25");
         }
@@ -111,6 +129,7 @@ class ProductionSupplementalProviderContractTest {
         return """
                 symbol,name,reportDate,fiscalDateEnding,estimate,currency
                 IBM,International Business Machines,2026-09-15,2026-09-30,2.88,USD
+                MSFT,Microsoft,2026-10-20,2026-09-30,3.12,USD
                 """;
     }
 

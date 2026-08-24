@@ -21,10 +21,26 @@ public final class PublishedStrategyService {
         if (!definition.version().equals(properties.strategyVersion())) {
             throw new IllegalStateException("Runtime strategy version does not match published configuration");
         }
+        registerExplicitDraftOverride();
     }
 
     public StrategyDefinition current() {
         return definition;
+    }
+
+    private void registerExplicitDraftOverride() {
+        if (!properties.allowDraftStrategy() || !"DRAFT".equals(definition.publishState())) return;
+        jdbc.sql(
+                        """
+                        INSERT IGNORE INTO strategy_version
+                            (id,version_code,status,config_json,config_hash,created_at)
+                        VALUES
+                            (UUID_TO_BIN(UUID()),:version,'DRAFT',
+                             JSON_OBJECT('registration','EXPLICIT_RUNTIME_DRAFT_OVERRIDE'),:hash,UTC_TIMESTAMP(6))
+                        """)
+                .param("version", definition.version())
+                .param("hash", definition.configHash())
+                .update();
     }
 
     public StrategyDefinition requireVersion(String version) {

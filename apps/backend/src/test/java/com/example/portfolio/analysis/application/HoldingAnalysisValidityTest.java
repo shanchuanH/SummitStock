@@ -2,6 +2,9 @@ package com.example.portfolio.analysis.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.portfolio.analysis.domain.AnalysisReadiness;
+import com.example.portfolio.analysis.domain.RecommendationAction;
+import com.example.portfolio.analysis.domain.RecommendationCandidate;
 import com.example.portfolio.analysis.replay.DecisionAsOfContext;
 import com.example.portfolio.market.provider.UsEquityTradingCalendar;
 import java.time.Instant;
@@ -25,5 +28,14 @@ class HoldingAnalysisValidityTest {
 
         assertThat(HoldingAnalysisApplicationService.validUntil(preLaborDayClose, calendar))
                 .isEqualTo(Instant.parse("2026-09-08T20:00:00Z"));
+    }
+
+    @Test
+    void independentRiskReductionRemainsAnAvailablePartialAnalysisWhenNewRiskEvidenceIsBlocked() {
+        var exit = new RecommendationCandidate(
+                RecommendationAction.EXIT, "MUST_ACT", 5, "TACTICAL.EXIT", "Stop confirmed", java.util.List.of());
+
+        assertThat(HoldingAnalysisApplicationService.analysisStatus(AnalysisReadiness.BLOCKED, exit))
+                .isEqualTo("PARTIAL");
     }
 }

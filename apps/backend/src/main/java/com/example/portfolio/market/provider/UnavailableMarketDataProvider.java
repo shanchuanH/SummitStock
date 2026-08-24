@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("!test & !local-fixture")
-@ConditionalOnExpression("'${portfolio.providers.market.type:disabled}' != 'alpha-vantage'")
+@ConditionalOnExpression(
+        "'${portfolio.providers.market.type:disabled}' != 'alpha-vantage' && '${portfolio.providers.market.type:disabled}' != 'yahoo'")
 final class UnavailableMarketDataProvider implements MarketDataProvider {
     private final Clock clock;
 

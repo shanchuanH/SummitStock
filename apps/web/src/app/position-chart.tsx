@@ -8,6 +8,10 @@ import {
   type Time,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
+import {
+  canonicalizeDatedValues,
+  canonicalizeLinePoints,
+} from "./position-chart-series";
 
 export type PositionChartData = {
   bars: {
@@ -100,8 +104,9 @@ export function PositionChart({ data }: { data: PositionChartData }) {
       wickDownColor: color("--red"),
       borderVisible: false,
     });
+    const bars = canonicalizeDatedValues(data.bars);
     candles.setData(
-      data.bars.map((bar) => ({
+      bars.map((bar) => ({
         time: bar.marketDate,
         open: Number(bar.open),
         high: Number(bar.high),
@@ -121,14 +126,14 @@ export function PositionChart({ data }: { data: PositionChartData }) {
         title,
         lineStyle,
       });
-      series.setData(points);
+      series.setData(canonicalizeLinePoints(points));
     };
     addLine(
       "EMA20",
       color("--purple"),
-      exponentialMovingAverage(data.bars, 20),
+      exponentialMovingAverage(bars, 20),
     );
-    addLine("SMA50", color("--blue"), movingAverage(data.bars, 50));
+    addLine("SMA50", color("--blue"), movingAverage(bars, 50));
     addLine(
       "正式止损",
       color("--red"),

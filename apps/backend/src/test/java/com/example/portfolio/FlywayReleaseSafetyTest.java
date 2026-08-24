@@ -24,8 +24,8 @@ class FlywayReleaseSafetyTest {
             var result = release.migrate();
             release.validate();
 
-            assertThat(result.migrationsExecuted).isEqualTo(5);
-            assertThat(release.info().current().getVersion().getVersion()).isEqualTo("57");
+            assertThat(result.migrationsExecuted).isEqualTo(6);
+            assertThat(release.info().current().getVersion().getVersion()).isEqualTo("58");
             assertThat(release.info().pending()).isEmpty();
         }
     }
