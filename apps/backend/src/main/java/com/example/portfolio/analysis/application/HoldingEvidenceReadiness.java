@@ -38,13 +38,7 @@ public final class HoldingEvidenceReadiness {
                                 && evidence.profile().portfolioOverlap() != null
                         ? etfReadiness(evidence, now, freshness)
                         : AnalysisReadiness.PARTIAL;
-            case QUALITY_STOCK, QUALITY_GROWTH_HIGH_VOL ->
-                evidence.fundamentals().available()
-                                && evidence.valuation().available()
-                                && evidence.nextEvent().available()
-                                && evidence.fundamentals().estimateQuality() != EvidenceQuality.MISSING
-                        ? qualityReadiness(evidence, now, freshness)
-                        : AnalysisReadiness.WAIT_FOR_FUNDAMENTALS;
+            case QUALITY_STOCK, QUALITY_GROWTH_HIGH_VOL -> qualityStockReadiness(evidence, now, freshness);
             case TACTICAL_STOCK, CYCLICAL_TACTICAL, TURNAROUND_TACTICAL ->
                 tacticalStockReadiness(evidence, now, freshness);
             case SPECULATIVE ->
@@ -87,6 +81,22 @@ public final class HoldingEvidenceReadiness {
 
     private static AnalysisReadiness qualityReadiness(EvidenceQuality quality) {
         return quality == EvidenceQuality.HEALTHY ? AnalysisReadiness.READY : AnalysisReadiness.PARTIAL;
+    }
+
+    private static AnalysisReadiness qualityStockReadiness(
+            HoldingEvidence evidence, Instant now, AnalysisFreshnessPolicy freshness) {
+        if (!evidence.fundamentals().available() || !evidence.valuation().available()) {
+            return AnalysisReadiness.PARTIAL;
+        }
+        var policy = evidence.strategy().freshness();
+        if (freshness.staleDays(evidence.fundamentals().dataAsOf(), now, policy.financialQuarterDays())
+                || freshness.staleDays(evidence.valuation().dataAsOf(), now, policy.financialQuarterDays())) {
+            return AnalysisReadiness.STALE;
+        }
+        if (!evidence.nextEvent().available() || evidence.fundamentals().estimateQuality() == EvidenceQuality.MISSING) {
+            return AnalysisReadiness.PARTIAL;
+        }
+        return qualityReadiness(evidence, now, freshness);
     }
 
     private static AnalysisReadiness qualityReadiness(

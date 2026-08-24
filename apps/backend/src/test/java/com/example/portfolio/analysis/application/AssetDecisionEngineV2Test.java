@@ -166,6 +166,29 @@ class AssetDecisionEngineV2Test {
     }
 
     @Test
+    void missingCoreFundamentalsAllowsOnlyFailClosedMaintenanceAnalysis() {
+        var base = qualityEvidence("MISSING", "MISSING", "MISSING", "UPTREND", "0.01");
+        var evidence = copy(
+                base,
+                base.currentWeight(),
+                base.indicators(),
+                new HoldingEvidence.FundamentalSnapshot(false, EvidenceQuality.MISSING, base.dataAsOf()),
+                base.valuation(),
+                base.nextEvent(),
+                base.drawdown(),
+                base.stop());
+        var partial = new DecisionContext(
+                evidence,
+                AnalysisReadiness.PARTIAL,
+                new BigDecimal("0.04"),
+                new BigDecimal("0.08"),
+                new BigDecimal("0.12"),
+                new BigDecimal("0.15"));
+
+        assertThat(resolve(evidence, partial, quality.evaluate(partial))).isEqualTo(RecommendationAction.DO_NOT_ADD);
+    }
+
+    @Test
     void hardCapBeatsOpportunity() {
         var evidence = qualityEvidence("STRONG", "ATTRACTIVE", "POSITIVE", "UPTREND", "0.10");
         var context = new DecisionContext(
