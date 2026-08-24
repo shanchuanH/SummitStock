@@ -58,9 +58,9 @@ public final class HoldingEvidenceReadiness {
 
     private static AnalysisReadiness tacticalStockReadiness(
             HoldingEvidence evidence, Instant now, AnalysisFreshnessPolicy freshness) {
-        if (evidence.stop().formalStop() == null
-                || !evidence.thesis().available()
-                || evidence.thesis().invalidated()
+        if (evidence.stop().formalStop() == null) return AnalysisReadiness.BLOCKED;
+        if (!evidence.thesis().available()) return AnalysisReadiness.WAIT_FOR_CATALYST;
+        if (evidence.thesis().invalidated()
                 || (evidence.thesis().expiresAt() != null
                         && !evidence.thesis().expiresAt().isAfter(now))) {
             return AnalysisReadiness.BLOCKED;
@@ -110,6 +110,7 @@ public final class HoldingEvidenceReadiness {
 
     private static AnalysisReadiness tacticalReadiness(
             HoldingEvidence evidence, Instant now, AnalysisFreshnessPolicy freshness) {
+        if (!evidence.thesis().available()) return AnalysisReadiness.WAIT_FOR_CATALYST;
         var policy = evidence.strategy().freshness();
         if (freshness.staleDays(evidence.stop().dataAsOf(), now, policy.macroDailyDays())
                 || freshness.staleDays(evidence.nextEvent().dataAsOf(), now, policy.earningsCalendarDays())

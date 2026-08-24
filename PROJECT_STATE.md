@@ -726,3 +726,11 @@ Configure production provider credentials, run the documented deployment smoke c
 - Live verification completed three 27/27-job analysis runs and generated 13 recommendations. A clean `portfolio_live` database was imported from the current Fidelity statement and backfilled with 17,399 Yahoo bars spanning 2021-08-23 through 2026-08-21; it contains no fixture bars. The previous `portfolio_main` database remains intact as a rollback copy.
 - Provider health is `HEALTHY`; the clean run is honestly `PARTIAL` only because four Alpha Vantage estimate requests hit the current daily plan limit and NOK SEC facts cannot be normalized. No missing evidence was fabricated.
 - Verification: 10/10 focused provider tests pass, Compose configuration validates, both API and worker start under `local-live`, the FRED warning is absent, the Fidelity import reports 14/14 valid rows, and the clean live run completes all 27 jobs with zero failures.
+
+## Analysis Result Availability Correction - 2026-08-23
+
+- A valid independent risk-reduction result is now reported as an available `PARTIAL` analysis when new-risk evidence is blocked. EXIT/TRIM remains deterministic and sized, while the UI no longer labels the entire holding analysis as failed merely because ADD/BUY evidence is incomplete.
+- Imported tactical holdings with no owner thesis now wait for thesis/catalyst evidence instead of treating absence as an invalidated thesis. Actual broken theses and confirmed stop breaches remain independent risk-reduction signals.
+- The analysis evidence reference now reports the newest completed bar, fixing the reversed `completed-bars:last` date.
+- An explicitly enabled runtime draft registers its exact version and config hash as `DRAFT`; local-live no longer displays `DB status MISSING`. This does not publish the strategy or relax the production publication gate.
+- Verification: 11/11 focused readiness, result-status, validity, and publication-gate tests pass. A clean live rerun completed 27/27 jobs with zero failures; all independently actionable EXIT/TRIM results are `PARTIAL/LOW`, and every holding references the actual latest completed bar `2026-08-21`.

@@ -130,11 +130,11 @@ public final class HoldingAnalysisApplicationService {
         var resolution =
                 conflictResolver.resolve(candidates, evidence.strategy().riskPriorityOverTax());
         var sizing = size(evidence, state, policy, resolution.winner(), decisionContext);
-        var confidence = confidence(evidence, state);
+        var confidence = confidence(evidence, state, resolution.winner());
         var riskProjection = riskProjection(evidence, resolution.winner().action(), sizing);
         var result = new HoldingAnalysisResult(
                 evidence.position().id(),
-                analysisStatus(state),
+                analysisStatus(state, resolution.winner()),
                 state,
                 confidence,
                 evidence.currentWeight(),
@@ -439,7 +439,12 @@ public final class HoldingAnalysisApplicationService {
         return new Policy(value.targetMin(), value.targetMax(), value.normalMax(), value.hardMax(), value.tradeRisk());
     }
 
-    private static String confidence(HoldingEvidence evidence, AnalysisReadiness state) {
+    private static String confidence(
+            HoldingEvidence evidence, AnalysisReadiness state, RecommendationCandidate winner) {
+        if (winner.evidenceDependency()
+                == com.example.portfolio.analysis.domain.EvidenceDependency.INDEPENDENT_RISK_REDUCTION) {
+            return state == AnalysisReadiness.READY ? "HIGH" : "LOW";
+        }
         if (state != AnalysisReadiness.READY && state != AnalysisReadiness.PARTIAL) return "WAIT_FOR_DATA";
         if (evidence.position().classification() == HoldingClassification.SPECULATIVE) return "LOW";
         if (qualityCompany(evidence.position().classification())
@@ -448,7 +453,11 @@ public final class HoldingAnalysisApplicationService {
         return evidence.regime().available() && evidence.drawdown().available() ? "HIGH" : "MEDIUM";
     }
 
-    private static String analysisStatus(AnalysisReadiness readiness) {
+    static String analysisStatus(AnalysisReadiness readiness, RecommendationCandidate winner) {
+        if (winner.evidenceDependency()
+                == com.example.portfolio.analysis.domain.EvidenceDependency.INDEPENDENT_RISK_REDUCTION) {
+            return readiness == AnalysisReadiness.READY ? "READY" : "PARTIAL";
+        }
         return switch (readiness) {
             case READY -> "READY";
             case PARTIAL -> "PARTIAL";
@@ -503,7 +512,7 @@ public final class HoldingAnalysisApplicationService {
                     + evidence.quote().dataAsOf());
         if (!evidence.completedBars().isEmpty())
             references.add(
-                    "completed-bars:last=" + evidence.completedBars().getLast().marketDate());
+                    "completed-bars:last=" + evidence.completedBars().getFirst().marketDate());
         if (evidence.fundamentals().available())
             references.add("fundamentals:" + evidence.fundamentals().dataAsOf());
         if (evidence.valuation().available())

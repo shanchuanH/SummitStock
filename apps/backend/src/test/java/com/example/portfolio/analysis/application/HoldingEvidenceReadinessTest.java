@@ -103,6 +103,44 @@ class HoldingEvidenceReadinessTest {
                 .isEqualTo(AnalysisReadiness.STALE);
     }
 
+    @Test
+    void importedTacticalHoldingWithoutOwnerThesisWaitsInsteadOfClaimingInvalidation() {
+        var current = HoldingEvidenceFixtures.evidence("AAOI", "EQUITY", HoldingClassification.TACTICAL_STOCK);
+        var evidence = new HoldingEvidence(
+                current.position(),
+                current.instrument(),
+                current.portfolioEquity(),
+                current.trackedCash(),
+                current.emergencyCash(),
+                current.tacticalReserve(),
+                current.currentWeight(),
+                current.clusterWeight(),
+                current.clusterOpenRisk(),
+                current.totalOpenRisk(),
+                current.quote(),
+                current.completedBars(),
+                current.indicators(),
+                current.fundamentals(),
+                current.valuation(),
+                current.nextEvent(),
+                current.catalyst(),
+                new HoldingEvidence.Thesis(false, false, null),
+                current.regime(),
+                current.drawdown(),
+                current.stop(),
+                current.profile(),
+                current.capitalQuality(),
+                current.riskQuality(),
+                current.riskDataAsOf(),
+                current.providerHardError(),
+                current.quality(),
+                current.strategy(),
+                current.dataAsOf());
+
+        assertThat(HoldingEvidenceReadiness.assess(evidence, current.dataAsOf(), freshness))
+                .isEqualTo(AnalysisReadiness.WAIT_FOR_CATALYST);
+    }
+
     private static HoldingEvidence tactical(
             HoldingEvidence value,
             HoldingEvidence.CatalystEvidence catalyst,
