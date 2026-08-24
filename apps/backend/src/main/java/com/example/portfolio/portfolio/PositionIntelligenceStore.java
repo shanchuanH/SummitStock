@@ -159,9 +159,18 @@ public class PositionIntelligenceStore {
                 .list();
         var stops = jdbc.sql(
                         """
-                        SELECT DATE(data_as_of) marketDate,initial_stop formalStop,live_stop liveStop,soft_alert softAlert
-                        FROM stop_snapshot WHERE position_id=UUID_TO_BIN(:positionId) AND DATE(data_as_of)>=:from
-                        ORDER BY data_as_of
+                        WITH ranked AS (
+                            SELECT DATE(data_as_of) market_date, initial_stop, live_stop, soft_alert,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY DATE(data_as_of)
+                                       ORDER BY data_as_of DESC, created_at DESC
+                                   ) rn
+                            FROM stop_snapshot
+                            WHERE position_id=UUID_TO_BIN(:positionId) AND DATE(data_as_of)>=:from
+                        )
+                        SELECT market_date marketDate, initial_stop formalStop,
+                               live_stop liveStop, soft_alert softAlert
+                        FROM ranked WHERE rn=1 ORDER BY market_date
                         """)
                 .param("positionId", positionId.toString())
                 .param("from", from)

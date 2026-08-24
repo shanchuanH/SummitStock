@@ -376,6 +376,13 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
 
     @Test
     void portfolioListAndChartContractsAreOwnedAndEvidenceBased() throws Exception {
+        seedPositionIntelligence();
+        update(
+                """
+                INSERT INTO stop_snapshot (id, position_id, strategy_version, entry_price, atr, structure_stop, volatility_stop, initial_stop, live_stop, soft_alert, catastrophic_stop, close_confirmed, rule_ids, quality_status, evidence_checksum, data_as_of, created_at)
+                VALUES (UUID_TO_BIN('30000000-0000-0000-0000-000000000002'), UUID_TO_BIN('%s'), '3.0.0-draft', 100, 4, 91, 90, 90, 95, 97, 91, TRUE, JSON_ARRAY('STOP.CLOSE_CONFIRMED.001'), 'HEALTHY', REPEAT('e',64), UTC_TIMESTAMP(6) + INTERVAL 1 SECOND, UTC_TIMESTAMP(6) + INTERVAL 1 SECOND)
+                """
+                        .formatted(OWNER_POSITION));
         mockMvc.perform(get("/api/v1/portfolio/holdings").with(httpBasic("admin@example.local", "change-before-use")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
@@ -391,7 +398,8 @@ class PortfolioIntegrationTest extends MySqlIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bars").isArray())
                 .andExpect(jsonPath("$.entryMarkers").isArray())
-                .andExpect(jsonPath("$.stopSeries").isArray())
+                .andExpect(jsonPath("$.stopSeries.length()").value(1))
+                .andExpect(jsonPath("$.stopSeries[0].liveStop").value("95"))
                 .andExpect(jsonPath("$.earningsMarkers").isArray())
                 .andExpect(jsonPath("$.tradeMarkers").isArray())
                 .andExpect(jsonPath("$.quality").isString());
